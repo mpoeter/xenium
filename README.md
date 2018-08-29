@@ -7,6 +7,9 @@ schemes (similar to how the STL allows customization of allocators).
 This project is based on the previous work in https://github.com/mpoeter/emr
 
 ### Data Structures
+At the moment the number of provided data structures is rather small since the focus so far
+was on the reclamation schemes. However, the plan is to add several more data structures in
+the near future.
 
 * Michael Scott queue
 * Harris list based set
