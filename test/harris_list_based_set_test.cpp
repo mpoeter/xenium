@@ -70,6 +70,23 @@ TYPED_TEST(List, remove_existing_element_twice_fails_the_seond_time)
   EXPECT_FALSE(list.remove(42));
 }
 
+TYPED_TEST(List, iterate_list)
+{
+  citissime::harris_list_based_set<int, TypeParam> list;
+  list.insert(41);
+  list.insert(42);
+  list.insert(43);
+
+  auto it = list.begin();
+  EXPECT_EQ(41, *it);
+  ++it;
+  EXPECT_EQ(42, *it);
+  ++it;
+  EXPECT_EQ(43, *it);
+  ++it;
+  EXPECT_EQ(list.end(), it);
+}
+
 namespace
 {
 #ifdef DEBUG
@@ -96,6 +113,9 @@ TYPED_TEST(List, parallel_usage)
         EXPECT_TRUE(list.insert(i));
         EXPECT_TRUE(list.search(i));
         EXPECT_TRUE(list.remove(i));
+
+        for(auto& v : list)
+          EXPECT_TRUE(v >= 0 && v < 8);
       }
     }));
   }
@@ -122,6 +142,9 @@ TYPED_TEST(List, parallel_usage_with_same_values)
           list.insert(i);
           list.search(i);
           list.remove(i);
+
+          for(auto& v : list)
+            EXPECT_TRUE(v >= 0 && v < 10);
         }
     }));
   }

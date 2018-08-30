@@ -12,10 +12,15 @@ class harris_list_based_set
 public:
   harris_list_based_set() = default;
   ~harris_list_based_set();
-  
+
+  class iterator;
+
   bool search(const Key& key);
   bool remove(const Key& key);
   bool insert(Key key);
+
+  iterator begin();
+  iterator end();
 
 private:
   struct node;
@@ -30,8 +35,6 @@ private:
     concurrent_ptr next;
     node(Key k) : key(std::move(k)), next() {}
   };
-
-  concurrent_ptr head;
   
   struct find_info
   {
@@ -41,6 +44,78 @@ private:
     guard_ptr save;
   };
   bool find(const Key& key, find_info& info, Backoff& backoff);
+
+  concurrent_ptr head;
+};
+
+template <class Key, class Reclaimer, class Backoff>
+class harris_list_based_set<Key, Reclaimer, Backoff>::iterator {
+public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = Key;
+  using difference_type = std::ptrdiff_t;
+  using pointer = const Key *const;
+  using reference = const Key&;
+
+  iterator& operator++()
+  {
+    assert(cur.get() != nullptr);
+    auto next = cur->next.load(std::memory_order_acquire);
+    guard_ptr tmp_guard;
+    if (next.mark() == 0 && tmp_guard.acquire_if_equal(cur->next, next, std::memory_order_acquire))
+    {
+      prev = &cur->next;
+      save = std::move(cur);
+      cur = std::move(tmp_guard);
+    }
+    else
+    {
+      // cur is marked for removal -> use find to get to the next node with a key >= cur->key
+      auto key = cur->key;
+      cur.reset();
+
+      find_info info{prev};
+      info.save = std::move(save);
+      Backoff backoff;
+      list.find(key, info, backoff);
+
+      prev = info.prev;
+      cur = std::move(info.cur);
+      save = std::move(info.save);
+    }
+    assert(prev == &list.head || cur.get() == nullptr || (save.get() != nullptr && &save->next == prev));
+    return *this;
+  }
+  iterator operator++(int)
+  {
+    iterator retval = *this;
+    ++(*this);
+    return retval;
+  }
+  bool operator==(const iterator& other) const { return cur.get() == other.cur.get(); }
+  bool operator!=(const iterator& other) const { return !(*this == other); }
+  reference operator*() const { return cur->key; }
+
+private:
+  friend harris_list_based_set;
+
+  explicit iterator(harris_list_based_set& list, concurrent_ptr* start) : list(list), prev(start), cur(), save()
+  {
+    if (prev)
+      cur.acquire(*prev, std::memory_order_acquire);
+  }
+
+  explicit iterator(harris_list_based_set& list, find_info& info) :
+    list(list),
+    prev(info.prev),
+    cur(std::move(info.cur)),
+    save(std::move(info.save))
+  {}
+
+  harris_list_based_set& list;
+  concurrent_ptr* prev;
+  guard_ptr cur;
+  guard_ptr save;
 };
 
 template <class Key, class Reclaimer, class Backoff>
@@ -59,10 +134,19 @@ harris_list_based_set<Key, Reclaimer, Backoff>::~harris_list_based_set()
 template <class Key, class Reclaimer, class Backoff>
 bool harris_list_based_set<Key, Reclaimer, Backoff>::find(const Key& key, find_info& info, Backoff& backoff)
 {
+  assert((info.save == nullptr && info.prev == &head) || &info.save->next == info.prev);
+  concurrent_ptr* start = info.prev;
+  guard_ptr start_guard = info.save; // we have to keep a guard_ptr to prevent start's node from getting reclaimed.
 retry:
-  info.prev = &head;
+  info.prev = start;
+  info.save = start_guard;
   info.next = info.prev->load(std::memory_order_relaxed);
-  info.save.reset();
+  if (info.next.mark() != 0) {
+    // our start node is marked for removal -> we have to restart from head
+    start = &head;
+    start_guard.reset();
+    goto retry;
+  }
 
   for (;;)
   {
@@ -104,7 +188,7 @@ retry:
         return ckey == key;
 
       info.prev = &info.cur->next;
-      info.save = std::move(info.cur);
+      std::swap(info.save, info.cur);
     }
   }
 }
@@ -112,7 +196,7 @@ retry:
 template <class Key, class Reclaimer, class Backoff>
 bool harris_list_based_set<Key, Reclaimer, Backoff>::search(const Key& key)
 {
-  find_info info;
+  find_info info{&head};
   Backoff backoff;
   return find(key, info, backoff);
 }
@@ -121,7 +205,7 @@ template <class Key, class Reclaimer, class Backoff>
 bool harris_list_based_set<Key, Reclaimer, Backoff>::insert(Key key)
 {
   node* n = new node(std::move(key));
-  find_info info;
+  find_info info{&head};
   Backoff backoff;
   for (;;)
   {
@@ -149,16 +233,21 @@ template <class Key, class Reclaimer, class Backoff>
 bool harris_list_based_set<Key, Reclaimer, Backoff>::remove(const Key& key)
 {
   Backoff backoff;
-  find_info info;
+  find_info info{&head};
   // Find node in list with matching key and mark it for reclamation.
-  do
+  for (;;)
   {
     if (!find(key, info, backoff))
       return false; // No such node in the list
+
     // (5) - this CAS operation is part of a release sequence headed by (3, 4, 6)
-  } while (!info.cur->next.compare_exchange_weak(info.next,
-                                                 marked_ptr(info.next.get(), 1),
-                                                 std::memory_order_relaxed));
+    if (info.cur->next.compare_exchange_weak(info.next,
+                                             marked_ptr(info.next.get(), 1),
+                                             std::memory_order_relaxed))
+      break;
+
+    backoff();
+  }
 
   // Try to splice out node
   marked_ptr expected = info.cur;
@@ -174,6 +263,19 @@ bool harris_list_based_set<Key, Reclaimer, Backoff>::remove(const Key& key)
 
   return true;
 }
+
+template <class Key, class Reclaimer, class Backoff>
+auto harris_list_based_set<Key, Reclaimer, Backoff>::begin() -> iterator
+{
+  return iterator(*this, &head);
+}
+
+template <class Key, class Reclaimer, class Backoff>
+auto harris_list_based_set<Key, Reclaimer, Backoff>::end() -> iterator
+{
+  return iterator(*this, nullptr);
+}
+
 }
 
 #endif
