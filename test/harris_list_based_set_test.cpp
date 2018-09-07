@@ -28,54 +28,107 @@ using Reclaimers = ::testing::Types<
   >;
 TYPED_TEST_CASE(List, Reclaimers);
 
-TYPED_TEST(List, insert_same_element_twice_second_time_fails)
+TYPED_TEST(List, emplace_same_element_twice_second_time_fails)
 {
   citissime::harris_list_based_set<int, TypeParam> list;
-  EXPECT_TRUE(list.insert(42));
-  EXPECT_FALSE(list.insert(42));
+  EXPECT_TRUE(list.emplace(42));
+  EXPECT_FALSE(list.emplace(42));
 }
 
-TYPED_TEST(List, search_for_non_existing_element_returns_false)
+TYPED_TEST(List, emplace_or_get_inserts_new_element_and_returns_iterator_to_it)
 {
   citissime::harris_list_based_set<int, TypeParam> list;
-  list.insert(42);
-  EXPECT_FALSE(list.search(43));
+  auto result = list.emplace_or_get(42);
+  EXPECT_TRUE(result.second);
+  EXPECT_EQ(list.begin(), result.first);
+  EXPECT_EQ(42, *result.first);
 }
 
-TYPED_TEST(List, search_for_existing_element_returns_true)
+TYPED_TEST(List, emplace_or_get_does_not_insert_anything_and_returns_iterator_to_existing_element)
 {
   citissime::harris_list_based_set<int, TypeParam> list;
-  list.insert(42);
-  EXPECT_TRUE(list.search(42));
+  list.emplace(42);
+  auto result = list.emplace_or_get(42);
+  EXPECT_FALSE(result.second);
+  EXPECT_EQ(list.begin(), result.first);
+  EXPECT_EQ(42, *result.first);
 }
 
-TYPED_TEST(List, remove_existing_element_succeeds)
+TYPED_TEST(List, contains_returns_false_for_non_existing_element)
 {
   citissime::harris_list_based_set<int, TypeParam> list;
-  list.insert(42);
-  EXPECT_TRUE(list.remove(42));
+  list.emplace(42);
+  EXPECT_FALSE(list.contains(43));
 }
 
-TYPED_TEST(List, remove_nonexisting_element_fails)
+TYPED_TEST(List, constains_returns_true_for_existing_element)
 {
   citissime::harris_list_based_set<int, TypeParam> list;
-  EXPECT_FALSE(list.remove(42));
+  list.emplace(42);
+  EXPECT_TRUE(list.contains(42));
 }
 
-TYPED_TEST(List, remove_existing_element_twice_fails_the_seond_time)
+TYPED_TEST(List, find_returns_end_iterator_for_non_existing_element)
 {
   citissime::harris_list_based_set<int, TypeParam> list;
-  list.insert(42);
-  EXPECT_TRUE(list.remove(42));
-  EXPECT_FALSE(list.remove(42));
+  list.emplace(42);
+  EXPECT_EQ(list.end(), list.find(43));
+}
+
+TYPED_TEST(List, find_returns_matching_iterator_for_existing_element)
+{
+  citissime::harris_list_based_set<int, TypeParam> list;
+  list.emplace(42);
+  auto it = list.find(42);
+  EXPECT_EQ(list.begin(), it);
+  EXPECT_EQ(42, *it);
+  EXPECT_EQ(list.end(), ++it);
+}
+
+TYPED_TEST(List, erase_existing_element_succeeds)
+{
+  citissime::harris_list_based_set<int, TypeParam> list;
+  list.emplace(42);
+  EXPECT_TRUE(list.erase(42));
+}
+
+TYPED_TEST(List, erase_nonexisting_element_fails)
+{
+  citissime::harris_list_based_set<int, TypeParam> list;
+  EXPECT_FALSE(list.erase(42));
+}
+
+TYPED_TEST(List, erase_existing_element_twice_fails_the_seond_time)
+{
+  citissime::harris_list_based_set<int, TypeParam> list;
+  list.emplace(42);
+  EXPECT_TRUE(list.erase(42));
+  EXPECT_FALSE(list.erase(42));
+}
+
+TYPED_TEST(List, erase_via_iterator_removes_entry_and_returns_iterator_to_successor)
+{
+  citissime::harris_list_based_set<int, TypeParam> list;
+  list.emplace(41);
+  list.emplace(42);
+  list.emplace(43);
+
+  auto it = list.find(42);
+
+  it = list.erase(std::move(it));
+  ASSERT_NE(list.end(), it);
+  EXPECT_EQ(43, *it);
+  it = list.end(); // reset the iterator to clear all internal guard_ptrs
+
+  EXPECT_FALSE(list.contains(42));
 }
 
 TYPED_TEST(List, iterate_list)
 {
   citissime::harris_list_based_set<int, TypeParam> list;
-  list.insert(41);
-  list.insert(42);
-  list.insert(43);
+  list.emplace(41);
+  list.emplace(42);
+  list.emplace(43);
 
   auto it = list.begin();
   EXPECT_EQ(41, *it);
@@ -109,10 +162,10 @@ TYPED_TEST(List, parallel_usage)
       for (int j = 0; j < MaxIterations; ++j)
       {
         typename Reclaimer::region_guard critical_region{};
-        EXPECT_FALSE(list.search(i));
-        EXPECT_TRUE(list.insert(i));
-        EXPECT_TRUE(list.search(i));
-        EXPECT_TRUE(list.remove(i));
+        EXPECT_FALSE(list.contains(i));
+        EXPECT_TRUE(list.emplace(i));
+        EXPECT_TRUE(list.contains(i));
+        EXPECT_TRUE(list.erase(i));
 
         for(auto& v : list)
           EXPECT_TRUE(v >= 0 && v < 8);
@@ -138,10 +191,10 @@ TYPED_TEST(List, parallel_usage_with_same_values)
         for (int i = 0; i < 10; ++i)
         {
           typename Reclaimer::region_guard critical_region{};
-          list.search(i);
-          list.insert(i);
-          list.search(i);
-          list.remove(i);
+          list.contains(i);
+          list.emplace(i);
+          list.contains(i);
+          list.erase(i);
 
           for(auto& v : list)
             EXPECT_TRUE(v >= 0 && v < 10);

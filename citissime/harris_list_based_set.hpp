@@ -15,9 +15,17 @@ public:
 
   class iterator;
 
-  bool search(const Key& key);
-  bool remove(const Key& key);
-  bool insert(Key key);
+  template <class... Args>
+  bool emplace(Args&&... args);
+
+  template <class... Args>
+  std::pair<iterator, bool> emplace_or_get(Args&&... args);
+
+  bool erase(const Key& key);
+  iterator erase(iterator pos);
+
+  iterator find(const Key& key);
+  bool contains(const Key& key);
 
   iterator begin();
   iterator end();
@@ -33,7 +41,8 @@ private:
   {
     const Key key;
     concurrent_ptr next;
-    node(Key k) : key(std::move(k)), next() {}
+    template< class... Args >
+    node(Args&&... args) : key(std::forward<Args>(args)...), next() {}
   };
   
   struct find_info
@@ -54,36 +63,37 @@ public:
   using iterator_category = std::forward_iterator_tag;
   using value_type = Key;
   using difference_type = std::ptrdiff_t;
-  using pointer = const Key *const;
+  using pointer = const Key*;
   using reference = const Key&;
+
+  iterator(iterator&&) = default;
+  iterator(const iterator&) = default;
+
+  iterator& operator=(iterator&&) = default;
+  iterator& operator=(const iterator&) = default;
 
   iterator& operator++()
   {
-    assert(cur.get() != nullptr);
-    auto next = cur->next.load(std::memory_order_acquire);
+    assert(info.cur.get() != nullptr);
+    auto next = info.cur->next.load(std::memory_order_acquire);
     guard_ptr tmp_guard;
-    if (next.mark() == 0 && tmp_guard.acquire_if_equal(cur->next, next, std::memory_order_acquire))
+    if (next.mark() == 0 && tmp_guard.acquire_if_equal(info.cur->next, next, std::memory_order_acquire))
     {
-      prev = &cur->next;
-      save = std::move(cur);
-      cur = std::move(tmp_guard);
+      info.prev = &info.cur->next;
+      info.save = std::move(info.cur);
+      info.cur = std::move(tmp_guard);
     }
     else
     {
-      // cur is marked for removal -> use find to get to the next node with a key >= cur->key
-      auto key = cur->key;
-      cur.reset();
-
-      find_info info{prev};
-      info.save = std::move(save);
+      // cur is marked for removal
+      // -> use find to remove it and get to the next node with a key >= cur->key
+      auto key = info.cur->key;
       Backoff backoff;
-      list.find(key, info, backoff);
-
-      prev = info.prev;
-      cur = std::move(info.cur);
-      save = std::move(info.save);
+      list->find(key, info, backoff);
     }
-    assert(prev == &list.head || cur.get() == nullptr || (save.get() != nullptr && &save->next == prev));
+    assert(info.prev == &list->head ||
+           info.cur.get() == nullptr ||
+           (info.save.get() != nullptr && &info.save->next == info.prev));
     return *this;
   }
   iterator operator++(int)
@@ -92,40 +102,38 @@ public:
     ++(*this);
     return retval;
   }
-  bool operator==(const iterator& other) const { return cur.get() == other.cur.get(); }
+  bool operator==(const iterator& other) const { return info.cur.get() == other.info.cur.get(); }
   bool operator!=(const iterator& other) const { return !(*this == other); }
-  reference operator*() const { return cur->key; }
+  reference operator*() const noexcept { return info.cur->key; }
+  pointer operator->() const noexcept { return &info.cur->key; }
 
 private:
   friend harris_list_based_set;
 
-  explicit iterator(harris_list_based_set& list, concurrent_ptr* start) : list(list), prev(start), cur(), save()
+  explicit iterator(harris_list_based_set& list, concurrent_ptr* start) : list(&list)
   {
-    if (prev)
-      cur.acquire(*prev, std::memory_order_acquire);
+    info.prev = start;
+    if (start)
+      info.cur.acquire(*start, std::memory_order_acquire);
   }
 
-  explicit iterator(harris_list_based_set& list, find_info& info) :
-    list(list),
-    prev(info.prev),
-    cur(std::move(info.cur)),
-    save(std::move(info.save))
+  explicit iterator(harris_list_based_set& list, find_info&& info) :
+    list(&list),
+    info(std::move(info))
   {}
 
-  harris_list_based_set& list;
-  concurrent_ptr* prev;
-  guard_ptr cur;
-  guard_ptr save;
+  harris_list_based_set* list;
+  find_info info;
 };
 
 template <class Key, class Reclaimer, class Backoff>
 harris_list_based_set<Key, Reclaimer, Backoff>::~harris_list_based_set()
 {
   // delete all remaining nodes
-  auto p = head.load(std::memory_order_relaxed);
+  auto p = head.load(std::memory_order_acquire);
   while (p)
   {
-    auto next = p->next.load(std::memory_order_relaxed);
+    auto next = p->next.load(std::memory_order_acquire);
     delete p.get();
     p = next;
   }
@@ -194,7 +202,7 @@ retry:
 }
 
 template <class Key, class Reclaimer, class Backoff>
-bool harris_list_based_set<Key, Reclaimer, Backoff>::search(const Key& key)
+bool harris_list_based_set<Key, Reclaimer, Backoff>::contains(const Key& key)
 {
   find_info info{&head};
   Backoff backoff;
@@ -202,20 +210,40 @@ bool harris_list_based_set<Key, Reclaimer, Backoff>::search(const Key& key)
 }
 
 template <class Key, class Reclaimer, class Backoff>
-bool harris_list_based_set<Key, Reclaimer, Backoff>::insert(Key key)
+auto harris_list_based_set<Key, Reclaimer, Backoff>::find(const Key& key) -> iterator
 {
-  node* n = new node(std::move(key));
+  find_info info{&head};
+  Backoff backoff;
+  find(key, info, backoff);
+  return iterator(*this, std::move(info));
+}
+
+template <class Key, class Reclaimer, class Backoff>
+template <class... Args>
+bool harris_list_based_set<Key, Reclaimer, Backoff>::emplace(Args&&... args)
+{
+  auto result = emplace_or_get(std::forward<Args>(args)...);
+  return result.second;
+}
+
+template <class Key, class Reclaimer, class Backoff>
+template <class... Args>
+auto harris_list_based_set<Key, Reclaimer, Backoff>::emplace_or_get(Args&&... args) -> std::pair<iterator, bool>
+{
+  node* n = new node(std::forward<Args>(args)...);
   find_info info{&head};
   Backoff backoff;
   for (;;)
   {
-    if (find(key, info, backoff))
+    if (find(n->key, info, backoff))
     {
       delete n;
-      return false;
+      return {iterator(*this, std::move(info)), false};
     }
     // Try to install new node
     marked_ptr cur = info.cur.get();
+    info.cur.reset();
+    info.cur = guard_ptr(n);
     n->next.store(cur, std::memory_order_relaxed);
 
     // (4) - this release-CAS synchronizes with the acquire-load (1, 2)
@@ -223,14 +251,14 @@ bool harris_list_based_set<Key, Reclaimer, Backoff>::insert(Key key)
     if (info.prev->compare_exchange_weak(cur, n,
                                          std::memory_order_release,
                                          std::memory_order_relaxed))
-      return true;
+      return {iterator(*this, std::move(info)), true};
 
     backoff();
   }
 }
 
 template <class Key, class Reclaimer, class Backoff>
-bool harris_list_based_set<Key, Reclaimer, Backoff>::remove(const Key& key)
+bool harris_list_based_set<Key, Reclaimer, Backoff>::erase(const Key& key)
 {
   Backoff backoff;
   find_info info{&head};
@@ -262,6 +290,44 @@ bool harris_list_based_set<Key, Reclaimer, Backoff>::remove(const Key& key)
     find(key, info, backoff);
 
   return true;
+}
+
+template <class Key, class Reclaimer, class Backoff>
+auto harris_list_based_set<Key, Reclaimer, Backoff>::erase(iterator pos) -> iterator
+{
+  Backoff backoff;
+  auto next = pos.info.cur->next.load(std::memory_order_relaxed);
+  for (;;)
+  {
+    // (5) - this CAS operation is part of a release sequence headed by (3, 4, 6)
+    if (pos.info.cur->next.compare_exchange_weak(next,
+                                            marked_ptr(next.get(), 1),
+                                            std::memory_order_relaxed))
+      break;
+
+    backoff();
+  }
+
+  guard_ptr next_guard(next);
+
+  // Try to splice out node
+  marked_ptr expected = pos.info.cur;
+  // (6) - this release-CAS synchronizes with the acquire-load (1, 2)
+  //       it is the head of a potential release sequence containing (5)
+  if (pos.info.prev->compare_exchange_weak(expected, next,
+                                      std::memory_order_release,
+                                      std::memory_order_relaxed)) {
+    pos.info.cur.reclaim();
+    pos.info.cur = std::move(next_guard);
+  } else {
+    next_guard.reset();
+    Key key = pos.info.cur->key;
+
+    // Another thread interfered -> rewalk the list to ensure reclamation of marked node before returning.
+    find(key, pos.info, backoff);
+  }
+
+  return pos;
 }
 
 template <class Key, class Reclaimer, class Backoff>
