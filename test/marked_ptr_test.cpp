@@ -1,8 +1,8 @@
-#include <citissime/reclamation/detail/marked_ptr.hpp>
+#include <xenium/reclamation/detail/marked_ptr.hpp>
 
 #include <gtest/gtest.h>
 
-using namespace citissime::reclamation;
+using namespace xenium::reclamation;
 
 namespace {
  

@@ -1,18 +1,18 @@
-#include <citissime/reclamation/lock_free_ref_count.hpp>
+#include <xenium/reclamation/lock_free_ref_count.hpp>
 
 #include <gtest/gtest.h>
 #include <thread>
 
 namespace {
 
-struct Foo : citissime::reclamation::lock_free_ref_count<>::enable_concurrent_ptr<Foo, 2>
+struct Foo : xenium::reclamation::lock_free_ref_count<>::enable_concurrent_ptr<Foo, 2>
 {
   Foo** instance;
   Foo(Foo** instance) : instance(instance) {}
   virtual ~Foo() { *instance = nullptr; }
 };
 
-template <typename T> using concurrent_ptr = citissime::reclamation::lock_free_ref_count<>::concurrent_ptr<T>;
+template <typename T> using concurrent_ptr = xenium::reclamation::lock_free_ref_count<>::concurrent_ptr<T>;
 template <typename T> using marked_ptr = typename concurrent_ptr<T>::marked_ptr;
 template <typename T> using guard_ptr = typename concurrent_ptr<T>::guard_ptr;
 
@@ -106,7 +106,7 @@ TEST_F(LockFreeRefCount, guard_destructor_decrements_ref_count)
 
 TEST_F(LockFreeRefCount, parallel_allocation_and_deallocation_of_nodes)
 {
-  struct Dummy : citissime::reclamation::lock_free_ref_count<>::enable_concurrent_ptr<Dummy> {};
+  struct Dummy : xenium::reclamation::lock_free_ref_count<>::enable_concurrent_ptr<Dummy> {};
 
   std::vector<std::thread> threads;
   for (int i = 0; i < 16; ++i)

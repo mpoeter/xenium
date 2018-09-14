@@ -1,4 +1,4 @@
-project(citissime)
+project(xenium)
 cmake_minimum_required(VERSION 3.0)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
@@ -9,13 +9,13 @@ find_package(Boost 1.61.0 REQUIRED)
 find_package(GTest REQUIRED)
 find_package(Threads REQUIRED)
 
-file(GLOB_RECURSE CITISSIME_FILES citissime/*.hpp)
+file(GLOB_RECURSE XENIUM_FILES xenium/*.hpp)
 
 file(GLOB_RECURSE TEST_FILES test/*.cpp)
 
 include_directories(. ${Boost_INCLUDE_DIR} ${GTEST_INCLUDE_DIRS})
 
-add_executable(gtest ${TEST_FILES} ${CITISSIME_FILES})
+add_executable(gtest ${TEST_FILES} ${XENIUM_FILES})
 
 target_link_libraries(gtest ${GTEST_BOTH_LIBRARIES})
 

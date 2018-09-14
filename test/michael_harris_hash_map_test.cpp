@@ -1,11 +1,11 @@
-#include <citissime/reclamation/lock_free_ref_count.hpp>
-#include <citissime/reclamation/hazard_pointer.hpp>
-#include <citissime/reclamation/hazard_eras.hpp>
-#include <citissime/reclamation/epoch_based.hpp>
-#include <citissime/reclamation/new_epoch_based.hpp>
-#include <citissime/reclamation/quiescent_state_based.hpp>
-#include <citissime/reclamation/stamp_it.hpp>
-#include <citissime/michael_harris_hash_map.hpp>
+#include <xenium/reclamation/lock_free_ref_count.hpp>
+#include <xenium/reclamation/hazard_pointer.hpp>
+#include <xenium/reclamation/hazard_eras.hpp>
+#include <xenium/reclamation/epoch_based.hpp>
+#include <xenium/reclamation/new_epoch_based.hpp>
+#include <xenium/reclamation/quiescent_state_based.hpp>
+#include <xenium/reclamation/stamp_it.hpp>
+#include <xenium/michael_harris_hash_map.hpp>
 
 #include <gtest/gtest.h>
 
@@ -17,18 +17,18 @@ namespace {
 template <typename Reclaimer>
 struct HashMap : ::testing::Test
 {
-  using hash_map = citissime::michael_harris_hash_map<int, int, Reclaimer, 10>;
+  using hash_map = xenium::michael_harris_hash_map<int, int, Reclaimer, 10>;
   hash_map map;
 };
 
 using Reclaimers = ::testing::Types<
-    citissime::reclamation::lock_free_ref_count<>,
-    citissime::reclamation::hazard_pointer<citissime::reclamation::static_hazard_pointer_policy<3>>,
-    citissime::reclamation::hazard_eras<citissime::reclamation::static_hazard_eras_policy<3>>,
-    citissime::reclamation::epoch_based<10>,
-    citissime::reclamation::new_epoch_based<10>,
-    citissime::reclamation::quiescent_state_based,
-    citissime::reclamation::stamp_it
+    xenium::reclamation::lock_free_ref_count<>,
+    xenium::reclamation::hazard_pointer<xenium::reclamation::static_hazard_pointer_policy<3>>,
+    xenium::reclamation::hazard_eras<xenium::reclamation::static_hazard_eras_policy<3>>,
+    xenium::reclamation::epoch_based<10>,
+    xenium::reclamation::new_epoch_based<10>,
+    xenium::reclamation::quiescent_state_based,
+    xenium::reclamation::stamp_it
   >;
 TYPED_TEST_CASE(HashMap, Reclaimers);
 

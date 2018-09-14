@@ -1,10 +1,10 @@
-#include <citissime/reclamation/epoch_based.hpp>
+#include <xenium/reclamation/epoch_based.hpp>
 
 #include <gtest/gtest.h>
 
 namespace {
 
-using Reclaimer = citissime::reclamation::epoch_based<0>;
+using Reclaimer = xenium::reclamation::epoch_based<0>;
 
 struct Foo : Reclaimer::enable_concurrent_ptr<Foo, 2>
 {

@@ -1,5 +1,5 @@
-#include <citissime/reclamation/detail/marked_ptr.hpp>
-#include <citissime/reclamation/detail/concurrent_ptr.hpp>
+#include <xenium/reclamation/detail/marked_ptr.hpp>
+#include <xenium/reclamation/detail/concurrent_ptr.hpp>
 
 #include <gtest/gtest.h>
 
@@ -22,7 +22,7 @@ struct my_guard_ptr
 };
 
 template <typename T>
-using concurrent_ptr = citissime::reclamation::detail::concurrent_ptr<T, T::number_of_mark_bits, my_guard_ptr>;
+using concurrent_ptr = xenium::reclamation::detail::concurrent_ptr<T, T::number_of_mark_bits, my_guard_ptr>;
 
 TEST(concurrent_ptr, get_returns_pointer_that_was_passed_to_constructor)
 {

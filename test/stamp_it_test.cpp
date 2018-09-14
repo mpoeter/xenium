@@ -1,10 +1,10 @@
-#include <citissime/reclamation/stamp_it.hpp>
+#include <xenium/reclamation/stamp_it.hpp>
 
 #include <gtest/gtest.h>
 
 namespace {
 
-using Reclaimer = citissime::reclamation::stamp_it;
+using Reclaimer = xenium::reclamation::stamp_it;
 
 struct Foo : Reclaimer::enable_concurrent_ptr<Foo, 2>
 {

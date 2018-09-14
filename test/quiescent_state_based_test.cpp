@@ -1,10 +1,10 @@
-#include <citissime/reclamation/quiescent_state_based.hpp>
+#include <xenium/reclamation/quiescent_state_based.hpp>
 
 #include <gtest/gtest.h>
 
 namespace {
 
-using Reclaimer = citissime::reclamation::quiescent_state_based;
+using Reclaimer = xenium::reclamation::quiescent_state_based;
 
 struct Foo : Reclaimer::enable_concurrent_ptr<Foo, 2>
 {

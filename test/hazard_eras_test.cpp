@@ -1,17 +1,17 @@
-#include <citissime/reclamation/hazard_eras.hpp>
+#include <xenium/reclamation/hazard_eras.hpp>
 
 #include <gtest/gtest.h>
 
 namespace {
 
-  struct my_static_hazard_eras_policy : citissime::reclamation::static_hazard_eras_policy<2>
+  struct my_static_hazard_eras_policy : xenium::reclamation::static_hazard_eras_policy<2>
   {
     // we are redifining this method in our own policy to enforce the
     // immediate reclamation of nodes.
     static constexpr size_t retired_nodes_threshold() { return 0; }
   };
 
-  struct my_dynamic_hazard_eras_policy : citissime::reclamation::dynamic_hazard_eras_policy<2>
+  struct my_dynamic_hazard_eras_policy : xenium::reclamation::dynamic_hazard_eras_policy<2>
   {
     // we are redifining this method in our own policy to enforce the
     // immediate reclamation of nodes.
@@ -21,7 +21,7 @@ namespace {
   template <typename Policy>
   struct HazardEras : ::testing::Test
   {
-    using HE = citissime::reclamation::hazard_eras<Policy>;
+    using HE = xenium::reclamation::hazard_eras<Policy>;
 
     struct Foo : HE::template enable_concurrent_ptr<Foo, 2>
     {
@@ -94,7 +94,7 @@ namespace {
   {
     using concurrent_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>;
     concurrent_ptr foo_ptr(this->mp);
-    typename concurrent_ptr::guard_ptr gp = citissime::acquire_guard(foo_ptr);
+    typename concurrent_ptr::guard_ptr gp = xenium::acquire_guard(foo_ptr);
     EXPECT_EQ(this->mp, gp);
   }
 
@@ -140,7 +140,7 @@ namespace {
     TestFixture::advance_era();
     EXPECT_THROW(
       guard_ptr gp3{this->mp},
-      citissime::reclamation::bad_hazard_era_alloc
+      xenium::reclamation::bad_hazard_era_alloc
     );
   }
 

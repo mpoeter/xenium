@@ -1,11 +1,11 @@
-#include <citissime/reclamation/lock_free_ref_count.hpp>
-#include <citissime/reclamation/hazard_pointer.hpp>
-#include <citissime/reclamation/hazard_eras.hpp>
-#include <citissime/reclamation/epoch_based.hpp>
-#include <citissime/reclamation/new_epoch_based.hpp>
-#include <citissime/reclamation/quiescent_state_based.hpp>
-#include <citissime/reclamation/stamp_it.hpp>
-#include <citissime/harris_list_based_set.hpp>
+#include <xenium/reclamation/lock_free_ref_count.hpp>
+#include <xenium/reclamation/hazard_pointer.hpp>
+#include <xenium/reclamation/hazard_eras.hpp>
+#include <xenium/reclamation/epoch_based.hpp>
+#include <xenium/reclamation/new_epoch_based.hpp>
+#include <xenium/reclamation/quiescent_state_based.hpp>
+#include <xenium/reclamation/stamp_it.hpp>
+#include <xenium/harris_list_based_set.hpp>
 
 #include <gtest/gtest.h>
 
@@ -18,26 +18,26 @@ template <typename Reclaimer>
 struct List : testing::Test {};
 
 using Reclaimers = ::testing::Types<
-    citissime::reclamation::lock_free_ref_count<>,
-    citissime::reclamation::hazard_pointer<citissime::reclamation::static_hazard_pointer_policy<3>>,
-    citissime::reclamation::hazard_eras<citissime::reclamation::static_hazard_eras_policy<3>>,
-    citissime::reclamation::epoch_based<10>,
-    citissime::reclamation::new_epoch_based<10>,
-    citissime::reclamation::quiescent_state_based,
-    citissime::reclamation::stamp_it
+    xenium::reclamation::lock_free_ref_count<>,
+    xenium::reclamation::hazard_pointer<xenium::reclamation::static_hazard_pointer_policy<3>>,
+    xenium::reclamation::hazard_eras<xenium::reclamation::static_hazard_eras_policy<3>>,
+    xenium::reclamation::epoch_based<10>,
+    xenium::reclamation::new_epoch_based<10>,
+    xenium::reclamation::quiescent_state_based,
+    xenium::reclamation::stamp_it
   >;
 TYPED_TEST_CASE(List, Reclaimers);
 
-TYPED_TEST(List, emplace_same_element_twice_second_time_fails)
+TYPED_TEST(List, emplace_same_element_twice_fails_second_time)
 {
-  citissime::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_list_based_set<int, TypeParam> list;
   EXPECT_TRUE(list.emplace(42));
   EXPECT_FALSE(list.emplace(42));
 }
 
 TYPED_TEST(List, emplace_or_get_inserts_new_element_and_returns_iterator_to_it)
 {
-  citissime::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_list_based_set<int, TypeParam> list;
   auto result = list.emplace_or_get(42);
   EXPECT_TRUE(result.second);
   EXPECT_EQ(list.begin(), result.first);
@@ -46,7 +46,7 @@ TYPED_TEST(List, emplace_or_get_inserts_new_element_and_returns_iterator_to_it)
 
 TYPED_TEST(List, emplace_or_get_does_not_insert_anything_and_returns_iterator_to_existing_element)
 {
-  citissime::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_list_based_set<int, TypeParam> list;
   list.emplace(42);
   auto result = list.emplace_or_get(42);
   EXPECT_FALSE(result.second);
@@ -56,28 +56,28 @@ TYPED_TEST(List, emplace_or_get_does_not_insert_anything_and_returns_iterator_to
 
 TYPED_TEST(List, contains_returns_false_for_non_existing_element)
 {
-  citissime::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_list_based_set<int, TypeParam> list;
   list.emplace(42);
   EXPECT_FALSE(list.contains(43));
 }
 
 TYPED_TEST(List, constains_returns_true_for_existing_element)
 {
-  citissime::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_list_based_set<int, TypeParam> list;
   list.emplace(42);
   EXPECT_TRUE(list.contains(42));
 }
 
 TYPED_TEST(List, find_returns_end_iterator_for_non_existing_element)
 {
-  citissime::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_list_based_set<int, TypeParam> list;
   list.emplace(42);
   EXPECT_EQ(list.end(), list.find(43));
 }
 
 TYPED_TEST(List, find_returns_matching_iterator_for_existing_element)
 {
-  citissime::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_list_based_set<int, TypeParam> list;
   list.emplace(42);
   auto it = list.find(42);
   EXPECT_EQ(list.begin(), it);
@@ -87,20 +87,20 @@ TYPED_TEST(List, find_returns_matching_iterator_for_existing_element)
 
 TYPED_TEST(List, erase_existing_element_succeeds)
 {
-  citissime::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_list_based_set<int, TypeParam> list;
   list.emplace(42);
   EXPECT_TRUE(list.erase(42));
 }
 
 TYPED_TEST(List, erase_nonexisting_element_fails)
 {
-  citissime::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_list_based_set<int, TypeParam> list;
   EXPECT_FALSE(list.erase(42));
 }
 
 TYPED_TEST(List, erase_existing_element_twice_fails_the_seond_time)
 {
-  citissime::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_list_based_set<int, TypeParam> list;
   list.emplace(42);
   EXPECT_TRUE(list.erase(42));
   EXPECT_FALSE(list.erase(42));
@@ -108,7 +108,7 @@ TYPED_TEST(List, erase_existing_element_twice_fails_the_seond_time)
 
 TYPED_TEST(List, erase_via_iterator_removes_entry_and_returns_iterator_to_successor)
 {
-  citissime::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_list_based_set<int, TypeParam> list;
   list.emplace(41);
   list.emplace(42);
   list.emplace(43);
@@ -125,7 +125,7 @@ TYPED_TEST(List, erase_via_iterator_removes_entry_and_returns_iterator_to_succes
 
 TYPED_TEST(List, iterate_list)
 {
-  citissime::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_list_based_set<int, TypeParam> list;
   list.emplace(41);
   list.emplace(42);
   list.emplace(43);
@@ -152,7 +152,7 @@ namespace
 TYPED_TEST(List, parallel_usage)
 {
   using Reclaimer = TypeParam;
-  citissime::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_list_based_set<int, TypeParam> list;
 
   std::vector<std::thread> threads;
   for (int i = 0; i < 8; ++i)
@@ -180,7 +180,7 @@ TYPED_TEST(List, parallel_usage)
 TYPED_TEST(List, parallel_usage_with_same_values)
 {
   using Reclaimer = TypeParam;
-  citissime::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_list_based_set<int, TypeParam> list;
 
   std::vector<std::thread> threads;
   for (int i = 0; i < 8; ++i)

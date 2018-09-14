@@ -1,10 +1,10 @@
-#include <citissime/reclamation/debra.hpp>
+#include <xenium/reclamation/debra.hpp>
 
 #include <gtest/gtest.h>
 
 namespace {
 
-using Reclaimer = citissime::reclamation::debra<0>;
+using Reclaimer = xenium::reclamation::debra<0>;
 
 struct Foo : Reclaimer::enable_concurrent_ptr<Foo, 2>
 {

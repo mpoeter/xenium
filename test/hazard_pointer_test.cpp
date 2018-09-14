@@ -1,17 +1,17 @@
-#include <citissime/reclamation/hazard_pointer.hpp>
+#include <xenium/reclamation/hazard_pointer.hpp>
 
 #include <gtest/gtest.h>
 
 namespace {
 
-struct my_static_hazard_pointer_policy : citissime::reclamation::static_hazard_pointer_policy<2>
+struct my_static_hazard_pointer_policy : xenium::reclamation::static_hazard_pointer_policy<2>
 {
   // we are redifining this method in our own policy to enforce the
   // immediate reclamation of nodes.
   static constexpr size_t retired_nodes_threshold() { return 0; }
 };
 
-struct my_dynamic_hazard_pointer_policy : citissime::reclamation::dynamic_hazard_pointer_policy<2>
+struct my_dynamic_hazard_pointer_policy : xenium::reclamation::dynamic_hazard_pointer_policy<2>
 {
   // we are redifining this method in our own policy to enforce the
   // immediate reclamation of nodes.
@@ -21,7 +21,7 @@ struct my_dynamic_hazard_pointer_policy : citissime::reclamation::dynamic_hazard
 template <typename Policy>
 struct HazardPointer : ::testing::Test
 {
-  using HP = citissime::reclamation::hazard_pointer<Policy>;
+  using HP = xenium::reclamation::hazard_pointer<Policy>;
 
   struct Foo : HP::template enable_concurrent_ptr<Foo, 2>
   {
@@ -92,7 +92,7 @@ TYPED_TEST(HazardPointer, acquire_guard_acquires_pointer)
 {
   using concurrent_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>;
   concurrent_ptr foo_ptr(this->mp);
-  typename concurrent_ptr::guard_ptr gp = citissime::acquire_guard(foo_ptr);
+  typename concurrent_ptr::guard_ptr gp = xenium::acquire_guard(foo_ptr);
   EXPECT_EQ(this->mp, gp);
 }
 
@@ -136,7 +136,7 @@ TYPED_TEST(HazardPointer, static_policy_throws_bad_hazard_pointer_when_HP_pool_i
   guard_ptr gp2{this->mp};
   EXPECT_THROW(
     guard_ptr gp3{this->mp},
-    citissime::reclamation::bad_hazard_pointer_alloc
+    xenium::reclamation::bad_hazard_pointer_alloc
   );
 }
 
