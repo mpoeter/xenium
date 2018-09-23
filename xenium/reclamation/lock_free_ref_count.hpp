@@ -75,6 +75,7 @@ namespace xenium { namespace reclamation {
     struct unpadded_header {
       std::atomic<unsigned> ref_count;
       std::atomic<bool> destroyed;
+      concurrent_ptr<T, N> next_free;
     };
     struct padded_header : unpadded_header {
       char padding[64 - sizeof(unpadded_header)];
@@ -85,7 +86,7 @@ namespace xenium { namespace reclamation {
 
     std::atomic<unsigned>& ref_count() { return getHeader()->ref_count; }
     std::atomic<bool>& destroyed() { return getHeader()->destroyed; }
-    concurrent_ptr<T, N> next_free;
+    concurrent_ptr<T, N>& next_free() { return getHeader()->next_free; }
 
     friend class lock_free_ref_count;
 

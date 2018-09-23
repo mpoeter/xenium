@@ -9,30 +9,48 @@ namespace xenium { namespace reclamation { namespace detail {
 template <typename T, typename DeletableObject = detail::deletable_object>
 class thread_block_list
 {
+  enum class entry_state {
+    free,
+    inactive,
+    active
+  };
 public:
   struct entry
   {
     entry() :
-      in_use(true),
+      state(entry_state::active),
       next_entry(nullptr)
     {}
 
-    bool is_active() const { return in_use.load(std::memory_order_relaxed); }
+    // Normally this load operation can use relaxed semantic, as all reclamation schemes
+    // that use it have an acquire-fence that is sequenced-after calling is_active.
+    // However, TSan does not support acquire-fences, so in order to avoid false
+    // positives we have to allow other memory orders as well.
+    bool is_active(std::memory_order memory_order = std::memory_order_relaxed) const {
+      return state.load(memory_order) == entry_state::active;
+    }
+
     void abandon() {
       // (1) - this release-store synchronizes-with the acquire-CAS (2)
-      in_use.store(false, std::memory_order_release);
+      //       or any acquire-fence that is sequenced-after calling is_active.
+      state.store(entry_state::free, std::memory_order_release);
+    }
+
+    void activate() {
+      assert(state.load(std::memory_order_relaxed) == entry_state::inactive);
+      state.store(entry_state::active, std::memory_order_release);
     }
 
   private:
     friend class thread_block_list;
 
-    bool try_adopt()
+    bool try_adopt(entry_state initial_state)
     {
-      if (!in_use.load(std::memory_order_relaxed))
+      if (state.load(std::memory_order_relaxed) == entry_state::free)
       {
-        bool expected = false;
+        auto expected = entry_state::free;
         // (2) - this acquire-CAS synchronizes-with the release-store (1)
-        return in_use.compare_exchange_strong(expected, true, std::memory_order_acquire);
+        return state.compare_exchange_strong(expected, initial_state, std::memory_order_acquire);
       }
       return false;
     }
@@ -41,9 +59,8 @@ public:
     // -> therefore it does not have to be atomic
     T* next_entry;
 
-    // in_use is only used to manage ownership of entries
-    // -> therefore all operations on it can use relaxed order
-    std::atomic<bool> in_use;
+    // state is used to manage ownership and active status of entries
+    std::atomic<entry_state> state;
   };
 
   class iterator : public std::iterator<std::forward_iterator_tag, T>
@@ -102,8 +119,12 @@ public:
 
   T* acquire_entry()
   {
-    static_assert(std::is_base_of<entry, T>::value, "T must derive from entry.");
-    return adopt_or_create_entry();
+    return adopt_or_create_entry(entry_state::active);
+  }
+
+  T* acquire_inactive_entry()
+  {
+    return adopt_or_create_entry(entry_state::inactive);
   }
 
   void release_entry(T* entry)
@@ -158,19 +179,22 @@ private:
     } while (!head.compare_exchange_weak(h, node, std::memory_order_release, std::memory_order_relaxed));
   }
 
-  T* adopt_or_create_entry()
+  T* adopt_or_create_entry(entry_state initial_state)
   {
+    static_assert(std::is_base_of<entry, T>::value, "T must derive from entry.");
+
     // (7) - this acquire-load synchronizes-with the release-CAS (6)
     T* result = head.load(std::memory_order_acquire);
     while (result)
     {
-      if (result->try_adopt())
+      if (result->try_adopt(initial_state))
         return result;
 
       result = result->next_entry;
     }
 
     result = new T();
+    result->state.store(initial_state, std::memory_order_relaxed);
     add_entry(result);
     return result;
   }

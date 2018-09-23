@@ -3,6 +3,8 @@
 #endif
 
 #include "xenium/aligned_object.hpp"
+#include "detail/port.hpp"
+
 #include <algorithm>
 #include <new>
 #include <vector>
@@ -157,15 +159,20 @@ namespace xenium { namespace reclamation {
     {
       void set_object(detail::deletable_object* obj)
       {
+        // TODO - release needed because the HP entry is "reused" (old value is replaced)
         // (3) - this relaxed store can be part of a release sequence headed by (5)
-        value.store(reinterpret_cast<void**>(obj), std::memory_order_relaxed);
+        value.store(reinterpret_cast<void**>(obj), std::memory_order_release);
+
         // (4) - this seq_cst-fence enforces a total order with the seq_cst-fence (8)
         std::atomic_thread_fence(std::memory_order_seq_cst);
       }
 
       bool try_get_object(detail::deletable_object*& result) const
       {
-        auto v = value.load(std::memory_order_relaxed);
+        // TSan does not support explicit fences, so we cannot rely on the acquire-fence (9)
+        // but have to perform an acquire-load here to avoid false positives.
+        constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
+        auto v = value.load(memory_order);
         if (v.mark() == 0)
         {
           result = reinterpret_cast<detail::deletable_object*>(v.get());
@@ -417,7 +424,10 @@ namespace xenium { namespace reclamation {
       std::for_each(global_thread_block_list.begin(), global_thread_block_list.end(),
         [&protected_pointers](const auto& entry)
         {
-          if (entry.is_active())
+          // TSan does not support explicit fences, so we cannot rely on the acquire-fence (9)
+          // but have to perform an acquire-load here to avoid false positives.
+          constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
+          if (entry.is_active(memory_order))
             entry.gather_protected_pointers(protected_pointers);
         });
 

@@ -44,10 +44,10 @@ michael_scott_queue<T, Reclaimer, Backoff>::michael_scott_queue()
 template <class T, class Reclaimer, class Backoff>
 michael_scott_queue<T, Reclaimer, Backoff>::~michael_scott_queue()
 {
-  auto n = head.load(std::memory_order_relaxed);
+  auto n = head.load(std::memory_order_acquire);
   while (n)
   {
-    auto next = n->next.load(std::memory_order_relaxed);
+    auto next = n->next.load(std::memory_order_acquire);
     delete n.get();
     n = next;
   }
@@ -65,14 +65,14 @@ void michael_scott_queue<T, Reclaimer, Backoff>::enqueue(T value)
   for (;;)
   {
     // Get the old tail pointer.
-    t.acquire(tail, std::memory_order_relaxed);
+    t.acquire(tail, std::memory_order_acquire);
 
     // Help update the tail pointer if needed.
-    auto next = t->next.load(std::memory_order_relaxed);
+    auto next = t->next.load(std::memory_order_acquire);
     if (next.get() != nullptr)
     {
       marked_ptr expected(t.get());
-      tail.compare_exchange_weak(expected, next, std::memory_order_relaxed);
+      tail.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed);
       continue;
     }
 
@@ -87,7 +87,7 @@ void michael_scott_queue<T, Reclaimer, Backoff>::enqueue(T value)
 
   // Swing the tail to the new element.
   marked_ptr expected = t.get();
-  tail.compare_exchange_strong(expected, n, std::memory_order_relaxed);
+  tail.compare_exchange_strong(expected, n, std::memory_order_release, std::memory_order_relaxed);
 }
 
 template <class T, class Reclaimer, class Backoff>
@@ -99,7 +99,7 @@ bool michael_scott_queue<T, Reclaimer, Backoff>::try_dequeue(T& result)
   for (;;)
   {
     // Get the old head and tail elements.
-    h.acquire(head, std::memory_order_relaxed);
+    h.acquire(head, std::memory_order_acquire);
 
     // Get the head element's successor.
     // (2) - this acquire-load synchronizes-with the release-CAS (1).
@@ -117,7 +117,7 @@ bool michael_scott_queue<T, Reclaimer, Backoff>::try_dequeue(T& result)
     // There are multiple elements. Help update tail if needed.
     if (h.get() == t.get())
     {
-      tail.compare_exchange_weak(t, next, std::memory_order_relaxed);
+      tail.compare_exchange_weak(t, next, std::memory_order_release, std::memory_order_relaxed);
       continue;
     }
 
@@ -126,7 +126,7 @@ bool michael_scott_queue<T, Reclaimer, Backoff>::try_dequeue(T& result)
 
     // Attempt to update the head pointer so that it points to the new dummy node.
     marked_ptr expected(h.get());
-    if (head.compare_exchange_weak(expected, next, std::memory_order_relaxed))
+    if (head.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed))
       break;
 
     backoff();

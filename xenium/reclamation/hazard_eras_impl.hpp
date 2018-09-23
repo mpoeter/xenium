@@ -3,6 +3,7 @@
 #endif
 
 #include "xenium/aligned_object.hpp"
+#include "detail/port.hpp"
 #include <algorithm>
 #include <new>
 #include <vector>
@@ -193,8 +194,10 @@ namespace xenium { namespace reclamation {
       void set_era(era_t era)
       {
         assert(era != 0);
+        // TODO - release needed because the HE entry is "reused" (old value is replaced)
         // (3) - this relaxed store can be part of a release sequence headed by (5)
-        value.store(marked_ptr(reinterpret_cast<void**>(era << 1)), std::memory_order_relaxed);
+        value.store(marked_ptr(reinterpret_cast<void**>(era << 1)), std::memory_order_release);
+
         // (4) - this seq_cst-fence enforces a total order with the seq_cst-fence (8)
         std::atomic_thread_fence(std::memory_order_seq_cst);
       }
@@ -214,7 +217,10 @@ namespace xenium { namespace reclamation {
 
       bool try_get_era(era_t& result) const
       {
-        auto v = value.load(std::memory_order_relaxed);
+        // TSan does not support explicit fences, so we cannot rely on the acquire-fence (9)
+        // but have to perform an acquire-load here to avoid false positives.
+        constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
+        auto v = value.load(memory_order);
         if (v.mark() == 0)
         {
           result = reinterpret_cast<era_t>(v.get()) >> 1;
@@ -313,7 +319,7 @@ namespace xenium { namespace reclamation {
       for (auto it = begin; it != end;)
       {
         auto next = it + 1;
-        new(it) hazard_era();
+        new(it) hazard_era;
         it->set_link(next);
         it = next;
       }
@@ -484,7 +490,10 @@ namespace xenium { namespace reclamation {
       std::for_each(global_thread_block_list.begin(), global_thread_block_list.end(),
         [&protected_eras](const auto& entry)
         {
-          if (entry.is_active())
+          // TSan does not support explicit fences, so we cannot rely on the acquire-fence (9)
+          // but have to perform an acquire-load here to avoid false positives.
+          constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
+          if (entry.is_active(memory_order))
             entry.gather_protected_eras(protected_eras);
         });
 
@@ -507,8 +516,9 @@ namespace xenium { namespace reclamation {
     {
       if (control_block == nullptr)
       {
-        control_block = global_thread_block_list.acquire_entry();
+        control_block = global_thread_block_list.acquire_inactive_entry();
         control_block->initialize(hint);
+        control_block->activate();
       }
     }
 

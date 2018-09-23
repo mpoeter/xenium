@@ -3,6 +3,7 @@
 #endif
 
 #include "detail/orphan.hpp"
+#include "detail/port.hpp"
 
 #include <algorithm>
 
@@ -157,7 +158,7 @@ namespace xenium { namespace reclamation {
       if (control_block == nullptr)
         return; // no control_block -> nothing to do
 
-      // we can skip creating an orphan in case we have no retired nodes left.
+      // we can avoid creating an orphan in case we have no retired nodes left.
       if (std::any_of(retire_lists.begin(), retire_lists.end(), [](auto p) { return p != nullptr; }))
       {
         // global_epoch - 1 (mod number_epochs) guarantees a full cycle, making sure no
@@ -188,7 +189,7 @@ namespace xenium { namespace reclamation {
       if (--region_entries == 0)
       {
         assert(control_block->is_in_critical_region.load(std::memory_order_relaxed));
-        // (4) - this release-store synchronizes-with the acquire-fence (6)
+        // (4) - this release-store synchronizes-with the acquire-fence (7)
         control_block->is_in_critical_region.store(false, std::memory_order_release);
       }
     }
@@ -222,7 +223,7 @@ namespace xenium { namespace reclamation {
     {
       assert(control_block->is_in_critical_region.load(std::memory_order_relaxed));
 
-      // (5) - this acquire-load synchronizes-with the release-CAS (7)
+      // (5) - this acquire-load synchronizes-with the release-CAS (8)
       auto epoch = global_epoch.load(std::memory_order_acquire);
       if (control_block->local_epoch.load(std::memory_order_relaxed) != epoch) // New epoch?
       {
@@ -243,7 +244,8 @@ namespace xenium { namespace reclamation {
       // we either just updated the global_epoch or we are observing a new epoch from some other thread
       // either way - we can reclaim all the objects from the old 'incarnation' of this epoch
 
-      control_block->local_epoch.store(epoch, std::memory_order_relaxed);
+      // (6) - this release-store synchronizes-wit the acquire-fence (7)
+      control_block->local_epoch.store(epoch, std::memory_order_release);
       detail::delete_objects(retire_lists[epoch]);
     }
 
@@ -259,8 +261,11 @@ namespace xenium { namespace reclamation {
       const auto old_epoch = (curr_epoch + number_epochs - 1) % number_epochs;
       auto prevents_update = [old_epoch](const thread_control_block& data)
       {
-        return data.is_in_critical_region.load(std::memory_order_relaxed) &&
-               data.local_epoch.load(std::memory_order_relaxed) == old_epoch;
+        // TSan does not support explicit fences, so we cannot rely on the acquire-fence (6)
+        // but have to perform acquire-loads here to avoid false positives.
+        constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
+        return data.is_in_critical_region.load(memory_order) &&
+               data.local_epoch.load(memory_order) == old_epoch;
       };
 
       // If any thread hasn't advanced to the current epoch, abort the attempt.
@@ -271,10 +276,10 @@ namespace xenium { namespace reclamation {
 
       if (global_epoch.load(std::memory_order_relaxed) == curr_epoch)
       {
-        // (6) - this acquire-fence synchronizes-with the release-store (4)
+        // (7) - this acquire-fence synchronizes-with the release-stores (4, 6)
         std::atomic_thread_fence(std::memory_order_acquire);
 
-        // (7) - this release-CAS synchronizes-with the acquire-load (5)
+        // (8) - this release-CAS synchronizes-with the acquire-load (5)
         bool success = global_epoch.compare_exchange_strong(curr_epoch, new_epoch,
                                                             std::memory_order_release,
                                                             std::memory_order_relaxed);

@@ -3,6 +3,7 @@
 #endif
 
 #include "detail/orphan.hpp"
+#include "detail/port.hpp"
 
 #include <algorithm>
 
@@ -208,8 +209,11 @@ namespace xenium { namespace reclamation {
       {
         entries_since_update = 0;
 
-        if (!thread_iterator->is_in_critical_region.load(std::memory_order_relaxed) ||
-            thread_iterator->local_epoch.load(std::memory_order_relaxed) == epoch)
+        // TSan does not support explicit fences, so we cannot rely on the acquire-fence (6)
+        // but have to perform an acquire-load here to avoid false positives.
+        constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
+        if (!thread_iterator->is_in_critical_region.load(memory_order) ||
+            thread_iterator->local_epoch.load(memory_order) == epoch)
         {
           if (++thread_iterator == global_thread_block_list.end())
           {

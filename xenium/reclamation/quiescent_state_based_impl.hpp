@@ -22,7 +22,7 @@ namespace xenium { namespace reclamation {
       if (control_block == nullptr)
         return; // no control_block -> nothing to do
 
-      // we can skip creating an orphan in case we have no retired nodes left.
+      // we can avoid creating an orphan in case we have no retired nodes left.
       if (std::any_of(retire_lists.begin(), retire_lists.end(), [](auto p) { return p != nullptr; }))
       {
         // global_epoch - 1 (mod number_epochs) guarantees a full cycle, making sure no
@@ -104,14 +104,17 @@ namespace xenium { namespace reclamation {
       const auto old_epoch = (curr_epoch + number_epochs - 1) % number_epochs;
       auto prevents_update = [old_epoch](const thread_control_block& data)
       {
-        return data.is_active() &&
-               data.local_epoch.load(std::memory_order_relaxed) == old_epoch;
+        // TSan does not support explicit fences, so we cannot rely on the acquire-fence (6)
+        // but have to perform an acquire-load here to avoid false positives.
+        constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
+        return data.local_epoch.load(memory_order) == old_epoch &&
+               data.is_active(memory_order);
       };
 
       // If any thread hasn't advanced to the current epoch, abort the attempt.
-      bool can_update = !std::any_of(global_thread_block_list.begin(), global_thread_block_list.end(),
-                                     prevents_update);
-      if (!can_update)
+      bool cannot_update = std::any_of(global_thread_block_list.begin(), global_thread_block_list.end(),
+                                       prevents_update);
+      if (cannot_update)
         return false;
 
       if (global_epoch.load(std::memory_order_relaxed) == curr_epoch)

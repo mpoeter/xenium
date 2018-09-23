@@ -24,18 +24,17 @@ namespace xenium { namespace reclamation {
           // Note: ref_count can be anything here since multiple threads
           // could have gotten a reference to the node on the freelist.
           marked_ptr expected(guard);
+          auto next = guard->next_free().load(std::memory_order_relaxed);
           // since head is only changed via CAS operations it is sufficient to use relaxed order
           // for this operation as it is always part of a release-sequence headed by (3)
-          if (head.compare_exchange_weak(
-            expected,
-            guard->next_free.load(std::memory_order_relaxed),
-            std::memory_order_relaxed)) {
+          if (head.compare_exchange_weak(expected, next, std::memory_order_relaxed))
+          {
             assert((guard->ref_count().load(std::memory_order_relaxed) & RefCountClaimBit) != 0 &&
                    "ClaimBit must be set for a node on the free list");
 
             auto ptr = guard.get();
             ptr->ref_count().fetch_sub(RefCountClaimBit, std::memory_order_relaxed); // clear claim bit
-            ptr->next_free.store(nullptr, std::memory_order_relaxed);
+            ptr->next_free().store(nullptr, std::memory_order_relaxed);
             guard.ptr.reset(); // reset guard_ptr to prevent decrement of ref_count
             return ptr;
           }
@@ -56,7 +55,7 @@ namespace xenium { namespace reclamation {
         // (2) - this acquire-load synchronizes-with the release-CAS (3)
         auto old = head.load(std::memory_order_acquire);
         do {
-          last->next_free.store(old, std::memory_order_relaxed);
+          last->next_free().store(old, std::memory_order_relaxed);
           // (3) - if this release-CAS succeeds, it synchronizes-with the acquire-loads (1, 2)
           //       if it failes, the reload synchronizes-with itself (3)
         } while (!head.compare_exchange_weak(old, first, std::memory_order_release, std::memory_order_acquire));
@@ -73,10 +72,10 @@ namespace xenium { namespace reclamation {
             return;
           auto first = head;
           auto last = head;
-          auto next = last->next_free.load(std::memory_order_relaxed);
+          auto next = last->next_free().load(std::memory_order_relaxed);
           while (next) {
             last = next.get();
-            next = next->next_free.load(std::memory_order_relaxed);
+            next = next->next_free().load(std::memory_order_relaxed);
           }
           global_free_list.add_nodes(first, last);
         }
@@ -84,7 +83,7 @@ namespace xenium { namespace reclamation {
         bool push(T *node) {
           if (number_of_elements >= max_local_elements)
             return false;
-          node->next_free.store(head, std::memory_order_relaxed);
+          node->next_free().store(head, std::memory_order_relaxed);
           head = node;
           ++number_of_elements;
           return true;
@@ -94,11 +93,11 @@ namespace xenium { namespace reclamation {
           auto result = head;
           if (result) {
             assert(number_of_elements > 0);
-            head = result->next_free.load(std::memory_order_relaxed).get();
+            head = result->next_free().load(std::memory_order_relaxed).get();
             --number_of_elements;
             // clear claim bit and increment ref_count
             result->ref_count().fetch_add(RefCountInc - RefCountClaimBit, std::memory_order_relaxed);
-            result->next_free.store(nullptr, std::memory_order_relaxed);
+            result->next_free().store(nullptr, std::memory_order_relaxed);
           }
           return result;
         }
@@ -126,7 +125,7 @@ namespace xenium { namespace reclamation {
       T *result = global_free_list.pop();
       if (result == nullptr) {
         auto h = static_cast<header *>(::operator new(sz + sizeof(header)));
-        h->ref_count.store(RefCountInc, std::memory_order_relaxed);
+        h->ref_count.store(RefCountInc, std::memory_order_release);
         result = static_cast<T *>(static_cast<void *>(h + 1));
       }
 
@@ -223,7 +222,14 @@ namespace xenium { namespace reclamation {
     guard_ptr<T, MarkedPtr>::acquire(concurrent_ptr <T> &p, std::memory_order order) noexcept {
       for (;;) {
         reset();
-        auto q = p.load(std::memory_order_relaxed);
+        // FIXME: If this load is relaxed, TSan reports a data race between the following
+        // fetch-add and the initialization of the ref_count field. I tend to disagree, as
+        // the fetch_add should be ordered after the initial store (operator new) in the
+        // modification order of ref_count. Therefore the acquire-fetch-add should
+        // synchronize-with the release store.
+        // I created a GitHub issue:  
+        // But for now, let's make this an acquire-load to make TSan happy.
+        auto q = p.load(std::memory_order_acquire);
         this->ptr = q;
         if (q.get() == nullptr)
           return;
@@ -243,7 +249,8 @@ namespace xenium { namespace reclamation {
     guard_ptr<T, MarkedPtr>::acquire_if_equal(
       concurrent_ptr <T> &p, const MarkedPtr &expected, std::memory_order order) noexcept {
       reset();
-      auto q = p.load(std::memory_order_relaxed);
+      // FIXME: same issue with TSan as in acquire (see above).
+      auto q = p.load(std::memory_order_acquire);
       if (q != expected)
         return false;
 

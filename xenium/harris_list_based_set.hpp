@@ -75,7 +75,7 @@ public:
   iterator& operator++()
   {
     assert(info.cur.get() != nullptr);
-    auto next = info.cur->next.load(std::memory_order_acquire);
+    auto next = info.cur->next.load(std::memory_order_relaxed);
     guard_ptr tmp_guard;
     if (next.mark() == 0 && tmp_guard.acquire_if_equal(info.cur->next, next, std::memory_order_acquire))
     {
@@ -272,6 +272,7 @@ bool harris_list_based_set<Key, Reclaimer, Backoff>::erase(const Key& key)
     // (5) - this CAS operation is part of a release sequence headed by (3, 4, 6)
     if (info.cur->next.compare_exchange_weak(info.next,
                                              marked_ptr(info.next.get(), 1),
+                                             std::memory_order_acquire,
                                              std::memory_order_relaxed))
       break;
 
@@ -303,6 +304,7 @@ auto harris_list_based_set<Key, Reclaimer, Backoff>::erase(iterator pos) -> iter
     // (5) - this CAS operation is part of a release sequence headed by (3, 4, 6)
     if (pos.info.cur->next.compare_exchange_weak(next,
                                             marked_ptr(next.get(), 1),
+                                            std::memory_order_acquire,
                                             std::memory_order_relaxed))
       break;
 
