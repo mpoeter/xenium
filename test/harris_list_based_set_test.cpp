@@ -71,8 +71,8 @@ TYPED_TEST(List, constains_returns_true_for_existing_element)
 TYPED_TEST(List, find_returns_end_iterator_for_non_existing_element)
 {
   xenium::harris_list_based_set<int, TypeParam> list;
-  list.emplace(42);
-  EXPECT_EQ(list.end(), list.find(43));
+  list.emplace(43);
+  EXPECT_EQ(list.end(), list.find(42));
 }
 
 TYPED_TEST(List, find_returns_matching_iterator_for_existing_element)

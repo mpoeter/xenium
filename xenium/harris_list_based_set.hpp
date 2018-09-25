@@ -214,8 +214,9 @@ auto harris_list_based_set<Key, Reclaimer, Backoff>::find(const Key& key) -> ite
 {
   find_info info{&head};
   Backoff backoff;
-  find(key, info, backoff);
-  return iterator(*this, std::move(info));
+  if (find(key, info, backoff))
+    return iterator(*this, std::move(info));
+  return end();
 }
 
 template <class Key, class Reclaimer, class Backoff>
