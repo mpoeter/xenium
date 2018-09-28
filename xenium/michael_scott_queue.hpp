@@ -44,9 +44,11 @@ michael_scott_queue<T, Reclaimer, Backoff>::michael_scott_queue()
 template <class T, class Reclaimer, class Backoff>
 michael_scott_queue<T, Reclaimer, Backoff>::~michael_scott_queue()
 {
+  // (1) - this acquire-load synchronizes-with the release-CAS (11)
   auto n = head.load(std::memory_order_acquire);
   while (n)
   {
+    // (2) - this acquire-load synchronizes-with the release-CAS (6)
     auto next = n->next.load(std::memory_order_acquire);
     delete n.get();
     n = next;
@@ -65,20 +67,23 @@ void michael_scott_queue<T, Reclaimer, Backoff>::enqueue(T value)
   for (;;)
   {
     // Get the old tail pointer.
+    // (3) - this acquire-load synchronizes-with the release-CAS (5, 7, 10)
     t.acquire(tail, std::memory_order_acquire);
 
     // Help update the tail pointer if needed.
+    // (4) - this acquire-load synchronizes-with the release-CAS (6)
     auto next = t->next.load(std::memory_order_acquire);
     if (next.get() != nullptr)
     {
       marked_ptr expected(t.get());
+      // (5) - this release-CAS synchronizes-with the acquire-load (3)
       tail.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed);
       continue;
     }
 
     // Attempt to link in the new element.
     marked_ptr null{};
-    // (1) - this release-CAS synchronizes-with the acquire-load (2).
+    // (6) - this release-CAS synchronizes-with the acquire-load (2, 4, 9).
     if (t->next.compare_exchange_weak(null, n, std::memory_order_release, std::memory_order_relaxed))
       break;
 
@@ -87,6 +92,7 @@ void michael_scott_queue<T, Reclaimer, Backoff>::enqueue(T value)
 
   // Swing the tail to the new element.
   marked_ptr expected = t.get();
+  // (7) - this release-CAS synchronizes-with the acquire-load (3)
   tail.compare_exchange_strong(expected, n, std::memory_order_release, std::memory_order_relaxed);
 }
 
@@ -99,10 +105,11 @@ bool michael_scott_queue<T, Reclaimer, Backoff>::try_dequeue(T& result)
   for (;;)
   {
     // Get the old head and tail elements.
+    // (8) - this acquire-load synchronizes-with the release-CAS (11)
     h.acquire(head, std::memory_order_acquire);
 
     // Get the head element's successor.
-    // (2) - this acquire-load synchronizes-with the release-CAS (1).
+    // (9) - this acquire-load synchronizes-with the release-CAS (6).
     auto next = acquire_guard(h->next, std::memory_order_acquire);
     if (head.load(std::memory_order_relaxed).get() != h.get())
       continue;
@@ -117,6 +124,7 @@ bool michael_scott_queue<T, Reclaimer, Backoff>::try_dequeue(T& result)
     // There are multiple elements. Help update tail if needed.
     if (h.get() == t.get())
     {
+      // (10) - this release-CAS synchronizes-with the acquire-load (3)
       tail.compare_exchange_weak(t, next, std::memory_order_release, std::memory_order_relaxed);
       continue;
     }
@@ -126,6 +134,7 @@ bool michael_scott_queue<T, Reclaimer, Backoff>::try_dequeue(T& result)
 
     // Attempt to update the head pointer so that it points to the new dummy node.
     marked_ptr expected(h.get());
+    // (11) - this release-CAS synchronizes-with the acquire-load (1, 8)
     if (head.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed))
       break;
 

@@ -194,9 +194,13 @@ namespace xenium { namespace reclamation {
       void set_era(era_t era)
       {
         assert(era != 0);
-        // TODO - release needed because the HE entry is "reused" (old value is replaced)
-        // (3) - this relaxed store can be part of a release sequence headed by (5)
+        // (3) - this release-store synchronizes-with the acquire-fence (9)
         value.store(marked_ptr(reinterpret_cast<void**>(era << 1)), std::memory_order_release);
+        // This release is required because when acquire/acquire_if_equal is called on a
+        // guard_ptr with with an active HE entry, set_era is called without an intermediate
+        // call to set_link, i.e., the protected era is updated. This ensures the required
+        // happens-before relation between releasing a guard_ptr to a node and reclamation
+        // of that node.
 
         // (4) - this seq_cst-fence enforces a total order with the seq_cst-fence (8)
         std::atomic_thread_fence(std::memory_order_seq_cst);
@@ -497,7 +501,7 @@ namespace xenium { namespace reclamation {
             entry.gather_protected_eras(protected_eras);
         });
 
-      // (9) - this acquire-fence synchronizes-with the release-store (5)
+      // (9) - this acquire-fence synchronizes-with the release-store (3, 5)
       std::atomic_thread_fence(std::memory_order_acquire);
 
       std::sort(protected_eras.begin(), protected_eras.end());
