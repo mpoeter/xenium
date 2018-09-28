@@ -129,14 +129,15 @@ bool michael_scott_queue<T, Reclaimer, Backoff>::try_dequeue(T& result)
       continue;
     }
 
-    // Save the data of the head's successor. It will become the new dummy node.
-    result = next->value;
-
     // Attempt to update the head pointer so that it points to the new dummy node.
     marked_ptr expected(h.get());
     // (11) - this release-CAS synchronizes-with the acquire-load (1, 8)
     if (head.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed))
+    {
+      // return the data of head's successor; it is the new dummy node.
+      result = std::move(next->value);
       break;
+    }
 
     backoff();
   }
