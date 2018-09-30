@@ -287,6 +287,9 @@ bool harris_list_based_set<Key, Reclaimer, Backoff>::erase(const Key& key)
     backoff();
   }
 
+  assert(info.next.mark() == 0);
+  assert(info.cur.mark() == 0);
+
   // Try to splice out node
   marked_ptr expected = info.cur;
   // (10) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6)
@@ -308,7 +311,7 @@ auto harris_list_based_set<Key, Reclaimer, Backoff>::erase(iterator pos) -> iter
 {
   Backoff backoff;
   auto next = pos.info.cur->next.load(std::memory_order_relaxed);
-  for (;;)
+  while (next.mark() == 0)
   {
     // (11) - this acquire-CAS synchronizes-with the release-CAS (7, 8, 10, 12)
     //        and is part of a release sequence headed by those operations
@@ -321,14 +324,15 @@ auto harris_list_based_set<Key, Reclaimer, Backoff>::erase(iterator pos) -> iter
     backoff();
   }
 
-  guard_ptr next_guard(next);
+  guard_ptr next_guard(next.get());
+  assert(pos.info.cur.mark() == 0);
 
   // Try to splice out node
   marked_ptr expected = pos.info.cur;
   // (12) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6)
   //        and the acquire-CAS (9, 11)
   //        it is the head of a potential release sequence containing (9, 11)
-  if (pos.info.prev->compare_exchange_weak(expected, next,
+  if (pos.info.prev->compare_exchange_weak(expected, next_guard,
                                       std::memory_order_release,
                                       std::memory_order_relaxed)) {
     pos.info.cur.reclaim();

@@ -354,7 +354,7 @@ bool michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::erase(con
   auto bucket = std::hash<Key>{}(key) % Buckets;
   Backoff backoff;
   find_info info{&buckets[bucket]};
-  // Find node in hash_map with matching key and mark it for erasure .
+  // Find node in hash_map with matching key and mark it for erasure.
   do
   {
     if (!find(key, bucket, info, backoff))
@@ -364,11 +364,14 @@ bool michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::erase(con
                                                  marked_ptr(info.next.get(), 1),
                                                  std::memory_order_relaxed));
 
+  assert(info.next.mark() == 0);
+  assert(info.cur.mark() == 0);
+
   // Try to splice out node
   marked_ptr expected = info.cur;
   // (6) - this release-CAS synchronizes with the acquire-load (1, 2)
   //       it is the head of a potential release sequence containing (5)
-  if (info.prev->compare_exchange_weak(expected, info.next,
+  if (info.prev->compare_exchange_weak(expected, info.next.get(),
                                        std::memory_order_release,
                                        std::memory_order_relaxed))
     info.cur.reclaim();
@@ -385,7 +388,7 @@ auto michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::erase(ite
 {
   Backoff backoff;
   auto next = pos.info.cur->next.load(std::memory_order_relaxed);
-  for (;;)
+  while (next.mark() == 0)
   {
     // (5) - this CAS operation is part of a release sequence headed by (3, 4, 6)
     if (pos.info.cur->next.compare_exchange_weak(next,
@@ -396,13 +399,14 @@ auto michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::erase(ite
     backoff();
   }
 
-  guard_ptr next_guard(next);
+  guard_ptr next_guard(next.get());
+  assert(pos.info.cur.mark() == 0);
 
   // Try to splice out node
   marked_ptr expected = pos.info.cur;
   // (6) - this release-CAS synchronizes with the acquire-load (1, 2)
   //       it is the head of a potential release sequence containing (5)
-  if (pos.info.prev->compare_exchange_weak(expected, next,
+  if (pos.info.prev->compare_exchange_weak(expected, next_guard,
                                            std::memory_order_release,
                                            std::memory_order_relaxed)) {
     pos.info.cur.reclaim();
