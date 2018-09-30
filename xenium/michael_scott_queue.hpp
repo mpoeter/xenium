@@ -1,9 +1,8 @@
 #ifndef XENIUM_MICHAEL_SCOTT_QUEUE_HPP
 #define XENIUM_MICHAEL_SCOTT_QUEUE_HPP
 
-#include "reclamation/acquire_guard.hpp"
-
-#include "backoff.hpp"
+#include <xenium/acquire_guard.hpp>
+#include <xenium/backoff.hpp>
 
 namespace xenium {
 

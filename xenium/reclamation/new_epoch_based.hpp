@@ -1,13 +1,13 @@
 #ifndef XENIUM_NEW_EPOCH_BASED_HPP
 #define XENIUM_NEW_EPOCH_BASED_HPP
 
-#include "detail/concurrent_ptr.hpp"
-#include "detail/guard_ptr.hpp"
-#include "detail/deletable_object.hpp"
-#include "detail/thread_block_list.hpp"
-#include "detail/allocation_tracker.hpp"
+#include <xenium/reclamation/detail/concurrent_ptr.hpp>
+#include <xenium/reclamation/detail/guard_ptr.hpp>
+#include <xenium/reclamation/detail/deletable_object.hpp>
+#include <xenium/reclamation/detail/thread_block_list.hpp>
+#include <xenium/reclamation/detail/allocation_tracker.hpp>
 
-#include "acquire_guard.hpp"
+#include <xenium/acquire_guard.hpp>
 
 namespace xenium { namespace reclamation {
 
@@ -103,7 +103,7 @@ namespace xenium { namespace reclamation {
 }}
 
 #define NEW_EPOCH_BASED_IMPL
-#include "new_epoch_based_impl.hpp"
+#include <xenium/reclamation/impl/new_epoch_based.hpp>
 #undef NEW_EPOCH_BASED_IMPL
 
 #endif

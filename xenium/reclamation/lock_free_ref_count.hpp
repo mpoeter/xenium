@@ -1,11 +1,11 @@
 #ifndef XENIUM_LOCK_FREE_REF_COUNT_HPP
 #define XENIUM_LOCK_FREE_REF_COUNT_HPP
 
-#include "detail/concurrent_ptr.hpp"
-#include "detail/guard_ptr.hpp"
-#include "detail/allocation_tracker.hpp"
+#include <xenium/reclamation/detail/concurrent_ptr.hpp>
+#include <xenium/reclamation/detail/guard_ptr.hpp>
+#include <xenium/reclamation/detail/allocation_tracker.hpp>
 
-#include "acquire_guard.hpp"
+#include <xenium/acquire_guard.hpp>
 
 #include <memory>
 
@@ -133,7 +133,7 @@ namespace xenium { namespace reclamation {
 }}
 
 #define LOCK_FREE_REF_COUNT_IMPL
-#include "lock_free_ref_count_impl.hpp"
+#include <xenium/reclamation/impl/lock_free_ref_count.hpp>
 #undef LOCK_FREE_REF_COUNT_IMPL
 
 #endif

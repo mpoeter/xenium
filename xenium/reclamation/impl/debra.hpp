@@ -2,8 +2,8 @@
 #error "This is an impl file and must not be included directly!"
 #endif
 
-#include "detail/orphan.hpp"
-#include "detail/port.hpp"
+#include <xenium/reclamation/detail/orphan.hpp>
+#include <xenium/reclamation/detail/port.hpp>
 
 #include <algorithm>
 

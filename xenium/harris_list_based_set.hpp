@@ -1,8 +1,8 @@
 #ifndef XENIUM_HARRIS_LIST_BASED_SET_HPP
 #define XENIUM_HARRIS_LIST_BASED_SET_HPP
 
-#include "reclamation/acquire_guard.hpp"
-#include "backoff.hpp"
+#include <xenium/acquire_guard.hpp>
+#include <xenium/backoff.hpp>
 
 namespace xenium {
 

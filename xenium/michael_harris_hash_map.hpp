@@ -1,8 +1,8 @@
 #ifndef XENIUM_MICHAEL_HARRIS_HASH_MAP_HPP
 #define XENIUM_MICHAEL_HARRIS_HASH_MAP_HPP
 
-#include "reclamation/acquire_guard.hpp"
-#include "backoff.hpp"
+#include <xenium/acquire_guard.hpp>
+#include <xenium/backoff.hpp>
 
 #include <atomic>
 #include <functional>

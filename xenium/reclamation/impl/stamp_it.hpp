@@ -2,10 +2,10 @@
 #error "This is an impl file and must not be included directly!"
 #endif
 
-#include "xenium/aligned_object.hpp"
-#include "detail/perf_counter.hpp"
-#include "detail/port.hpp"
-#include "detail/thread_block_list.hpp"
+#include <xenium/aligned_object.hpp>
+#include <xenium/reclamation/detail/perf_counter.hpp>
+#include <xenium/reclamation/detail/port.hpp>
+#include <xenium/reclamation/detail/thread_block_list.hpp>
 
 #include <algorithm>
 

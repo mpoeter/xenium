@@ -1,7 +1,7 @@
 #ifndef XENIUM_DETAIL_ORPHAN_HPP
 #define XENIUM_DETAIL_ORPHAN_HPP
 
-#include "deletable_object.hpp"
+#include <xenium/reclamation/detail/deletable_object.hpp>
 #include <array>
 
 namespace xenium { namespace reclamation { namespace detail

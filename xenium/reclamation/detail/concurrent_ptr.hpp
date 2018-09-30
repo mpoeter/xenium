@@ -1,7 +1,7 @@
 #ifndef XENIUM_DETAL_CONCURRENT_PTR_HPP
 #define XENIUM_DETAL_CONCURRENT_PTR_HPP
 
-#include "marked_ptr.hpp"
+#include <xenium/reclamation/detail/marked_ptr.hpp>
 
 #include <atomic>
 

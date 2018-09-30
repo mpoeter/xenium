@@ -1,17 +1,29 @@
-#ifndef EPOCH_BASED_IMPL
+#ifndef NEW_EPOCH_BASED_IMPL
 #error "This is an impl file and must not be included directly!"
 #endif
 
-#include "detail/orphan.hpp"
-#include "detail/port.hpp"
+#include <xenium/reclamation/detail/orphan.hpp>
+#include <xenium/reclamation/detail/port.hpp>
 
 #include <algorithm>
 
 namespace xenium { namespace reclamation {
 
   template <std::size_t UpdateThreshold>
+  new_epoch_based<UpdateThreshold>::region_guard::region_guard() noexcept
+  {
+      local_thread_data().enter_region();
+  }
+
+  template <std::size_t UpdateThreshold>
+  new_epoch_based<UpdateThreshold>::region_guard::~region_guard() //noexcept ??
+  {
+      local_thread_data().leave_region();
+  }
+
+  template <std::size_t UpdateThreshold>
   template <class T, class MarkedPtr>
-  epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::guard_ptr(const MarkedPtr& p) noexcept :
+  new_epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::guard_ptr(const MarkedPtr& p) noexcept :
     base(p)
   {
     if (this->ptr)
@@ -20,13 +32,13 @@ namespace xenium { namespace reclamation {
 
   template <std::size_t UpdateThreshold>
   template <class T, class MarkedPtr>
-  epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::guard_ptr(const guard_ptr& p) noexcept :
+  new_epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::guard_ptr(const guard_ptr& p) noexcept :
     guard_ptr(MarkedPtr(p))
   {}
 
   template <std::size_t UpdateThreshold>
   template <class T, class MarkedPtr>
-  epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::guard_ptr(guard_ptr&& p) noexcept :
+  new_epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::guard_ptr(guard_ptr&& p) noexcept :
     base(p.ptr)
   {
     p.ptr.reset();
@@ -34,7 +46,7 @@ namespace xenium { namespace reclamation {
 
   template <std::size_t UpdateThreshold>
   template <class T, class MarkedPtr>
-  auto epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::operator=(const guard_ptr& p) noexcept
+  auto new_epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::operator=(const guard_ptr& p) noexcept
     -> guard_ptr&
   {
     if (&p == this)
@@ -50,7 +62,7 @@ namespace xenium { namespace reclamation {
 
   template <std::size_t UpdateThreshold>
   template <class T, class MarkedPtr>
-  auto epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::operator=(guard_ptr&& p) noexcept
+  auto new_epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::operator=(guard_ptr&& p) noexcept
     -> guard_ptr&
   {
     if (&p == this)
@@ -65,8 +77,8 @@ namespace xenium { namespace reclamation {
 
   template <std::size_t UpdateThreshold>
   template <class T, class MarkedPtr>
-  void epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::acquire(concurrent_ptr<T>& p,
-    std::memory_order order) noexcept
+  void new_epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::acquire(
+    concurrent_ptr<T>& p, std::memory_order order) noexcept
   {
     if (p.load(std::memory_order_relaxed) == nullptr)
     {
@@ -84,10 +96,8 @@ namespace xenium { namespace reclamation {
 
   template <std::size_t UpdateThreshold>
   template <class T, class MarkedPtr>
-  bool epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::acquire_if_equal(
-    concurrent_ptr<T>& p,
-    const MarkedPtr& expected,
-    std::memory_order order) noexcept
+  bool new_epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::acquire_if_equal(
+    concurrent_ptr<T>& p, const MarkedPtr& expected, std::memory_order order) noexcept
   {
     auto actual = p.load(std::memory_order_relaxed);
     if (actual == nullptr || actual != expected)
@@ -111,7 +121,7 @@ namespace xenium { namespace reclamation {
 
   template <std::size_t UpdateThreshold>
   template <class T, class MarkedPtr>
-  void epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::reset() noexcept
+  void new_epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::reset() noexcept
   {
     if (this->ptr)
       local_thread_data().leave_critical();
@@ -120,7 +130,7 @@ namespace xenium { namespace reclamation {
 
   template <std::size_t UpdateThreshold>
   template <class T, class MarkedPtr>
-  void epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::reclaim(Deleter d) noexcept
+  void new_epoch_based<UpdateThreshold>::guard_ptr<T, MarkedPtr>::reclaim(Deleter d) noexcept
   {
     this->ptr->set_deleter(std::move(d));
     local_thread_data().add_retired_node(this->ptr.get());
@@ -128,7 +138,7 @@ namespace xenium { namespace reclamation {
   }
 
   template <std::size_t UpdateThreshold>
-  struct epoch_based<UpdateThreshold>::thread_control_block :
+  struct new_epoch_based<UpdateThreshold>::thread_control_block :
     detail::thread_block_list<thread_control_block>::entry
   {
     thread_control_block() :
@@ -141,7 +151,7 @@ namespace xenium { namespace reclamation {
   };
 
   template <std::size_t UpdateThreshold>
-  struct epoch_based<UpdateThreshold>::thread_data
+  struct new_epoch_based<UpdateThreshold>::thread_data
   {
     ~thread_data()
     {
@@ -162,17 +172,39 @@ namespace xenium { namespace reclamation {
       global_thread_block_list.release_entry(control_block);
     }
 
+    void enter_region()
+    {
+      if (++region_entries == 1)
+      {
+        ensure_has_control_block();
+        assert(!control_block->is_in_critical_region.load(std::memory_order_relaxed));
+        control_block->is_in_critical_region.store(true, std::memory_order_relaxed);
+        // (3) - this seq_cst-fence enforces a total order with itself
+        std::atomic_thread_fence(std::memory_order_seq_cst);
+      }
+    }
+
+    void leave_region()
+    {
+      if (--region_entries == 0)
+      {
+        assert(control_block->is_in_critical_region.load(std::memory_order_relaxed));
+        // (4) - this release-store synchronizes-with the acquire-fence (7)
+        control_block->is_in_critical_region.store(false, std::memory_order_release);
+      }
+    }
+
     void enter_critical()
     {
-      if (++enter_count == 1)
+      enter_region();
+      if (++nested_critical_entries == 1)
         do_enter_critical();
     }
 
     void leave_critical()
     {
-      assert(enter_count > 0);
-      if (--enter_count == 0)
-        do_leave_critical();
+      --nested_critical_entries;
+      leave_region();
     }
 
     void add_retired_node(detail::deletable_object* p)
@@ -189,21 +221,17 @@ namespace xenium { namespace reclamation {
 
     void do_enter_critical()
     {
-      ensure_has_control_block();
+      assert(control_block->is_in_critical_region.load(std::memory_order_relaxed));
 
-      control_block->is_in_critical_region.store(true, std::memory_order_relaxed);
-      // (3) - this seq_cst-fence enforces a total order with itself
-      std::atomic_thread_fence(std::memory_order_seq_cst);
-
-      // (4) - this acquire-load synchronizes-with the release-CAS (7)
+      // (5) - this acquire-load synchronizes-with the release-CAS (8)
       auto epoch = global_epoch.load(std::memory_order_acquire);
       if (control_block->local_epoch.load(std::memory_order_relaxed) != epoch) // New epoch?
       {
-        entries_since_update = 0;
+        critical_entries_since_update = 0;
       }
-      else if (entries_since_update++ == UpdateThreshold)
+      else if (critical_entries_since_update++ == UpdateThreshold)
       {
-        entries_since_update = 0;
+        critical_entries_since_update = 0;
         const auto new_epoch = (epoch + 1) % number_epochs;
         if (!try_update_epoch(epoch, new_epoch))
           return;
@@ -216,14 +244,9 @@ namespace xenium { namespace reclamation {
       // we either just updated the global_epoch or we are observing a new epoch from some other thread
       // either way - we can reclaim all the objects from the old 'incarnation' of this epoch
 
-      control_block->local_epoch.store(epoch, std::memory_order_relaxed);
+      // (6) - this release-store synchronizes-wit the acquire-fence (7)
+      control_block->local_epoch.store(epoch, std::memory_order_release);
       detail::delete_objects(retire_lists[epoch]);
-    }
-
-    void do_leave_critical()
-    {
-      // (5) - this release-store synchronizes-with the acquire-fence (6)
-      control_block->is_in_critical_region.store(false, std::memory_order_release);
     }
 
     void add_retired_node(detail::deletable_object* p, size_t epoch)
@@ -239,10 +262,10 @@ namespace xenium { namespace reclamation {
       auto prevents_update = [old_epoch](const thread_control_block& data)
       {
         // TSan does not support explicit fences, so we cannot rely on the acquire-fence (6)
-        // but have to perform an acquire-load here to avoid false positives.
+        // but have to perform acquire-loads here to avoid false positives.
         constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
         return data.is_in_critical_region.load(memory_order) &&
-               data.local_epoch.load(std::memory_order_relaxed) == old_epoch;
+               data.local_epoch.load(memory_order) == old_epoch;
       };
 
       // If any thread hasn't advanced to the current epoch, abort the attempt.
@@ -253,10 +276,10 @@ namespace xenium { namespace reclamation {
 
       if (global_epoch.load(std::memory_order_relaxed) == curr_epoch)
       {
-        // (6) - this acquire-fence synchronizes-with the release-store (5)
+        // (7) - this acquire-fence synchronizes-with the release-stores (4, 6)
         std::atomic_thread_fence(std::memory_order_acquire);
 
-        // (7) - this release-CAS synchronizes-with the acquire-load (4)
+        // (8) - this release-CAS synchronizes-with the acquire-load (5)
         bool success = global_epoch.compare_exchange_strong(curr_epoch, new_epoch,
                                                             std::memory_order_release,
                                                             std::memory_order_relaxed);
@@ -280,24 +303,25 @@ namespace xenium { namespace reclamation {
       }
     }
 
-    unsigned enter_count = 0;
-    unsigned entries_since_update = 0;
+    unsigned critical_entries_since_update = 0;
+    unsigned nested_critical_entries = 0;
+    unsigned region_entries = 0;
     thread_control_block* control_block = nullptr;
     std::array<detail::deletable_object*, number_epochs> retire_lists = {};
 
-    friend class epoch_based;
-    ALLOCATION_COUNTER(epoch_based);
+    friend class new_epoch_based;
+    ALLOCATION_COUNTER(new_epoch_based);
   };
 
   template <std::size_t UpdateThreshold>
-  std::atomic<unsigned> epoch_based<UpdateThreshold>::global_epoch;
+  std::atomic<unsigned> new_epoch_based<UpdateThreshold>::global_epoch;
 
   template <std::size_t UpdateThreshold>
-  detail::thread_block_list<typename epoch_based<UpdateThreshold>::thread_control_block>
-    epoch_based<UpdateThreshold>::global_thread_block_list;
+  detail::thread_block_list<typename new_epoch_based<UpdateThreshold>::thread_control_block>
+    new_epoch_based<UpdateThreshold>::global_thread_block_list;
 
   template <std::size_t UpdateThreshold>
-  inline typename epoch_based<UpdateThreshold>::thread_data& epoch_based<UpdateThreshold>::local_thread_data()
+  inline typename new_epoch_based<UpdateThreshold>::thread_data& new_epoch_based<UpdateThreshold>::local_thread_data()
   {
     static thread_local thread_data local_thread_data;
     return local_thread_data;
@@ -305,14 +329,14 @@ namespace xenium { namespace reclamation {
 
 #ifdef TRACK_ALLOCATIONS
   template <std::size_t UpdateThreshold>
-  detail::allocation_tracker epoch_based<UpdateThreshold>::allocation_tracker;
+  detail::allocation_tracker new_epoch_based<UpdateThreshold>::allocation_tracker;
 
   template <std::size_t UpdateThreshold>
-  inline void epoch_based<UpdateThreshold>::count_allocation()
+  inline void new_epoch_based<UpdateThreshold>::count_allocation()
   { local_thread_data().allocation_counter.count_allocation(); }
 
   template <std::size_t UpdateThreshold>
-  inline void epoch_based<UpdateThreshold>::count_reclamation()
+  inline void new_epoch_based<UpdateThreshold>::count_reclamation()
   { local_thread_data().allocation_counter.count_reclamation(); }
 #endif
-  }}
+}}
