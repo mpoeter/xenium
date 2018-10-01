@@ -1,7 +1,8 @@
 project(xenium)
 cmake_minimum_required(VERSION 3.0)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 enable_testing()
 
@@ -24,11 +25,11 @@ if(CMAKE_THREAD_LIBS_INIT)
 endif()
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
-    add_compile_definitions(DEBUG)
+	add_definitions(-DDEBUG)
 elseif(CMAKE_BUILD_TYPE MATCHES RelWithDebug)
-    add_compile_definitions(NDEBUG)
+	add_definitions(-DNDEBUG)
 elseif(CMAKE_BUILD_TYPE MATCHES Release)
-    add_compile_definitions(NDEBUG)
+	add_definitions(-DNDEBUG)
 endif()
 
 add_test(AllTests gtest)
