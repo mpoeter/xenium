@@ -262,8 +262,9 @@ auto michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::find(cons
   auto bucket = std::hash<Key>{}(key) % Buckets;
   find_info info{&buckets[bucket]};
   Backoff backoff;
-  find(key, bucket, info, backoff);
-  return iterator(this, bucket, std::move(info));
+  if (find(key, bucket, info, backoff))
+    return iterator(this, bucket, std::move(info));
+  return end();
 }
 
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>

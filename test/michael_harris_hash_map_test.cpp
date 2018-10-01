@@ -88,11 +88,6 @@ TYPED_TEST(MichaelHarrisHashMap, containts_returns_false_for_non_existing_elemen
   EXPECT_FALSE(this->map.contains(43));
 }
 
-TYPED_TEST(MichaelHarrisHashMap, find_returns_end_iterator_for_non_existing_element)
-{
-  EXPECT_EQ(this->map.end(), this->map.find(43));
-}
-
 TYPED_TEST(MichaelHarrisHashMap, contains_returns_true_for_existing_element)
 {
   this->map.emplace(42, 43);
@@ -106,6 +101,15 @@ TYPED_TEST(MichaelHarrisHashMap, find_returns_iterator_to_existing_element)
   ASSERT_NE(this->map.end(), it);
   EXPECT_EQ(42, it->first);
   EXPECT_EQ(43, it->second);
+}
+
+TYPED_TEST(MichaelHarrisHashMap, find_returns_end_iterator_for_non_existing_element)
+{
+  for (int i = 0; i < 200; ++i) {
+    if (i != 42)
+      this->map.emplace(i, i);
+  }
+  EXPECT_EQ(this->map.end(), this->map.find(42));
 }
 
 TYPED_TEST(MichaelHarrisHashMap, erase_nonexisting_element_returns_false)
@@ -208,7 +212,7 @@ TYPED_TEST(MichaelHarrisHashMap, parallel_usage)
       for (int j = 0; j < MaxIterations; ++j)
       {
         typename Reclaimer::region_guard critical_region{};
-        EXPECT_EQ(this->map.end(), this->map.find(i));
+		    EXPECT_EQ(this->map.end(), this->map.find(i));
         EXPECT_TRUE(this->map.emplace(i, i));
         auto it = this->map.find(i);
         EXPECT_NE(this->map.end(), it);
@@ -216,10 +220,12 @@ TYPED_TEST(MichaelHarrisHashMap, parallel_usage)
         EXPECT_EQ(i, it->second);
         it.reset();
         EXPECT_TRUE(this->map.erase(i));
+        EXPECT_FALSE(this->map.contains(i));
         auto result = this->map.get_or_insert(i, [i](){ return i; });
         EXPECT_TRUE(result.second);
         it = this->map.erase(std::move(result.first));
         it.reset();
+        EXPECT_FALSE(this->map.contains(i));
 
         for (auto& v : this->map)
           ;
