@@ -12,6 +12,7 @@ was on the reclamation schemes. However, the plan is to add several more data st
 the near future.
 
 * Michael Scott queue
+* [Ramalhete queue](// http://concurrencyfreaks.blogspot.com/2016/11/faaarrayqueue-mpmc-lock-free-queue-part.html)
 * Harris list based set
 * Michael Harris hash-map
 
