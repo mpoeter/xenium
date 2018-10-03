@@ -164,12 +164,19 @@ TYPED_TEST(HarrisListBasedSet, parallel_usage)
       for (int j = 0; j < MaxIterations; ++j)
       {
         typename Reclaimer::region_guard critical_region{};
-        EXPECT_FALSE(list.contains(i));
+        EXPECT_EQ(list.end(), list.find(i));
         EXPECT_TRUE(list.emplace(i));
-        EXPECT_TRUE(list.contains(i));
+        auto it = list.find(i);
+        ASSERT_NE(list.end(), it);
+        EXPECT_EQ(i, *it);
+        it.reset();
         EXPECT_TRUE(list.erase(i));
+        auto result = list.emplace_or_get(i);
+        ASSERT_NE(list.end(), result.first);
+        EXPECT_TRUE(result.second);
+        list.erase(std::move(result.first));
 
-        for(auto& v : list)
+        for (auto& v : list)
           EXPECT_TRUE(v >= 0 && v < 8);
       }
     }));
@@ -195,10 +202,17 @@ TYPED_TEST(HarrisListBasedSet, parallel_usage_with_same_values)
           typename Reclaimer::region_guard critical_region{};
           list.contains(i);
           list.emplace(i);
-          list.contains(i);
+          auto it = list.find(i);
+          it.reset();
           list.erase(i);
+          auto result = list.emplace_or_get(i);
+          if (result.second) {
+            it = list.erase(std::move(result.first));
+            it.reset();
+          }
+          result.first.reset();
 
-          for(auto& v : list)
+          for (auto& v : list)
             EXPECT_TRUE(v >= 0 && v < 10);
         }
     }));

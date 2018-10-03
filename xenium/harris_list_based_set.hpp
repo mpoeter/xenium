@@ -108,6 +108,10 @@ public:
   reference operator*() const noexcept { return info.cur->key; }
   pointer operator->() const noexcept { return &info.cur->key; }
 
+  void reset() {
+    info.cur.reset();
+    info.save.reset();
+  }
 private:
   friend harris_list_based_set;
 
