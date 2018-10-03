@@ -32,10 +32,10 @@ using Reclaimers = ::testing::Types<
   xenium::reclamation::lock_free_ref_count<>,
   xenium::reclamation::hazard_pointer<xenium::reclamation::static_hazard_pointer_policy<3, 2, 1>>,
   xenium::reclamation::hazard_eras<xenium::reclamation::static_hazard_eras_policy<3, 2, 1>>,
-  xenium::reclamation::epoch_based<10>,
-  xenium::reclamation::new_epoch_based<10>,
+  xenium::reclamation::epoch_based<1>,
+  xenium::reclamation::new_epoch_based<1>,
   xenium::reclamation::quiescent_state_based,
-  xenium::reclamation::debra<20>,
+  xenium::reclamation::debra<1>,
   xenium::reclamation::stamp_it
 >;
 TYPED_TEST_CASE(Sanitize, Reclaimers);
