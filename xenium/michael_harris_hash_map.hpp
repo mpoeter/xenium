@@ -9,6 +9,27 @@
 
 namespace xenium {
 
+/**
+ * @brief A generic lock-free hash-map.
+ *
+ * This hash-map consists of a fixed number of buckets were each bucket is essentially
+ * a `harris_list_based_set` instance. The number of buckets is fixed, so the hash-map
+ * does not support dynamic resizing.
+ * 
+ * This hash-map is less efficient than many other available concurrent hash-maps, but it is
+ * lock-free and fully generic, i.e., it supports arbitrary types for `Key` and `Value`.
+ * 
+ * This data structure is based on the solution proposed by [Michael]
+ * (http://www.liblfds.org/downloads/white%20papers/%5BHash%5D%20-%20%5BMichael%5D%20-%20High%20Performance%20Dynamic%20Lock-Free%20Hash%20Tables%20and%20List-Based%20Sets.pdf)
+ * which builds upon the original proposal by [Harris]
+ * (https://www.cl.cam.ac.uk/research/srg/netos/papers/2001-caslists.pdf). 
+ *
+ * @tparam Key
+ * @tparam Value
+ * @tparam Reclaimer the reclamation scheme to use for internally created nodes.
+ * @tparam Buckets the number of buckets.
+ * @tparam Backoff the backoff stragtey to be used; defaults to `no_backoff`.
+ */
 template <class Key, class Value, class Reclaimer, size_t Buckets, class Backoff = no_backoff>
 class michael_harris_hash_map
 {
@@ -20,22 +41,121 @@ public:
   michael_harris_hash_map() = default;
   ~michael_harris_hash_map();
 
+  /**
+   * @brief Inserts a new element into the container if the container doesn't already contain an
+   * element with an equivalent key. The element is constructed in-place with the given `args`.
+   *
+   * The element is always constructed. If there already is an element with the key in the container,
+   * the newly constructed element will be destroyed immediately.
+   *
+   * No iterators or references are invalidated.
+   * 
+   * Progress guarantees: lock-free
+   * 
+   * @param args arguments to forward to the constructor of the element
+   * @return `true` if an element was inserted, otherwise `false`
+   */
   template <class... Args>
   bool emplace(Args&&... args);
 
+  /**
+   * @brief Inserts a new element into the container if the container doesn't already contain an
+   * element with an equivalent key. The element is constructed in-place with the given `args`.
+   *
+   * The element is always constructed. If there already is an element with the key in the container,
+   * the newly constructed element will be destroyed immediately.
+   *
+   * No iterators or references are invalidated.
+   * 
+   * Progress guarantees: lock-free
+   * 
+   * @param args arguments to forward to the constructor of the element
+   * @return a pair consisting of an iterator to the inserted element, or the already-existing element
+   * if no insertion happened, and a bool denoting whether the insertion took place;
+   * `true` if an element was inserted, otherwise `false`
+   */
   template <class... Args>
   std::pair<iterator, bool> emplace_or_get(Args&&... args);
 
+  /**
+   * @brief Inserts a new element into the container if the container doesn't already contain an
+   * element with an equivalent key. The value for the newly constructed element is created by
+   * calling `value_factory`.
+   *
+   * The element may be constructed even if there already is an element with the key in the container,
+   * in which case the newly constructed element will be destroyed immediately.
+   *
+   * No iterators or references are invalidated.
+   * Progress guarantees: lock-free
+   *
+   * @tparam Func
+   * @param key the key of element to be inserted.
+   * @param value_factory a functor that is used to create the `Value` instance when constructing
+   * the new element to be inserted.
+   * @return a pair consisting of an iterator to the inserted element, or the already-existing element
+   * if no insertion happened, and a bool denoting whether the insertion took place;
+   * `true` if an element was inserted, otherwise `false`
+   */
   template <typename Func>
   std::pair<iterator, bool> get_or_insert(Key key, Func value_factory);
 
+  /**
+   * @brief Removes the element with the key equivalent to key (if one exists).
+   *
+   * No iterators or references are invalidated.
+   * 
+   * Progress guarantees: lock-free
+   * 
+   * @param key key of the element to remove
+   * @return `true` if an element was removed, otherwise `false`
+   */
   bool erase(const Key& key);
+
+  /**
+   * @brief Removes the specified element from the container.
+   *
+   * No iterators or references are invalidated.
+   * 
+   * Progress guarantees: lock-free
+   * 
+   * @param pos the iterator identifying the element to remove
+   * @return iterator following the last removed element
+   */
   iterator erase(iterator pos);
 
+  /**
+   * @brief Finds an element with key equivalent to key.
+   * 
+   * Progress guarantees: lock-free
+   * 
+   * @param key key of the element to search for
+   * @return iterator to an element with key equivalent to key if such element is found,
+   * otherwise past-the-end iterator
+   */
   iterator find(const Key& key);
+
+  /**
+   * @brief Checks if there is an element with key equivalent to key in the container.
+   *
+   * Progress guarantees: lock-free
+   * 
+   * @param key key of the element to search for
+   * @return `true` if there is such an element, otherwise `false`
+   */
   bool contains(const Key& key);
 
+  /**
+   * @brief Returns an iterator to the first element of the container. 
+   * @return iterator to the first element 
+   */
   iterator begin();
+
+  /**
+   * @brief Returns an iterator to the element following the last element of the container.
+   * 
+   * This element acts as a placeholder; attempting to access it results in undefined behavior. 
+   * @return iterator to the element following the last element.
+   */
   iterator end();
 
 private:
@@ -68,6 +188,19 @@ private:
   concurrent_ptr buckets[Buckets];
 };
 
+/**
+ * @brief A ForwardIterator to safely iterate the hash-map.
+ * 
+ * Iterators are not invalidated by concurrent insert/erase operations. However, conflicting erase
+ * operations can have a negative impact on the performance when advancing the iterator, because it
+ * may be necessary to rescan the bucket's list to find the next element.
+ * 
+ * *Note:* This iterator class does *not* provide multi-pass guarantee as `a == b` does not imply `++a == ++b`.
+ * 
+ * *Note:* Each iterator internally holds two `guard_ptr` instances. This has to be considered when using
+ * a reclamation scheme that requires per-instance resources like `hazard_pointer` or `hazard_eras`.
+ * It is therefore highly recommended to use prefix increments wherever possible.
+ */
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
 class michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::iterator {
 public:

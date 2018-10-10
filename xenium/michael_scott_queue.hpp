@@ -5,14 +5,38 @@
 #include <xenium/backoff.hpp>
 
 namespace xenium {
-
+/**
+ * @brief A generic lock-free multi-producer/multi-consumer FIFO queue.
+ * 
+ * This is an implementation of the lock-free MPMC queue proposed by [Michael and Scott]
+ * (http://www.cs.rochester.edu/~scott/papers/1996_PODC_queues.pdf)
+ * It is fully generic and can handle any type `T` that is copyable or movable.
+ * 
+ * @tparam T type of the stored elements.
+ * @tparam Reclaimer the reclamation scheme to use for internally created nodes.
+ * @tparam Backoff the backoff stragtey to be used; defaults to `no_backoff`.
+ */
 template <class T, class Reclaimer, class Backoff = no_backoff>
 class michael_scott_queue {
 public:
   michael_scott_queue();
   ~michael_scott_queue();
 
+  /**
+   * Enqueues the given value to the queue.
+   * This operation always allocates a new node.
+   * Progress guarantees: lock-free (always performs a memory allocation)
+   * @param value
+   */
   void enqueue(T value);
+
+  /**
+   * Tries to deqeueue an object from the queue. If the operation is
+   * successful, the object will be moved to `result`. 
+   * Progress guarantees: lock-free
+   * @param result
+   * @return `true` if the operation was successful, otherwise `false`
+   */
   bool try_dequeue(T& result);
 
 private:

@@ -10,20 +10,45 @@
 
 namespace xenium {
 
-// This is an implementation of the FAAArrayQueue by Ramalhete and Correia described here:
-// http://concurrencyfreaks.blogspot.com/2016/11/faaarrayqueue-mpmc-lock-free-queue-part.html
-
-template <class T, class Reclaimer, class Backoff = no_backoff, unsigned BufferSize = 1024>
+/**
+ * @brief A fast lock-free multi-producer/multi-consumer FIFO queue.
+ * 
+ * This is an implementation of the `FAAArrayQueue` by Ramalhete and Correia.
+ * A description of the algorithm can be found here:
+ * http://concurrencyfreaks.blogspot.com/2016/11/faaarrayqueue-mpmc-lock-free-queue-part.html
+ * 
+ * It is faster and more efficient than the `michael_scott_queue`, but less generic as it can
+ * only handle pointers to instances of `T`.
+ *
+ * @tparam T
+ * @tparam Reclaimer the reclamation scheme to use for internally created nodes.
+ * @tparam SlotsPerNode the number of slots per node; defaults to 1024.
+ * @tparam Backoff the backoff stragtey to be used; defaults to `no_backoff`.
+ */
+template <class T, class Reclaimer, unsigned SlotsPerNode = 1024, class Backoff = no_backoff>
 class ramalhete_queue {
 public:
-  static_assert(BufferSize > 0, "BufferSize must be greater than zero");
+  static_assert(SlotsPerNode > 0, "SlotsPerNode must be greater than zero");
 
   using value_type = T*;
 
   ramalhete_queue();
   ~ramalhete_queue();
 
+  /**
+   * Enqueues the given value to the queue.
+   * This operation might have to allocate a new node.
+   * Progress guarantees: lock-free (may perform a memory allocation)
+   * @param value
+   */
   void enqueue(value_type value);
+
+  /**
+   * Tries to dequeue an object from the queue.
+   * Progress guarantees: lock-free
+   * @param result
+   * @return `true` if the operation was successful, otherwise `false`
+   */
   bool try_dequeue(value_type& result);
 
 private:
@@ -37,7 +62,7 @@ private:
 
   struct node : Reclaimer::template enable_concurrent_ptr<node> {
     std::atomic<unsigned>     dequeue_idx;
-    std::atomic<marked_value> items[BufferSize];
+    std::atomic<marked_value> items[SlotsPerNode];
     std::atomic<unsigned>     enqueue_idx;
     concurrent_ptr next;
 
@@ -48,7 +73,7 @@ private:
       next{nullptr}
     {
       items[0].store(item, std::memory_order_relaxed);
-      for (unsigned i = 1; i < BufferSize; i++)
+      for (unsigned i = 1; i < SlotsPerNode; i++)
         items[i].store(nullptr, std::memory_order_relaxed);
     }
   };
@@ -57,8 +82,8 @@ private:
   alignas(64) concurrent_ptr tail;
 };
 
-template <class T, class Reclaimer, class Backoff, unsigned BufferSize>
-ramalhete_queue<T, Reclaimer, Backoff, BufferSize>::ramalhete_queue()
+template <class T, class Reclaimer, unsigned SlotsPerNode, class Backoff>
+ramalhete_queue<T, Reclaimer, SlotsPerNode, Backoff>::ramalhete_queue()
 {
   auto n = new node(nullptr);
   n->enqueue_idx.store(0, std::memory_order_relaxed);
@@ -66,8 +91,8 @@ ramalhete_queue<T, Reclaimer, Backoff, BufferSize>::ramalhete_queue()
   tail.store(n, std::memory_order_relaxed);
 }
 
-template <class T, class Reclaimer, class Backoff, unsigned BufferSize>
-ramalhete_queue<T, Reclaimer, Backoff, BufferSize>::~ramalhete_queue()
+template <class T, class Reclaimer, unsigned SlotsPerNode, class Backoff>
+ramalhete_queue<T, Reclaimer, SlotsPerNode, Backoff>::~ramalhete_queue()
 {
   // (1) - this acquire-load synchronizes-with the release-CAS (11)
   auto n = head.load(std::memory_order_acquire);
@@ -80,8 +105,8 @@ ramalhete_queue<T, Reclaimer, Backoff, BufferSize>::~ramalhete_queue()
   }
 }
 
-template <class T, class Reclaimer, class Backoff, unsigned BufferSize>
-void ramalhete_queue<T, Reclaimer, Backoff, BufferSize>::enqueue(value_type value)
+template <class T, class Reclaimer, unsigned SlotsPerNode, class Backoff>
+void ramalhete_queue<T, Reclaimer, SlotsPerNode, Backoff>::enqueue(value_type value)
 {
   if (value == nullptr)
     throw std::invalid_argument("value can not be nullptr");
@@ -94,7 +119,7 @@ void ramalhete_queue<T, Reclaimer, Backoff, BufferSize>::enqueue(value_type valu
     t.acquire(tail, std::memory_order_acquire);
 
     const int idx = t->enqueue_idx.fetch_add(1, std::memory_order_relaxed);
-    if (idx > BufferSize - 1)
+    if (idx > SlotsPerNode - 1)
     {
       // This node is full
       if (t != tail.load(std::memory_order_relaxed))
@@ -136,8 +161,8 @@ void ramalhete_queue<T, Reclaimer, Backoff, BufferSize>::enqueue(value_type valu
   }
 }
 
-template <class T, class Reclaimer, class Backoff, unsigned BufferSize>
-bool ramalhete_queue<T, Reclaimer, Backoff, BufferSize>::try_dequeue(value_type& result)
+template <class T, class Reclaimer, unsigned SlotsPerNode, class Backoff>
+bool ramalhete_queue<T, Reclaimer, SlotsPerNode, Backoff>::try_dequeue(value_type& result)
 {
   Backoff backoff;
 
@@ -151,7 +176,7 @@ bool ramalhete_queue<T, Reclaimer, Backoff, BufferSize>::try_dequeue(value_type&
       break;
 
     const int idx = h->dequeue_idx.fetch_add(1, std::memory_order_relaxed);
-    if (idx > BufferSize - 1)
+    if (idx > SlotsPerNode - 1)
     {
       // This node has been drained, check if there is another one
       // (10) - this acquire-load synchronizes-with the release-CAS (4)
