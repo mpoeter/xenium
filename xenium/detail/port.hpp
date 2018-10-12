@@ -1,9 +1,10 @@
-#pragma once
+#ifndef XENIUM_DETAIL_PORT_HPP
+#define XENIUM_DETAIL_PORT_HPP
 
 #include <stdlib.h>
 #include <boost/predef.h>
 
-#if not defined(__SANITIZE_THREAD__) && defined(__has_feature)
+#if !defined(__SANITIZE_THREAD__) && defined(__has_feature)
   #if __has_feature(thread_sanitizer)
     #define __SANITIZE_THREAD__
   #endif
@@ -21,4 +22,6 @@
   #define SELECT_ANY __attribute__((weak))
 #else
   #error "Unsupported compiler"
+#endif
+
 #endif

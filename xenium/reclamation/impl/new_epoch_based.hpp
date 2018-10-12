@@ -3,7 +3,7 @@
 #endif
 
 #include <xenium/reclamation/detail/orphan.hpp>
-#include <xenium/reclamation/detail/port.hpp>
+#include <xenium/detail/port.hpp>
 
 #include <algorithm>
 
@@ -16,7 +16,7 @@ namespace xenium { namespace reclamation {
   }
 
   template <std::size_t UpdateThreshold>
-  new_epoch_based<UpdateThreshold>::region_guard::~region_guard() //noexcept ??
+  new_epoch_based<UpdateThreshold>::region_guard::~region_guard() noexcept
   {
       local_thread_data().leave_region();
   }

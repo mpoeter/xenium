@@ -5,6 +5,13 @@
 
 namespace xenium {
 
+/**
+ * @brief Helper function to acquire a `guard_ptr` without having to define the `guard_ptr`
+ * instance beforehand.
+ * @param p the `concurrent_ptr` from which we want to acquire a safe reference.
+ * @param order the `memory_order` that shall be used in the `guard_ptr::acquire` operation.
+ * @return a `guard_ptr` to the node that `p` references.
+ */
 template <typename ConcurrentPtr>
 auto acquire_guard(ConcurrentPtr& p, std::memory_order order = std::memory_order_seq_cst)
 {

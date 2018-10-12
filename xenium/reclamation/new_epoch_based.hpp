@@ -24,7 +24,7 @@ namespace xenium { namespace reclamation {
     struct region_guard
     {
       region_guard() noexcept;
-      ~region_guard();
+      ~region_guard() noexcept;
 
       region_guard(const region_guard&) = delete;
       region_guard(region_guard&&) = delete;

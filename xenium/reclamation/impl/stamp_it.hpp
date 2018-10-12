@@ -4,7 +4,7 @@
 
 #include <xenium/aligned_object.hpp>
 #include <xenium/reclamation/detail/perf_counter.hpp>
-#include <xenium/reclamation/detail/port.hpp>
+#include <xenium/detail/port.hpp>
 #include <xenium/reclamation/detail/thread_block_list.hpp>
 
 #include <algorithm>

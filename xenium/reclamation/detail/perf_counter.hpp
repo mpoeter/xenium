@@ -1,4 +1,5 @@
-#pragma once
+#ifndef XENIUM_RECLAMATION_DETAIL_PERF_COUNTER_HPP
+#define XENIUM_RECLAMATION_DETAIL_PERF_COUNTER_HPP
 
 #include <cstdint>
 
@@ -27,3 +28,5 @@ namespace xenium { namespace reclamation { namespace detail {
   #define INC_PERF_CNT(counter)
 #endif
 }}}
+
+#endif
