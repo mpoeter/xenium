@@ -1,5 +1,5 @@
-#ifndef XENIUM_MICHAEL_HARRIS_HASH_MAP_HPP
-#define XENIUM_MICHAEL_HARRIS_HASH_MAP_HPP
+#ifndef XENIUM_HARRIS_MICHAEL_HASH_MAP_HPP
+#define XENIUM_HARRIS_MICHAEL_HASH_MAP_HPP
 
 #include <xenium/acquire_guard.hpp>
 #include <xenium/backoff.hpp>
@@ -13,8 +13,8 @@ namespace xenium {
  * @brief A generic lock-free hash-map.
  *
  * This hash-map consists of a fixed number of buckets were each bucket is essentially
- * a `harris_list_based_set` instance. The number of buckets is fixed, so the hash-map
- * does not support dynamic resizing.
+ * a `harris_michael_list_based_set` instance. The number of buckets is fixed, so the
+ * hash-map does not support dynamic resizing.
  * 
  * This hash-map is less efficient than many other available concurrent hash-maps, but it is
  * lock-free and fully generic, i.e., it supports arbitrary types for `Key` and `Value`.
@@ -31,15 +31,15 @@ namespace xenium {
  * @tparam Backoff the backoff stragtey to be used; defaults to `no_backoff`.
  */
 template <class Key, class Value, class Reclaimer, size_t Buckets, class Backoff = no_backoff>
-class michael_harris_hash_map
+class harris_michael_hash_map
 {
 public:
   using value_type = std::pair<const Key, Value>;
 
   class iterator;
 
-  michael_harris_hash_map() = default;
-  ~michael_harris_hash_map();
+  harris_michael_hash_map() = default;
+  ~harris_michael_hash_map();
 
   /**
    * @brief Inserts a new element into the container if the container doesn't already contain an
@@ -172,7 +172,7 @@ private:
     concurrent_ptr next;
     template< class... Args >
     node(Args&&... args) : value(std::forward<Args>(args)...), next() {}
-    friend class michael_harris_hash_map;
+    friend class harris_michael_hash_map;
   };
 
   struct find_info
@@ -202,10 +202,10 @@ private:
  * It is therefore highly recommended to use prefix increments wherever possible.
  */
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
-class michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::iterator {
+class harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::iterator {
 public:
   using iterator_category = std::forward_iterator_tag;
-  using value_type = michael_harris_hash_map::value_type;
+  using value_type = harris_michael_hash_map::value_type;
   using difference_type = std::ptrdiff_t;
   using pointer = value_type*;
   using reference = value_type&;
@@ -264,14 +264,14 @@ public:
   }
 
 private:
-  friend michael_harris_hash_map;
+  friend harris_michael_hash_map;
 
-  explicit iterator(michael_harris_hash_map* map) :
+  explicit iterator(harris_michael_hash_map* map) :
     map(map),
     bucket(Buckets)
   {}
 
-  explicit iterator(michael_harris_hash_map* map, std::size_t bucket) :
+  explicit iterator(harris_michael_hash_map* map, std::size_t bucket) :
     map(map),
     bucket(bucket)
   {
@@ -283,7 +283,7 @@ private:
       move_to_next_bucket();
   }
 
-  explicit iterator(michael_harris_hash_map* map, std::size_t bucket, find_info&& info) :
+  explicit iterator(harris_michael_hash_map* map, std::size_t bucket, find_info&& info) :
     map(map),
     bucket(bucket),
     info(std::move(info))
@@ -299,13 +299,13 @@ private:
     }
   }
 
-  michael_harris_hash_map* map;
+  harris_michael_hash_map* map;
   std::size_t bucket;
   find_info info;
 };
 
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
-michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::~michael_harris_hash_map()
+harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::~harris_michael_hash_map()
 {
   for (size_t i = 0; i < Buckets; ++i)
   {
@@ -322,7 +322,7 @@ michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::~michael_harri
 }
 
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
-bool michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::find(const Key& key, std::size_t bucket,
+bool harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::find(const Key& key, std::size_t bucket,
   find_info& info, Backoff& backoff)
 {
   auto& head = buckets[bucket];
@@ -387,7 +387,7 @@ retry:
 }
 
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
-bool michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::contains(const Key& key)
+bool harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::contains(const Key& key)
 {
   auto bucket = std::hash<Key>{}(key) % Buckets;
   find_info info{&buckets[bucket]};
@@ -396,7 +396,7 @@ bool michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::contains(
 }
 
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
-auto michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::find(const Key& key) -> iterator
+auto harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::find(const Key& key) -> iterator
 {
   auto bucket = std::hash<Key>{}(key) % Buckets;
   find_info info{&buckets[bucket]};
@@ -408,7 +408,7 @@ auto michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::find(cons
 
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
 template <class... Args>
-bool michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::emplace(Args&&... args)
+bool harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::emplace(Args&&... args)
 {
   auto result = emplace_or_get(std::forward<Args>(args)...);
   return result.second;
@@ -416,7 +416,7 @@ bool michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::emplace(A
 
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
 template <typename Func>
-auto michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::get_or_insert(Key key, Func value_factory)
+auto harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::get_or_insert(Key key, Func value_factory)
   -> std::pair<iterator, bool>
 {
   node* n = nullptr;
@@ -457,7 +457,7 @@ auto michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::get_or_in
 
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
 template <class... Args>
-auto michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::emplace_or_get(Args&&... args)
+auto harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::emplace_or_get(Args&&... args)
   -> std::pair<iterator, bool>
 {
   node* n = new node(std::forward<Args>(args)...);
@@ -491,7 +491,7 @@ auto michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::emplace_o
 }
 
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
-bool michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::erase(const Key& key)
+bool harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::erase(const Key& key)
 {
   auto bucket = std::hash<Key>{}(key) % Buckets;
   Backoff backoff;
@@ -529,7 +529,7 @@ bool michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::erase(con
 }
 
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
-auto michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::erase(iterator pos) -> iterator
+auto harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::erase(iterator pos) -> iterator
 {
   Backoff backoff;
   auto next = pos.info.cur->next.load(std::memory_order_relaxed);
@@ -574,13 +574,13 @@ auto michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::erase(ite
 }
 
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
-auto michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::begin() -> iterator
+auto harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::begin() -> iterator
 {
   return iterator(this, 0);
 }
 
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
-auto michael_harris_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::end() -> iterator
+auto harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::end() -> iterator
 {
   return iterator(this);
 }

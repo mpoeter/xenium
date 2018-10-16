@@ -15,12 +15,12 @@ the near future.
 [Michael and Scott](http://www.cs.rochester.edu/~scott/papers/1996_PODC_queues.pdf).
 * `ramalhete_queue` - a lock-free multi-producer/multi-consumer queue proposed by
 [Ramalhete](http://concurrencyfreaks.blogspot.com/2016/11/faaarrayqueue-mpmc-lock-free-queue-part.html).
-* `harris_list_based_set` - a lock-free container that contains a sorted set of unique objects.
+* `harris_michael_list_based_set` - a lock-free container that contains a sorted set of unique objects.
 This data structure is based on the solution proposed by
 [Michael](http://www.liblfds.org/downloads/white%20papers/%5BHash%5D%20-%20%5BMichael%5D%20-%20High%20Performance%20Dynamic%20Lock-Free%20Hash%20Tables%20and%20List-Based%20Sets.pdf)
 which builds upon the original proposal by
 [Harris](https://www.cl.cam.ac.uk/research/srg/netos/papers/2001-caslists.pdf).
-* `michael_harris_hash_map` - a lock-free hash-map based on the solution proposed by
+* `harris_michael_hash_map` - a lock-free hash-map based on the solution proposed by
 [Michael](http://www.liblfds.org/downloads/white%20papers/%5BHash%5D%20-%20%5BMichael%5D%20-%20High%20Performance%20Dynamic%20Lock-Free%20Hash%20Tables%20and%20List-Based%20Sets.pdf)
 which builds upon the original proposal by [Harris](https://www.cl.cam.ac.uk/research/srg/netos/papers/2001-caslists.pdf).
 

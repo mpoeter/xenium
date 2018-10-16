@@ -1,5 +1,5 @@
-#ifndef XENIUM_HARRIS_LIST_BASED_SET_HPP
-#define XENIUM_HARRIS_LIST_BASED_SET_HPP
+#ifndef XENIUM_HARRIS_MICHAEL_LIST_BASED_SET_HPP
+#define XENIUM_HARRIS_MICHAEL_LIST_BASED_SET_HPP
 
 #include <xenium/acquire_guard.hpp>
 #include <xenium/backoff.hpp>
@@ -23,13 +23,13 @@ namespace xenium {
  * @tparam Backoff the backoff stragtey to be used; defaults to `no_backoff`.
  */
 template <class Key, class Reclaimer, class Backoff = no_backoff>
-class harris_list_based_set
+class harris_michael_list_based_set
 {
 public:
   using value_type = Key;
 
-  harris_list_based_set() = default;
-  ~harris_list_based_set();
+  harris_michael_list_based_set() = default;
+  ~harris_michael_list_based_set();
 
   class iterator;
 
@@ -161,7 +161,7 @@ private:
  * It is therefore highly recommended to use prefix increments wherever possible.
  */
 template <class Key, class Reclaimer, class Backoff>
-class harris_list_based_set<Key, Reclaimer, Backoff>::iterator {
+class harris_michael_list_based_set<Key, Reclaimer, Backoff>::iterator {
 public:
   using iterator_category = std::forward_iterator_tag;
   using value_type = Key;
@@ -201,9 +201,9 @@ public:
     info.save.reset();
   }
 private:
-  friend harris_list_based_set;
+  friend harris_michael_list_based_set;
 
-  explicit iterator(harris_list_based_set& list, concurrent_ptr* start) : list(&list)
+  explicit iterator(harris_michael_list_based_set& list, concurrent_ptr* start) : list(&list)
   {
     info.prev = start;
     if (start) {
@@ -212,17 +212,17 @@ private:
     }
   }
 
-  explicit iterator(harris_list_based_set& list, find_info&& info) :
+  explicit iterator(harris_michael_list_based_set& list, find_info&& info) :
     list(&list),
     info(std::move(info))
   {}
 
-  harris_list_based_set* list;
+  harris_michael_list_based_set* list;
   find_info info;
 };
 
 template <class Key, class Reclaimer, class Backoff>
-struct harris_list_based_set<Key, Reclaimer, Backoff>::node : Reclaimer::template enable_concurrent_ptr<node, 1>
+struct harris_michael_list_based_set<Key, Reclaimer, Backoff>::node : Reclaimer::template enable_concurrent_ptr<node, 1>
 {
   const Key key;
   concurrent_ptr next;
@@ -231,7 +231,7 @@ struct harris_list_based_set<Key, Reclaimer, Backoff>::node : Reclaimer::templat
 };
 
 template <class Key, class Reclaimer, class Backoff>
-auto harris_list_based_set<Key, Reclaimer, Backoff>::iterator::operator++() -> iterator&
+auto harris_michael_list_based_set<Key, Reclaimer, Backoff>::iterator::operator++() -> iterator&
 {
   assert(info.cur.get() != nullptr);
   auto next = info.cur->next.load(std::memory_order_relaxed);
@@ -258,7 +258,7 @@ auto harris_list_based_set<Key, Reclaimer, Backoff>::iterator::operator++() -> i
 }
 
 template <class Key, class Reclaimer, class Backoff>
-auto harris_list_based_set<Key, Reclaimer, Backoff>::iterator::operator++(int) -> iterator
+auto harris_michael_list_based_set<Key, Reclaimer, Backoff>::iterator::operator++(int) -> iterator
 {
   iterator retval = *this;
   ++(*this);
@@ -266,7 +266,7 @@ auto harris_list_based_set<Key, Reclaimer, Backoff>::iterator::operator++(int) -
 }
 
 template <class Key, class Reclaimer, class Backoff>
-harris_list_based_set<Key, Reclaimer, Backoff>::~harris_list_based_set()
+harris_michael_list_based_set<Key, Reclaimer, Backoff>::~harris_michael_list_based_set()
 {
   // delete all remaining nodes
   // (3) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 12)
@@ -281,7 +281,7 @@ harris_list_based_set<Key, Reclaimer, Backoff>::~harris_list_based_set()
 }
 
 template <class Key, class Reclaimer, class Backoff>
-bool harris_list_based_set<Key, Reclaimer, Backoff>::find(const Key& key, find_info& info, Backoff& backoff)
+bool harris_michael_list_based_set<Key, Reclaimer, Backoff>::find(const Key& key, find_info& info, Backoff& backoff)
 {
   assert((info.save == nullptr && info.prev == &head) || &info.save->next == info.prev);
   concurrent_ptr* start = info.prev;
@@ -344,7 +344,7 @@ retry:
 }
 
 template <class Key, class Reclaimer, class Backoff>
-bool harris_list_based_set<Key, Reclaimer, Backoff>::contains(const Key& key)
+bool harris_michael_list_based_set<Key, Reclaimer, Backoff>::contains(const Key& key)
 {
   find_info info{&head};
   Backoff backoff;
@@ -352,7 +352,7 @@ bool harris_list_based_set<Key, Reclaimer, Backoff>::contains(const Key& key)
 }
 
 template <class Key, class Reclaimer, class Backoff>
-auto harris_list_based_set<Key, Reclaimer, Backoff>::find(const Key& key) -> iterator
+auto harris_michael_list_based_set<Key, Reclaimer, Backoff>::find(const Key& key) -> iterator
 {
   find_info info{&head};
   Backoff backoff;
@@ -363,7 +363,7 @@ auto harris_list_based_set<Key, Reclaimer, Backoff>::find(const Key& key) -> ite
 
 template <class Key, class Reclaimer, class Backoff>
 template <class... Args>
-bool harris_list_based_set<Key, Reclaimer, Backoff>::emplace(Args&&... args)
+bool harris_michael_list_based_set<Key, Reclaimer, Backoff>::emplace(Args&&... args)
 {
   auto result = emplace_or_get(std::forward<Args>(args)...);
   return result.second;
@@ -371,7 +371,7 @@ bool harris_list_based_set<Key, Reclaimer, Backoff>::emplace(Args&&... args)
 
 template <class Key, class Reclaimer, class Backoff>
 template <class... Args>
-auto harris_list_based_set<Key, Reclaimer, Backoff>::emplace_or_get(Args&&... args) -> std::pair<iterator, bool>
+auto harris_michael_list_based_set<Key, Reclaimer, Backoff>::emplace_or_get(Args&&... args) -> std::pair<iterator, bool>
 {
   node* n = new node(std::forward<Args>(args)...);
   find_info info{&head};
@@ -402,7 +402,7 @@ auto harris_list_based_set<Key, Reclaimer, Backoff>::emplace_or_get(Args&&... ar
 }
 
 template <class Key, class Reclaimer, class Backoff>
-bool harris_list_based_set<Key, Reclaimer, Backoff>::erase(const Key& key)
+bool harris_michael_list_based_set<Key, Reclaimer, Backoff>::erase(const Key& key)
 {
   Backoff backoff;
   find_info info{&head};
@@ -443,7 +443,7 @@ bool harris_list_based_set<Key, Reclaimer, Backoff>::erase(const Key& key)
 }
 
 template <class Key, class Reclaimer, class Backoff>
-auto harris_list_based_set<Key, Reclaimer, Backoff>::erase(iterator pos) -> iterator
+auto harris_michael_list_based_set<Key, Reclaimer, Backoff>::erase(iterator pos) -> iterator
 {
   Backoff backoff;
   auto next = pos.info.cur->next.load(std::memory_order_relaxed);
@@ -485,13 +485,13 @@ auto harris_list_based_set<Key, Reclaimer, Backoff>::erase(iterator pos) -> iter
 }
 
 template <class Key, class Reclaimer, class Backoff>
-auto harris_list_based_set<Key, Reclaimer, Backoff>::begin() -> iterator
+auto harris_michael_list_based_set<Key, Reclaimer, Backoff>::begin() -> iterator
 {
   return iterator(*this, &head);
 }
 
 template <class Key, class Reclaimer, class Backoff>
-auto harris_list_based_set<Key, Reclaimer, Backoff>::end() -> iterator
+auto harris_michael_list_based_set<Key, Reclaimer, Backoff>::end() -> iterator
 {
   return iterator(*this, nullptr);
 }

@@ -6,7 +6,7 @@
 #include <xenium/reclamation/quiescent_state_based.hpp>
 #include <xenium/reclamation/debra.hpp>
 #include <xenium/reclamation/stamp_it.hpp>
-#include <xenium/michael_harris_hash_map.hpp>
+#include <xenium/harris_michael_hash_map.hpp>
 
 #include <gtest/gtest.h>
 
@@ -16,9 +16,9 @@
 namespace {
 
 template <typename Reclaimer>
-struct MichaelHarrisHashMap : ::testing::Test
+struct HarrisMichaelHashMap : ::testing::Test
 {
-  using hash_map = xenium::michael_harris_hash_map<int, int, Reclaimer, 10>;
+  using hash_map = xenium::harris_michael_hash_map<int, int, Reclaimer, 10>;
   hash_map map;
 };
 
@@ -32,9 +32,9 @@ using Reclaimers = ::testing::Types<
     xenium::reclamation::debra<20>,
     xenium::reclamation::stamp_it
   >;
-TYPED_TEST_CASE(MichaelHarrisHashMap, Reclaimers);
+TYPED_TEST_CASE(HarrisMichaelHashMap, Reclaimers);
 
-TYPED_TEST(MichaelHarrisHashMap, emplace_or_get_returns_an_iterator_and_true_when_successful)
+TYPED_TEST(HarrisMichaelHashMap, emplace_or_get_returns_an_iterator_and_true_when_successful)
 {
   auto result = this->map.emplace_or_get(42, 43);
   EXPECT_TRUE(result.second);
@@ -43,7 +43,7 @@ TYPED_TEST(MichaelHarrisHashMap, emplace_or_get_returns_an_iterator_and_true_whe
   EXPECT_EQ(43, result.first->second);
 }
 
-TYPED_TEST(MichaelHarrisHashMap, emplace_or_get_for_an_existing_element_returns_an_iterator_to_that_element_and_false)
+TYPED_TEST(HarrisMichaelHashMap, emplace_or_get_for_an_existing_element_returns_an_iterator_to_that_element_and_false)
 {
   EXPECT_TRUE(this->map.emplace(42, 43));
 
@@ -54,7 +54,7 @@ TYPED_TEST(MichaelHarrisHashMap, emplace_or_get_for_an_existing_element_returns_
   EXPECT_EQ(43, result.first->second);
 }
 
-TYPED_TEST(MichaelHarrisHashMap, get_or_insert_calls_factory_and_returns_iteratur_to_newly_inserted_element)
+TYPED_TEST(HarrisMichaelHashMap, get_or_insert_calls_factory_and_returns_iteratur_to_newly_inserted_element)
 {
   bool called_factory = false;
   auto result = this->map.get_or_insert(42,
@@ -68,7 +68,7 @@ TYPED_TEST(MichaelHarrisHashMap, get_or_insert_calls_factory_and_returns_iteratu
   EXPECT_EQ(43, result.first->second);
 }
 
-TYPED_TEST(MichaelHarrisHashMap, get_or_insert_does_not_call_factory_and_returns_iterator_to_existing_element)
+TYPED_TEST(HarrisMichaelHashMap, get_or_insert_does_not_call_factory_and_returns_iterator_to_existing_element)
 {
   bool called_factory = false;
   this->map.emplace(42, 42);
@@ -83,18 +83,18 @@ TYPED_TEST(MichaelHarrisHashMap, get_or_insert_does_not_call_factory_and_returns
   EXPECT_EQ(42, result.first->second);
 }
 
-TYPED_TEST(MichaelHarrisHashMap, containts_returns_false_for_non_existing_element)
+TYPED_TEST(HarrisMichaelHashMap, containts_returns_false_for_non_existing_element)
 {
   EXPECT_FALSE(this->map.contains(43));
 }
 
-TYPED_TEST(MichaelHarrisHashMap, contains_returns_true_for_existing_element)
+TYPED_TEST(HarrisMichaelHashMap, contains_returns_true_for_existing_element)
 {
   this->map.emplace(42, 43);
   EXPECT_TRUE(this->map.contains(42));
 }
 
-TYPED_TEST(MichaelHarrisHashMap, find_returns_iterator_to_existing_element)
+TYPED_TEST(HarrisMichaelHashMap, find_returns_iterator_to_existing_element)
 {
   this->map.emplace(42, 43);
   auto it = this->map.find(42);
@@ -103,7 +103,7 @@ TYPED_TEST(MichaelHarrisHashMap, find_returns_iterator_to_existing_element)
   EXPECT_EQ(43, it->second);
 }
 
-TYPED_TEST(MichaelHarrisHashMap, find_returns_end_iterator_for_non_existing_element)
+TYPED_TEST(HarrisMichaelHashMap, find_returns_end_iterator_for_non_existing_element)
 {
   for (int i = 0; i < 200; ++i) {
     if (i != 42)
@@ -112,25 +112,25 @@ TYPED_TEST(MichaelHarrisHashMap, find_returns_end_iterator_for_non_existing_elem
   EXPECT_EQ(this->map.end(), this->map.find(42));
 }
 
-TYPED_TEST(MichaelHarrisHashMap, erase_nonexisting_element_returns_false)
+TYPED_TEST(HarrisMichaelHashMap, erase_nonexisting_element_returns_false)
 {
   EXPECT_FALSE(this->map.erase(42));
 }
 
-TYPED_TEST(MichaelHarrisHashMap, erase_existing_element_returns_true_and_removes_element)
+TYPED_TEST(HarrisMichaelHashMap, erase_existing_element_returns_true_and_removes_element)
 {
   this->map.emplace(42, 43);
   EXPECT_TRUE(this->map.erase(42));
 }
 
-TYPED_TEST(MichaelHarrisHashMap, erase_existing_element_twice_fails_the_seond_time)
+TYPED_TEST(HarrisMichaelHashMap, erase_existing_element_twice_fails_the_seond_time)
 {
   this->map.emplace(42, 43);
   EXPECT_TRUE(this->map.erase(42));
   EXPECT_FALSE(this->map.erase(42));
 }
 
-TYPED_TEST(MichaelHarrisHashMap, begin_returns_iterator_to_first_entry)
+TYPED_TEST(HarrisMichaelHashMap, begin_returns_iterator_to_first_entry)
 {
   this->map.emplace(42, 43);
   auto it = this->map.begin();
@@ -139,7 +139,7 @@ TYPED_TEST(MichaelHarrisHashMap, begin_returns_iterator_to_first_entry)
   EXPECT_EQ(43, it->second);
 }
 
-TYPED_TEST(MichaelHarrisHashMap, drain_densely_populated_map_using_erase)
+TYPED_TEST(HarrisMichaelHashMap, drain_densely_populated_map_using_erase)
 {
   for (int i = 0; i < 200; ++i)
     this->map.emplace(i, i);
@@ -151,7 +151,7 @@ TYPED_TEST(MichaelHarrisHashMap, drain_densely_populated_map_using_erase)
   EXPECT_EQ(this->map.end(), this->map.begin());
 }
 
-TYPED_TEST(MichaelHarrisHashMap, drain_sparsely_populated_map_using_erase)
+TYPED_TEST(HarrisMichaelHashMap, drain_sparsely_populated_map_using_erase)
 {
   for (int i = 0; i < 4; ++i)
     this->map.emplace(i * 7, i);
@@ -163,7 +163,7 @@ TYPED_TEST(MichaelHarrisHashMap, drain_sparsely_populated_map_using_erase)
   EXPECT_EQ(this->map.end(), this->map.begin());
 }
 
-TYPED_TEST(MichaelHarrisHashMap, iterator_covers_all_entries_in_densely_populated_map)
+TYPED_TEST(HarrisMichaelHashMap, iterator_covers_all_entries_in_densely_populated_map)
 {
   std::map<int, bool> values;
   for (int i = 0; i < 200; ++i) {
@@ -177,7 +177,7 @@ TYPED_TEST(MichaelHarrisHashMap, iterator_covers_all_entries_in_densely_populate
     EXPECT_TRUE(v.second) << v.first << " was not visited";
 }
 
-TYPED_TEST(MichaelHarrisHashMap, iterator_covers_all_entries_in_sparsely_populated_map)
+TYPED_TEST(HarrisMichaelHashMap, iterator_covers_all_entries_in_sparsely_populated_map)
 {
   std::map<int, bool> values;
   for (int i = 0; i < 4; ++i) {
@@ -200,7 +200,7 @@ namespace
 #endif
 }
 
-TYPED_TEST(MichaelHarrisHashMap, parallel_usage)
+TYPED_TEST(HarrisMichaelHashMap, parallel_usage)
 {
   using Reclaimer = TypeParam;
 
@@ -237,7 +237,7 @@ TYPED_TEST(MichaelHarrisHashMap, parallel_usage)
     thread.join();
 }
 
-TYPED_TEST(MichaelHarrisHashMap, parallel_usage_with_same_values)
+TYPED_TEST(HarrisMichaelHashMap, parallel_usage_with_same_values)
 {
   using Reclaimer = TypeParam;
 

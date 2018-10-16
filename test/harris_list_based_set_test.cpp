@@ -6,7 +6,7 @@
 #include <xenium/reclamation/quiescent_state_based.hpp>
 #include <xenium/reclamation/debra.hpp>
 #include <xenium/reclamation/stamp_it.hpp>
-#include <xenium/harris_list_based_set.hpp>
+#include <xenium/harris_michael_list_based_set.hpp>
 
 #include <gtest/gtest.h>
 
@@ -16,7 +16,7 @@
 namespace {
 
 template <typename Reclaimer>
-struct HarrisListBasedSet : testing::Test {};
+struct HarrisMichaelListBasedSet : testing::Test {};
 
 using Reclaimers = ::testing::Types<
     xenium::reclamation::lock_free_ref_count<>,
@@ -28,27 +28,27 @@ using Reclaimers = ::testing::Types<
     xenium::reclamation::debra<20>,
     xenium::reclamation::stamp_it
   >;
-TYPED_TEST_CASE(HarrisListBasedSet, Reclaimers);
+TYPED_TEST_CASE(HarrisMichaelListBasedSet, Reclaimers);
 
-TYPED_TEST(HarrisListBasedSet, emplace_same_element_twice_fails_second_time)
+TYPED_TEST(HarrisMichaelListBasedSet, emplace_same_element_twice_fails_second_time)
 {
-  xenium::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_michael_list_based_set<int, TypeParam> list;
   EXPECT_TRUE(list.emplace(42));
   EXPECT_FALSE(list.emplace(42));
 }
 
-TYPED_TEST(HarrisListBasedSet, emplace_or_get_inserts_new_element_and_returns_iterator_to_it)
+TYPED_TEST(HarrisMichaelListBasedSet, emplace_or_get_inserts_new_element_and_returns_iterator_to_it)
 {
-  xenium::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_michael_list_based_set<int, TypeParam> list;
   auto result = list.emplace_or_get(42);
   EXPECT_TRUE(result.second);
   EXPECT_EQ(list.begin(), result.first);
   EXPECT_EQ(42, *result.first);
 }
 
-TYPED_TEST(HarrisListBasedSet, emplace_or_get_does_not_insert_anything_and_returns_iterator_to_existing_element)
+TYPED_TEST(HarrisMichaelListBasedSet, emplace_or_get_does_not_insert_anything_and_returns_iterator_to_existing_element)
 {
-  xenium::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_michael_list_based_set<int, TypeParam> list;
   list.emplace(42);
   auto result = list.emplace_or_get(42);
   EXPECT_FALSE(result.second);
@@ -56,30 +56,30 @@ TYPED_TEST(HarrisListBasedSet, emplace_or_get_does_not_insert_anything_and_retur
   EXPECT_EQ(42, *result.first);
 }
 
-TYPED_TEST(HarrisListBasedSet, contains_returns_false_for_non_existing_element)
+TYPED_TEST(HarrisMichaelListBasedSet, contains_returns_false_for_non_existing_element)
 {
-  xenium::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_michael_list_based_set<int, TypeParam> list;
   list.emplace(42);
   EXPECT_FALSE(list.contains(43));
 }
 
-TYPED_TEST(HarrisListBasedSet, constains_returns_true_for_existing_element)
+TYPED_TEST(HarrisMichaelListBasedSet, constains_returns_true_for_existing_element)
 {
-  xenium::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_michael_list_based_set<int, TypeParam> list;
   list.emplace(42);
   EXPECT_TRUE(list.contains(42));
 }
 
-TYPED_TEST(HarrisListBasedSet, find_returns_end_iterator_for_non_existing_element)
+TYPED_TEST(HarrisMichaelListBasedSet, find_returns_end_iterator_for_non_existing_element)
 {
-  xenium::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_michael_list_based_set<int, TypeParam> list;
   list.emplace(43);
   EXPECT_EQ(list.end(), list.find(42));
 }
 
-TYPED_TEST(HarrisListBasedSet, find_returns_matching_iterator_for_existing_element)
+TYPED_TEST(HarrisMichaelListBasedSet, find_returns_matching_iterator_for_existing_element)
 {
-  xenium::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_michael_list_based_set<int, TypeParam> list;
   list.emplace(42);
   auto it = list.find(42);
   EXPECT_EQ(list.begin(), it);
@@ -87,30 +87,30 @@ TYPED_TEST(HarrisListBasedSet, find_returns_matching_iterator_for_existing_eleme
   EXPECT_EQ(list.end(), ++it);
 }
 
-TYPED_TEST(HarrisListBasedSet, erase_existing_element_succeeds)
+TYPED_TEST(HarrisMichaelListBasedSet, erase_existing_element_succeeds)
 {
-  xenium::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_michael_list_based_set<int, TypeParam> list;
   list.emplace(42);
   EXPECT_TRUE(list.erase(42));
 }
 
-TYPED_TEST(HarrisListBasedSet, erase_nonexisting_element_fails)
+TYPED_TEST(HarrisMichaelListBasedSet, erase_nonexisting_element_fails)
 {
-  xenium::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_michael_list_based_set<int, TypeParam> list;
   EXPECT_FALSE(list.erase(42));
 }
 
-TYPED_TEST(HarrisListBasedSet, erase_existing_element_twice_fails_the_seond_time)
+TYPED_TEST(HarrisMichaelListBasedSet, erase_existing_element_twice_fails_the_seond_time)
 {
-  xenium::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_michael_list_based_set<int, TypeParam> list;
   list.emplace(42);
   EXPECT_TRUE(list.erase(42));
   EXPECT_FALSE(list.erase(42));
 }
 
-TYPED_TEST(HarrisListBasedSet, erase_via_iterator_removes_entry_and_returns_iterator_to_successor)
+TYPED_TEST(HarrisMichaelListBasedSet, erase_via_iterator_removes_entry_and_returns_iterator_to_successor)
 {
-  xenium::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_michael_list_based_set<int, TypeParam> list;
   list.emplace(41);
   list.emplace(42);
   list.emplace(43);
@@ -125,9 +125,9 @@ TYPED_TEST(HarrisListBasedSet, erase_via_iterator_removes_entry_and_returns_iter
   EXPECT_FALSE(list.contains(42));
 }
 
-TYPED_TEST(HarrisListBasedSet, iterate_list)
+TYPED_TEST(HarrisMichaelListBasedSet, iterate_list)
 {
-  xenium::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_michael_list_based_set<int, TypeParam> list;
   list.emplace(41);
   list.emplace(42);
   list.emplace(43);
@@ -151,10 +151,10 @@ namespace
 #endif
 }
 
-TYPED_TEST(HarrisListBasedSet, parallel_usage)
+TYPED_TEST(HarrisMichaelListBasedSet, parallel_usage)
 {
   using Reclaimer = TypeParam;
-  xenium::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_michael_list_based_set<int, TypeParam> list;
 
   std::vector<std::thread> threads;
   for (int i = 0; i < 8; ++i)
@@ -186,10 +186,10 @@ TYPED_TEST(HarrisListBasedSet, parallel_usage)
     thread.join();
 }
 
-TYPED_TEST(HarrisListBasedSet, parallel_usage_with_same_values)
+TYPED_TEST(HarrisMichaelListBasedSet, parallel_usage_with_same_values)
 {
   using Reclaimer = TypeParam;
-  xenium::harris_list_based_set<int, TypeParam> list;
+  xenium::harris_michael_list_based_set<int, TypeParam> list;
 
   std::vector<std::thread> threads;
   for (int i = 0; i < 8; ++i)
