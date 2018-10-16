@@ -54,10 +54,29 @@ TYPED_TEST(HarrisMichaelHashMap, emplace_or_get_for_an_existing_element_returns_
   EXPECT_EQ(43, result.first->second);
 }
 
-TYPED_TEST(HarrisMichaelHashMap, get_or_insert_calls_factory_and_returns_iteratur_to_newly_inserted_element)
+TYPED_TEST(HarrisMichaelHashMap, get_or_emplace_returns_iteratur_to_newly_inserted_element)
+{
+  auto result = this->map.get_or_emplace(42, 43);
+  EXPECT_TRUE(result.second);
+  ASSERT_NE(this->map.end(), result.first);
+  EXPECT_EQ(42, result.first->first);
+  EXPECT_EQ(43, result.first->second);
+}
+
+TYPED_TEST(HarrisMichaelHashMap, get_or_emplace_returns_iteratur_to_existing_element)
+{
+  this->map.emplace(42, 42);
+  auto result = this->map.get_or_emplace(42, 43);
+  EXPECT_FALSE(result.second);
+  ASSERT_NE(this->map.end(), result.first);
+  EXPECT_EQ(42, result.first->first);
+  EXPECT_EQ(42, result.first->second);
+}
+
+TYPED_TEST(HarrisMichaelHashMap, get_or_emplace_lazy_calls_factory_and_returns_iteratur_to_newly_inserted_element)
 {
   bool called_factory = false;
-  auto result = this->map.get_or_insert(42,
+  auto result = this->map.get_or_emplace_lazy(42,
     [&](){
       called_factory = true;
       return 43;
@@ -68,15 +87,15 @@ TYPED_TEST(HarrisMichaelHashMap, get_or_insert_calls_factory_and_returns_iteratu
   EXPECT_EQ(43, result.first->second);
 }
 
-TYPED_TEST(HarrisMichaelHashMap, get_or_insert_does_not_call_factory_and_returns_iterator_to_existing_element)
+TYPED_TEST(HarrisMichaelHashMap, get_or_emplace_lazy_does_not_call_factory_and_returns_iterator_to_existing_element)
 {
   bool called_factory = false;
   this->map.emplace(42, 42);
-  auto result = this->map.get_or_insert(42,
-                                        [&](){
-                                          called_factory = true;
-                                          return 43;
-                                        });
+  auto result = this->map.get_or_emplace_lazy(42,
+                                              [&](){
+                                                called_factory = true;
+                                                return 43;
+                                              });
   EXPECT_FALSE(result.second);
   ASSERT_NE(this->map.end(), result.first);
   EXPECT_EQ(42, result.first->first);
@@ -128,6 +147,12 @@ TYPED_TEST(HarrisMichaelHashMap, erase_existing_element_twice_fails_the_seond_ti
   this->map.emplace(42, 43);
   EXPECT_TRUE(this->map.erase(42));
   EXPECT_FALSE(this->map.erase(42));
+}
+
+TYPED_TEST(HarrisMichaelHashMap, begin_returns_end_iterator_for_empty_map)
+{
+  auto it = this->map.begin();
+  ASSERT_EQ(this->map.end(), it);
 }
 
 TYPED_TEST(HarrisMichaelHashMap, begin_returns_iterator_to_first_entry)
@@ -221,7 +246,7 @@ TYPED_TEST(HarrisMichaelHashMap, parallel_usage)
         it.reset();
         EXPECT_TRUE(this->map.erase(i));
         EXPECT_FALSE(this->map.contains(i));
-        auto result = this->map.get_or_insert(i, [i](){ return i; });
+        auto result = this->map.get_or_emplace_lazy(i, [i](){ return i; });
         EXPECT_TRUE(result.second);
         it = this->map.erase(std::move(result.first));
         it.reset();
@@ -255,7 +280,7 @@ TYPED_TEST(HarrisMichaelHashMap, parallel_usage_with_same_values)
           auto it = this->map.find(i);
           it.reset();
           this->map.erase(i);
-          auto result = this->map.get_or_insert(i, [i](){ return i; });
+          auto result = this->map.get_or_emplace(i, i);
           if (result.second) {
             it = this->map.erase(std::move(result.first));
             it.reset();
