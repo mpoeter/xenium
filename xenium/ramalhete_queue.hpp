@@ -11,7 +11,7 @@
 namespace xenium {
 
 /**
- * @brief A fast lock-free multi-producer/multi-consumer FIFO queue.
+ * @brief A fast unbounded lock-free multi-producer/multi-consumer FIFO queue.
  * 
  * This is an implementation of the `FAAArrayQueue` by Ramalhete and Correia.
  * A description of the algorithm can be found here:

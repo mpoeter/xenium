@@ -11,9 +11,9 @@ At the moment the number of provided data structures is rather small since the f
 was on the reclamation schemes. However, the plan is to add several more data structures in
 the near future.
 
-* `michael_scott_queue` - a lock-free multi-producer/multi-consumer queue proposed by
+* `michael_scott_queue` - an unbounded lock-free multi-producer/multi-consumer queue proposed by
 [Michael and Scott](http://www.cs.rochester.edu/~scott/papers/1996_PODC_queues.pdf).
-* `ramalhete_queue` - a lock-free multi-producer/multi-consumer queue proposed by
+* `ramalhete_queue` - a fast unbounded lock-free multi-producer/multi-consumer queue proposed by
 [Ramalhete](http://concurrencyfreaks.blogspot.com/2016/11/faaarrayqueue-mpmc-lock-free-queue-part.html).
 * `harris_michael_list_based_set` - a lock-free container that contains a sorted set of unique objects.
 This data structure is based on the solution proposed by
