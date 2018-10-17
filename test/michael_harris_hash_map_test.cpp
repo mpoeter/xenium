@@ -216,6 +216,28 @@ TYPED_TEST(HarrisMichaelHashMap, iterator_covers_all_entries_in_sparsely_populat
     EXPECT_TRUE(v.second) << v.first << " was not visited";
 }
 
+TYPED_TEST(HarrisMichaelHashMap, operator_at_returns_accessor_to_existing_element)
+{
+  using Reclaimer = TypeParam;
+  using hash_map = xenium::harris_michael_hash_map<int, std::string, Reclaimer, 10>;
+  hash_map map;
+
+  const char* val = "foobar";
+  map.emplace(42, val);
+  auto accessor = map[42];
+  EXPECT_STREQ(val, accessor->c_str());
+}
+
+TYPED_TEST(HarrisMichaelHashMap, operator_at_returns_accessor_to_newly_inserted_element)
+{
+  using Reclaimer = TypeParam;
+  using hash_map = xenium::harris_michael_hash_map<int, std::string, Reclaimer, 10>;
+  hash_map map;
+
+  auto accessor = map[42];
+  EXPECT_EQ("", *accessor);
+}
+
 namespace
 {
 #ifdef DEBUG

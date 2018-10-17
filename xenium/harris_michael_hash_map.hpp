@@ -38,6 +38,8 @@ public:
 
   class iterator;
 
+  class accessor;
+
   harris_michael_hash_map() = default;
   ~harris_michael_hash_map();
 
@@ -163,6 +165,15 @@ public:
    * @return `true` if there is such an element, otherwise `false`
    */
   bool contains(const Key& key);
+
+  /**
+   * @brief
+   *
+   * The `accessor`
+   * @param key
+   * @return an accessor to the element's value
+   */
+  accessor operator[](const Key& key);
 
   /**
    * @brief Returns an iterator to the first element of the container. 
@@ -322,6 +333,27 @@ private:
   harris_michael_hash_map* map;
   std::size_t bucket;
   find_info info;
+};
+
+/**
+ * @brief An accessor to safely access the value of an element.
+ *
+ * It is used as result type of `operator[]` to provide a similar behaviour as the
+ * STL `map`/`unordered_map` classes. However, the accessor has to be dereferenced to
+ * access the underlying value (`operator*`).
+ *
+ * Note: an `accessor` instance internally holds a `guard_ptr` to the value's element.
+ */
+template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
+class harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::accessor {
+public:
+  Value* operator->() const noexcept { return &guard->value.second; }
+  Value& operator*() const noexcept { return guard->value.second; }
+  void reset() { guard.reset(); }
+private:
+  accessor(guard_ptr&& guard): guard(std::move(guard)) {}
+  guard_ptr guard;
+  friend harris_michael_hash_map;
 };
 
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
@@ -634,6 +666,13 @@ auto harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::erase(ite
     pos.move_to_next_bucket();
 
   return pos;
+}
+
+template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
+auto harris_michael_hash_map<Key, Value, Reclaimer, Buckets, Backoff>::operator[](const Key& key) -> accessor
+{
+  auto result = get_or_emplace_lazy(key, []() { return Value{}; });
+  return accessor(std::move(result.first.info.cur));
 }
 
 template <class Key, class Value,class Reclaimer, size_t Buckets, class Backoff>
