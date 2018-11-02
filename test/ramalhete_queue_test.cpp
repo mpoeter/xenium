@@ -35,7 +35,7 @@ TYPED_TEST_CASE(RamalheteQueue, Reclaimers);
 
 TYPED_TEST(RamalheteQueue, enqueue_try_deque_returns_enqueued_element)
 {
-  xenium::ramalhete_queue<int, TypeParam> queue;
+  xenium::ramalhete_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
   queue.enqueue(v1);
   int* elem;
   EXPECT_TRUE(queue.try_dequeue(elem));
@@ -44,7 +44,7 @@ TYPED_TEST(RamalheteQueue, enqueue_try_deque_returns_enqueued_element)
 
 TYPED_TEST(RamalheteQueue, enqueue_two_items_deque_them_in_FIFO_order)
 {
-  xenium::ramalhete_queue<int, TypeParam> queue;
+  xenium::ramalhete_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
   queue.enqueue(v1);
   queue.enqueue(v2);
   int* elem1;
@@ -58,7 +58,7 @@ TYPED_TEST(RamalheteQueue, enqueue_two_items_deque_them_in_FIFO_order)
 TYPED_TEST(RamalheteQueue, parallel_usage)
 {
   using Reclaimer = TypeParam;
-  xenium::ramalhete_queue<int, TypeParam> queue;
+  xenium::ramalhete_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
 
   std::vector<std::thread> threads;
   for (int i = 0; i < 4; ++i)

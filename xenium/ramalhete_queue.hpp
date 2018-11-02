@@ -4,11 +4,41 @@
 #include <xenium/acquire_guard.hpp>
 #include <xenium/backoff.hpp>
 #include <xenium/reclamation/detail/marked_ptr.hpp>
+#include <xenium/parameter.hpp>
+#include <xenium/policy.hpp>
 
 #include <atomic>
 #include <stdexcept>
 
+/**
+ * @file TODO
+ */
+
 namespace xenium {
+/**
+ * @brief TODO
+ *
+ * @tparam Reclaimer the reclamation scheme to use for internally created nodes.
+ * @tparam SlotsPerNode the number of slots per node; defaults to 1024.
+ * @tparam Backoff the backoff stragtey to be used; defaults to `no_backoff`.
+ */
+template <
+  class Reclaimer = parameter::nil,
+  unsigned SlotsPerNode = 1024,
+  class Backoff = no_backoff
+>
+struct ramalhete_queue_traits{
+  using reclaimer = Reclaimer;
+  static constexpr unsigned slots_per_node = SlotsPerNode;
+  using backoff = Backoff;
+
+  template <class... Policies>
+  using with = ramalhete_queue_traits<
+      parameter::type_param_t<policy::reclaimer, Reclaimer, Policies...>,
+      parameter::value_param_t<std::size_t, policy::slots_per_node, SlotsPerNode, Policies...>::value,
+      parameter::type_param_t<policy::backoff, Backoff, Policies...>
+    >;
+};
 
 /**
  * @brief A fast unbounded lock-free multi-producer/multi-consumer FIFO queue.
@@ -21,19 +51,21 @@ namespace xenium {
  * only handle pointers to instances of `T`.
  *
  * @tparam T
- * @tparam Reclaimer the reclamation scheme to use for internally created nodes.
- * @tparam SlotsPerNode the number of slots per node; defaults to 1024.
- * @tparam Backoff the backoff stragtey to be used; defaults to `no_backoff`.
+ * @tparam Traits
  */
-template <class T, class Reclaimer, unsigned SlotsPerNode = 1024, class Backoff = no_backoff>
-class ramalhete_queue {
+template <class T, class Traits = ramalhete_queue_traits<>>
+class ramalhete_queue_impl {
 public:
-  static_assert(SlotsPerNode > 0, "SlotsPerNode must be greater than zero");
-
   using value_type = T*;
+  using reclaimer = typename Traits::reclaimer;
+  using backoff = typename Traits::backoff;
+  static constexpr unsigned slots_per_node = Traits::slots_per_node;
 
-  ramalhete_queue();
-  ~ramalhete_queue();
+  static_assert(slots_per_node > 0, "slots_per_node must be greater than zero");
+  static_assert(parameter::is_set<reclaimer>::value, "reclaimer policy must be specified");
+
+  ramalhete_queue_impl();
+  ~ramalhete_queue_impl();
 
   /**
    * Enqueues the given value to the queue.
@@ -54,15 +86,16 @@ public:
 private:
   struct node;
 
-  using concurrent_ptr = typename Reclaimer::template concurrent_ptr<node, 0>;
+  using concurrent_ptr = typename reclaimer::template concurrent_ptr<node, 0>;
   using marked_ptr = typename concurrent_ptr::marked_ptr;
   using guard_ptr = typename concurrent_ptr::guard_ptr;
 
   using marked_value = reclamation::detail::marked_ptr<T, 1>;
 
-  struct node : Reclaimer::template enable_concurrent_ptr<node> {
+  struct node : reclaimer::template enable_concurrent_ptr<node> {
     std::atomic<unsigned>     dequeue_idx;
-    std::atomic<marked_value> items[SlotsPerNode];
+    // TODO - add optional padding between the slots
+    std::atomic<marked_value> items[slots_per_node];
     std::atomic<unsigned>     enqueue_idx;
     concurrent_ptr next;
 
@@ -73,7 +106,7 @@ private:
       next{nullptr}
     {
       items[0].store(item, std::memory_order_relaxed);
-      for (unsigned i = 1; i < SlotsPerNode; i++)
+      for (unsigned i = 1; i < slots_per_node; i++)
         items[i].store(nullptr, std::memory_order_relaxed);
     }
   };
@@ -82,8 +115,8 @@ private:
   alignas(64) concurrent_ptr tail;
 };
 
-template <class T, class Reclaimer, unsigned SlotsPerNode, class Backoff>
-ramalhete_queue<T, Reclaimer, SlotsPerNode, Backoff>::ramalhete_queue()
+template <class T, class Traits>
+ramalhete_queue_impl<T, Traits>::ramalhete_queue_impl()
 {
   auto n = new node(nullptr);
   n->enqueue_idx.store(0, std::memory_order_relaxed);
@@ -91,8 +124,8 @@ ramalhete_queue<T, Reclaimer, SlotsPerNode, Backoff>::ramalhete_queue()
   tail.store(n, std::memory_order_relaxed);
 }
 
-template <class T, class Reclaimer, unsigned SlotsPerNode, class Backoff>
-ramalhete_queue<T, Reclaimer, SlotsPerNode, Backoff>::~ramalhete_queue()
+template <class T, class Traits>
+ramalhete_queue_impl<T, Traits>::~ramalhete_queue_impl()
 {
   // (1) - this acquire-load synchronizes-with the release-CAS (11)
   auto n = head.load(std::memory_order_acquire);
@@ -105,13 +138,13 @@ ramalhete_queue<T, Reclaimer, SlotsPerNode, Backoff>::~ramalhete_queue()
   }
 }
 
-template <class T, class Reclaimer, unsigned SlotsPerNode, class Backoff>
-void ramalhete_queue<T, Reclaimer, SlotsPerNode, Backoff>::enqueue(value_type value)
+template <class T, class Traits>
+void ramalhete_queue_impl<T, Traits>::enqueue(value_type value)
 {
   if (value == nullptr)
     throw std::invalid_argument("value can not be nullptr");
 
-  Backoff backoff;
+  backoff backoff;
 
   guard_ptr t;
   for (;;) {
@@ -119,7 +152,7 @@ void ramalhete_queue<T, Reclaimer, SlotsPerNode, Backoff>::enqueue(value_type va
     t.acquire(tail, std::memory_order_acquire);
 
     const int idx = t->enqueue_idx.fetch_add(1, std::memory_order_relaxed);
-    if (idx > SlotsPerNode - 1)
+    if (idx > slots_per_node - 1)
     {
       // This node is full
       if (t != tail.load(std::memory_order_relaxed))
@@ -161,10 +194,10 @@ void ramalhete_queue<T, Reclaimer, SlotsPerNode, Backoff>::enqueue(value_type va
   }
 }
 
-template <class T, class Reclaimer, unsigned SlotsPerNode, class Backoff>
-bool ramalhete_queue<T, Reclaimer, SlotsPerNode, Backoff>::try_dequeue(value_type& result)
+template <class T, class Traits>
+bool ramalhete_queue_impl<T, Traits>::try_dequeue(value_type& result)
 {
-  Backoff backoff;
+  backoff backoff;
 
   guard_ptr h;
   for (;;) {
@@ -176,7 +209,7 @@ bool ramalhete_queue<T, Reclaimer, SlotsPerNode, Backoff>::try_dequeue(value_typ
       break;
 
     const int idx = h->dequeue_idx.fetch_add(1, std::memory_order_relaxed);
-    if (idx > SlotsPerNode - 1)
+    if (idx > slots_per_node - 1)
     {
       // This node has been drained, check if there is another one
       // (10) - this acquire-load synchronizes-with the release-CAS (4)
@@ -205,6 +238,11 @@ bool ramalhete_queue<T, Reclaimer, SlotsPerNode, Backoff>::try_dequeue(value_typ
   return false;
 }
 
+/**
+ * @brief TODO
+ */
+template <class T, class... Policies>
+using ramalhete_queue = ramalhete_queue_impl<T, ramalhete_queue_traits<>::with<Policies...>>;
 }
 
 #endif
