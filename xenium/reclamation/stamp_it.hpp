@@ -1,3 +1,8 @@
+//
+// Copyright (c) 2018 Manuel Pöter.
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+//
+
 #ifndef XENIUM_STAMP_IT_HPP
 #define XENIUM_STAMP_IT_HPP
 
@@ -8,7 +13,6 @@
 #include <xenium/reclamation/detail/allocation_tracker.hpp>
 
 #include <xenium/acquire_guard.hpp>
-
 
 namespace xenium { namespace reclamation {
 

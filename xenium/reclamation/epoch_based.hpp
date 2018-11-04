@@ -1,3 +1,8 @@
+//
+// Copyright (c) 2018 Manuel Pöter.
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+//
+
 #ifndef XENIUM_EPOCH_BASED_HPP
 #define XENIUM_EPOCH_BASED_HPP
 
