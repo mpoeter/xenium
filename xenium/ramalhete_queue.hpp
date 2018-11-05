@@ -15,13 +15,17 @@
 #include <atomic>
 #include <stdexcept>
 
-/**
- * @file TODO
- */
+/** @file */
 
+/**
+ *  @brief namespace xenium
+ */
 namespace xenium {
 /**
- * @brief TODO
+ * @brief Allows configuration of `ramalhete_queue_impl`.
+ *
+ * @note It is usually not necessary to use this class directly.
+ * Instead, use the `xenium::ramalhete_queue` alias for easy configuration.
  *
  * @tparam Reclaimer the reclamation scheme to use for internally created nodes.
  * @tparam SlotsPerNode the number of slots per node; defaults to 1024.
@@ -54,6 +58,8 @@ struct ramalhete_queue_traits{
  * 
  * It is faster and more efficient than the `michael_scott_queue`, but less generic as it can
  * only handle pointers to instances of `T`.
+ *
+ * @note Use the `xenium::ramalhete_queue` alias for easy configuration.
  *
  * @tparam T
  * @tparam Traits
@@ -244,7 +250,15 @@ bool ramalhete_queue_impl<T, Traits>::try_dequeue(value_type& result)
 }
 
 /**
- * @brief TODO
+ * @brief Alias for easy configuration of `ramalhete_queue_impl`.
+ *
+ * Supported policies:
+ *  * `xenium::policy::reclaimer`<br>
+ *    Defines the reclamation scheme to be used for internal nodes. (**required**)
+ *  * `xenium::policy::slots_per_node`<br>
+ *    Defines the number of slots for each internal node. (*optional*; defaults to 1024)
+ *  * `xenium::policy::backoff`<br>
+ *    Defines the backoff strategy. (*optional*; defaults to `xenium::no_backoff`)
  */
 template <class T, class... Policies>
 using ramalhete_queue = ramalhete_queue_impl<T, ramalhete_queue_traits<>::with<Policies...>>;

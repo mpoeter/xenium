@@ -14,7 +14,9 @@
 #endif
 
 namespace xenium {
-
+/**
+ * @brief Dummy backoff strategy that does nothing.
+ */
 struct no_backoff
 {
   void operator()() {}
