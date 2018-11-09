@@ -32,7 +32,7 @@ TYPED_TEST_CASE(MichaelScottQueue, Reclaimers);
 
 TYPED_TEST(MichaelScottQueue, enqueue_try_deque_returns_enqueued_element)
 {
-  xenium::michael_scott_queue<int, TypeParam> queue;
+  xenium::michael_scott_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
   queue.enqueue(42);
   int elem;
   EXPECT_TRUE(queue.try_dequeue(elem));
@@ -41,7 +41,7 @@ TYPED_TEST(MichaelScottQueue, enqueue_try_deque_returns_enqueued_element)
 
 TYPED_TEST(MichaelScottQueue, enqueue_two_items_deque_them_in_FIFO_order)
 {
-  xenium::michael_scott_queue<int, TypeParam> queue;
+  xenium::michael_scott_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
   queue.enqueue(42);
   queue.enqueue(43);
   int elem1, elem2;
@@ -53,7 +53,7 @@ TYPED_TEST(MichaelScottQueue, enqueue_two_items_deque_them_in_FIFO_order)
 
 TYPED_TEST(MichaelScottQueue, supports_move_only_types)
 {
-  xenium::michael_scott_queue<std::unique_ptr<int>, TypeParam> queue;
+  xenium::michael_scott_queue<std::unique_ptr<int>, xenium::policy::reclaimer<TypeParam>> queue;
   queue.enqueue(std::unique_ptr<int>(new int(42)));
 
   std::unique_ptr<int> elem;
@@ -65,7 +65,7 @@ TYPED_TEST(MichaelScottQueue, supports_move_only_types)
 TYPED_TEST(MichaelScottQueue, parallel_usage)
 {
   using Reclaimer = TypeParam;
-  xenium::michael_scott_queue<int, TypeParam> queue;
+  xenium::michael_scott_queue<int, xenium::policy::reclaimer<Reclaimer>> queue;
 
   std::vector<std::thread> threads;
   for (int i = 0; i < 4; ++i)

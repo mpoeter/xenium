@@ -17,37 +17,16 @@
 
 /** @file */
 
-/**
- *  @brief namespace xenium
- */
 namespace xenium {
-/**
- * @brief Allows configuration of `ramalhete_queue_impl`.
- *
- * @note It is usually not necessary to use this class directly.
- * Instead, use the `xenium::ramalhete_queue` alias for easy configuration.
- *
- * @tparam Reclaimer the reclamation scheme to use for internally created nodes.
- * @tparam SlotsPerNode the number of slots per node; defaults to 1024.
- * @tparam Backoff the backoff stragtey to be used; defaults to `no_backoff`.
- */
-template <
-  class Reclaimer = parameter::nil,
-  unsigned SlotsPerNode = 1024,
-  class Backoff = no_backoff
->
-struct ramalhete_queue_traits{
-  using reclaimer = Reclaimer;
-  static constexpr unsigned slots_per_node = SlotsPerNode;
-  using backoff = Backoff;
 
-  template <class... Policies>
-  using with = ramalhete_queue_traits<
-      parameter::type_param_t<policy::reclaimer, Reclaimer, Policies...>,
-      parameter::value_param_t<std::size_t, policy::slots_per_node, SlotsPerNode, Policies...>::value,
-      parameter::type_param_t<policy::backoff, Backoff, Policies...>
-    >;
-};
+namespace policy {
+  /**
+   * TODO
+   * @tparam Value
+   */
+  template <unsigned Value>
+  struct slots_per_node;
+}
 
 /**
  * @brief A fast unbounded lock-free multi-producer/multi-consumer FIFO queue.
@@ -59,24 +38,33 @@ struct ramalhete_queue_traits{
  * It is faster and more efficient than the `michael_scott_queue`, but less generic as it can
  * only handle pointers to instances of `T`.
  *
- * @note Use the `xenium::ramalhete_queue` alias for easy configuration.
+ * Supported policies:
+ *  * `xenium::policy::reclaimer`<br>
+ *    Defines the reclamation scheme to be used for internal nodes. (**required**)
+ *  * `xenium::policy::backoff`<br>
+ *    Defines the backoff strategy. (*optional*; defaults to `xenium::no_backoff`)
+ *  * `xenium::policy::slots_per_node`<br>
+ *    Defines the number of slots for each internal node. (*optional*; defaults to 512)
  *
  * @tparam T
- * @tparam Traits
+ * @tparam Policies list of policies to customize the behaviour
  */
-template <class T, class Traits = ramalhete_queue_traits<>>
-class ramalhete_queue_impl {
+template <class T, class... Policies>
+class ramalhete_queue {
 public:
   using value_type = T*;
-  using reclaimer = typename Traits::reclaimer;
-  using backoff = typename Traits::backoff;
-  static constexpr unsigned slots_per_node = Traits::slots_per_node;
+  using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
+  using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
+  static constexpr unsigned slots_per_node = parameter::value_param_t<unsigned, policy::slots_per_node, 512, Policies...>::value;
 
   static_assert(slots_per_node > 0, "slots_per_node must be greater than zero");
   static_assert(parameter::is_set<reclaimer>::value, "reclaimer policy must be specified");
 
-  ramalhete_queue_impl();
-  ~ramalhete_queue_impl();
+  template <class... NewPolicies>
+  using with = ramalhete_queue<T, NewPolicies..., Policies...>;
+
+  ramalhete_queue();
+  ~ramalhete_queue();
 
   /**
    * Enqueues the given value to the queue.
@@ -126,8 +114,8 @@ private:
   alignas(64) concurrent_ptr tail;
 };
 
-template <class T, class Traits>
-ramalhete_queue_impl<T, Traits>::ramalhete_queue_impl()
+template <class T, class... Policies>
+ramalhete_queue<T, Policies...>::ramalhete_queue()
 {
   auto n = new node(nullptr);
   n->enqueue_idx.store(0, std::memory_order_relaxed);
@@ -135,8 +123,8 @@ ramalhete_queue_impl<T, Traits>::ramalhete_queue_impl()
   tail.store(n, std::memory_order_relaxed);
 }
 
-template <class T, class Traits>
-ramalhete_queue_impl<T, Traits>::~ramalhete_queue_impl()
+template <class T, class... Policies>
+ramalhete_queue<T, Policies...>::~ramalhete_queue()
 {
   // (1) - this acquire-load synchronizes-with the release-CAS (11)
   auto n = head.load(std::memory_order_acquire);
@@ -149,8 +137,8 @@ ramalhete_queue_impl<T, Traits>::~ramalhete_queue_impl()
   }
 }
 
-template <class T, class Traits>
-void ramalhete_queue_impl<T, Traits>::enqueue(value_type value)
+template <class T, class... Policies>
+void ramalhete_queue<T, Policies...>::enqueue(value_type value)
 {
   if (value == nullptr)
     throw std::invalid_argument("value can not be nullptr");
@@ -205,8 +193,8 @@ void ramalhete_queue_impl<T, Traits>::enqueue(value_type value)
   }
 }
 
-template <class T, class Traits>
-bool ramalhete_queue_impl<T, Traits>::try_dequeue(value_type& result)
+template <class T, class... Policies>
+bool ramalhete_queue<T, Policies...>::try_dequeue(value_type& result)
 {
   backoff backoff;
 
@@ -248,20 +236,6 @@ bool ramalhete_queue_impl<T, Traits>::try_dequeue(value_type& result)
 
   return false;
 }
-
-/**
- * @brief Alias for easy configuration of `ramalhete_queue_impl`.
- *
- * Supported policies:
- *  * `xenium::policy::reclaimer`<br>
- *    Defines the reclamation scheme to be used for internal nodes. (**required**)
- *  * `xenium::policy::slots_per_node`<br>
- *    Defines the number of slots for each internal node. (*optional*; defaults to 1024)
- *  * `xenium::policy::backoff`<br>
- *    Defines the backoff strategy. (*optional*; defaults to `xenium::no_backoff`)
- */
-template <class T, class... Policies>
-using ramalhete_queue = ramalhete_queue_impl<T, ramalhete_queue_traits<>::with<Policies...>>;
 }
 
 #endif

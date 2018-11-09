@@ -18,7 +18,9 @@ namespace {
 template <typename Reclaimer>
 struct HarrisMichaelHashMap : ::testing::Test
 {
-  using hash_map = xenium::harris_michael_hash_map<int, int, Reclaimer, 10>;
+  using hash_map = xenium::harris_michael_hash_map<int, int,
+    xenium::policy::reclaimer<Reclaimer>,
+    xenium::policy::buckets<10>>;
   hash_map map;
 };
 
@@ -219,7 +221,9 @@ TYPED_TEST(HarrisMichaelHashMap, iterator_covers_all_entries_in_sparsely_populat
 TYPED_TEST(HarrisMichaelHashMap, operator_at_returns_accessor_to_existing_element)
 {
   using Reclaimer = TypeParam;
-  using hash_map = xenium::harris_michael_hash_map<int, std::string, Reclaimer, 10>;
+  using hash_map = xenium::harris_michael_hash_map<int, std::string,
+    xenium::policy::reclaimer<Reclaimer>,
+    xenium::policy::buckets<10>>;
   hash_map map;
 
   const char* val = "foobar";
@@ -231,7 +235,9 @@ TYPED_TEST(HarrisMichaelHashMap, operator_at_returns_accessor_to_existing_elemen
 TYPED_TEST(HarrisMichaelHashMap, operator_at_returns_accessor_to_newly_inserted_element)
 {
   using Reclaimer = TypeParam;
-  using hash_map = xenium::harris_michael_hash_map<int, std::string, Reclaimer, 10>;
+  using hash_map = xenium::harris_michael_hash_map<int, std::string,
+    xenium::policy::reclaimer<Reclaimer>,
+    xenium::policy::buckets<10>>;
   hash_map map;
 
   auto accessor = map[42];

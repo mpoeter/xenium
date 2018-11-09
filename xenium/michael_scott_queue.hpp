@@ -8,6 +8,8 @@
 
 #include <xenium/acquire_guard.hpp>
 #include <xenium/backoff.hpp>
+#include <xenium/parameter.hpp>
+#include <xenium/policy.hpp>
 
 namespace xenium {
 /**
@@ -16,14 +18,28 @@ namespace xenium {
  * This is an implementation of the lock-free MPMC queue proposed by [Michael and Scott]
  * (http://www.cs.rochester.edu/~scott/papers/1996_PODC_queues.pdf)
  * It is fully generic and can handle any type `T` that is copyable or movable.
- * 
+ *
+ * Supported policies:
+ *  * `xenium::policy::reclaimer`<br>
+ *    Defines the reclamation scheme to be used for internal nodes. (**required**)
+ *  * `xenium::policy::backoff`<br>
+ *    Defines the backoff strategy. (*optional*; defaults to `xenium::no_backoff`)
+ *
  * @tparam T type of the stored elements.
- * @tparam Reclaimer the reclamation scheme to use for internally created nodes.
- * @tparam Backoff the backoff stragtey to be used; defaults to `no_backoff`.
+ * @tparam Policies list of policies to customize the behaviour
  */
-template <class T, class Reclaimer, class Backoff = no_backoff>
+template <class T, class... Policies>
 class michael_scott_queue {
 public:
+  using value_type = T*;
+  using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
+  using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
+
+  template <class... NewPolicies>
+  using with = michael_scott_queue<T, NewPolicies..., Policies...>;
+
+  static_assert(parameter::is_set<reclaimer>::value, "reclaimer policy must be specified");
+
   michael_scott_queue();
   ~michael_scott_queue();
 
@@ -47,11 +63,11 @@ public:
 private:
   struct node;
 
-  using concurrent_ptr = typename Reclaimer::template concurrent_ptr<node, 0>;
+  using concurrent_ptr = typename reclaimer::template concurrent_ptr<node, 0>;
   using marked_ptr = typename concurrent_ptr::marked_ptr;
   using guard_ptr = typename concurrent_ptr::guard_ptr;
   
-  struct node : Reclaimer::template enable_concurrent_ptr<node>
+  struct node : reclaimer::template enable_concurrent_ptr<node>
   {
     T value;
     concurrent_ptr next;
@@ -61,16 +77,16 @@ private:
   alignas(64) concurrent_ptr tail;
 };
 
-template <class T, class Reclaimer, class Backoff>
-michael_scott_queue<T, Reclaimer, Backoff>::michael_scott_queue()
+template <class T, class... Policies>
+michael_scott_queue<T, Policies...>::michael_scott_queue()
 {
   auto n = new node();
   head.store(n, std::memory_order_relaxed);
   tail.store(n, std::memory_order_relaxed);
 }
 
-template <class T, class Reclaimer, class Backoff>
-michael_scott_queue<T, Reclaimer, Backoff>::~michael_scott_queue()
+template <class T, class... Policies>
+michael_scott_queue<T, Policies...>::~michael_scott_queue()
 {
   // (1) - this acquire-load synchronizes-with the release-CAS (11)
   auto n = head.load(std::memory_order_acquire);
@@ -83,13 +99,13 @@ michael_scott_queue<T, Reclaimer, Backoff>::~michael_scott_queue()
   }
 }
 
-template <class T, class Reclaimer, class Backoff>
-void michael_scott_queue<T, Reclaimer, Backoff>::enqueue(T value)
+template <class T, class... Policies>
+void michael_scott_queue<T, Policies...>::enqueue(T value)
 {
   node* n = new node{};
   n->value = std::move(value);
 
-  Backoff backoff;
+  backoff backoff;
 
   guard_ptr t;
   for (;;)
@@ -124,10 +140,10 @@ void michael_scott_queue<T, Reclaimer, Backoff>::enqueue(T value)
   tail.compare_exchange_strong(expected, n, std::memory_order_release, std::memory_order_relaxed);
 }
 
-template <class T, class Reclaimer, class Backoff>
-bool michael_scott_queue<T, Reclaimer, Backoff>::try_dequeue(T& result)
+template <class T, class... Policies>
+bool michael_scott_queue<T, Policies...>::try_dequeue(T& result)
 {
-  Backoff backoff;
+  backoff backoff;
 
   guard_ptr h;
   for (;;)
@@ -174,6 +190,7 @@ bool michael_scott_queue<T, Reclaimer, Backoff>::try_dequeue(T& result)
   h.reclaim();
 
   return true;
-}}
+}
+}
 
 #endif

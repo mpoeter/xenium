@@ -23,7 +23,7 @@ namespace {
 
   TEST(Parameter, type_param_extracts_value_from_specified_policy)
   {
-    constexpr auto slots_per_node = xenium::parameter::value_param<std::size_t, xenium::policy::slots_per_node, pack, 0>::value;
+    constexpr auto slots_per_node = xenium::parameter::value_param<unsigned, xenium::policy::slots_per_node, pack, 0>::value;
     static_assert(slots_per_node == 42, "");
   }
 }

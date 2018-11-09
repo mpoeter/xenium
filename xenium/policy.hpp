@@ -19,13 +19,6 @@ struct reclaimer;
 
 /**
  * TODO
- * @tparam Value
- */
-template <std::size_t Value>
-struct slots_per_node;
-
-/**
- * TODO
  * @tparam Backoff
  */
 template <class Backoff>
