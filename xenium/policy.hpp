@@ -11,14 +11,28 @@
 namespace xenium { namespace policy {
 
 /**
- * TODO
+ * @brief Policy to configure the reclamation scheme to be used.
+ *
+ * This policy is used by the following data structures:
+ *   * `michael_scott_queue`
+ *   * `ramalhete_queue`
+ *   * `harris_michael_list_based_set`
+ *   * `harris_michael_hash_map`
+ *
  * @tparam Reclaimer
  */
 template <class Reclaimer>
 struct reclaimer;
 
 /**
- * TODO
+ * @brief Policy to configure the backoff strategy.
+ *
+ * This policy is used by the following data structures:
+ *   * `michael_scott_queue`
+ *   * `ramalhete_queue`
+ *   * `harris_michael_list_based_set`
+ *   * `harris_michael_hash_map`
+ *
  * @tparam Backoff
  */
 template <class Backoff>

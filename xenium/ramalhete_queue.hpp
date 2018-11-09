@@ -15,13 +15,11 @@
 #include <atomic>
 #include <stdexcept>
 
-/** @file */
-
 namespace xenium {
 
 namespace policy {
   /**
-   * TODO
+   * @brief Policy to configure the number of slots per allocated node in `ramalhete_queue`.
    * @tparam Value
    */
   template <unsigned Value>

@@ -18,7 +18,7 @@ namespace xenium {
 
 namespace policy {
   /**
-   * TODO
+   * @brief Policy to configure the number of buckets in `harris_michael_hash_map`.
    * @tparam Value
    */
   template <std::size_t Value>
