@@ -65,20 +65,20 @@ public:
   ~ramalhete_queue();
 
   /**
-   * Enqueues the given value to the queue.
+   * Pushes the given value to the queue.
    * This operation might have to allocate a new node.
    * Progress guarantees: lock-free (may perform a memory allocation)
    * @param value
    */
-  void enqueue(value_type value);
+  void push(value_type value);
 
   /**
-   * Tries to dequeue an object from the queue.
+   * Tries to pop an object from the queue.
    * Progress guarantees: lock-free
    * @param result
    * @return `true` if the operation was successful, otherwise `false`
    */
-  bool try_dequeue(value_type& result);
+  bool try_pop(value_type &result);
 
 private:
   struct node;
@@ -90,16 +90,16 @@ private:
   using marked_value = reclamation::detail::marked_ptr<T, 1>;
 
   struct node : reclaimer::template enable_concurrent_ptr<node> {
-    std::atomic<unsigned>     dequeue_idx;
+    std::atomic<unsigned>     pop_idx;
     // TODO - add optional padding between the slots
     std::atomic<marked_value> items[slots_per_node];
-    std::atomic<unsigned>     enqueue_idx;
+    std::atomic<unsigned>     push_idx;
     concurrent_ptr next;
 
     // Start with the first entry pre-filled
     node(T* item) :
-      dequeue_idx{0},
-      enqueue_idx{1},
+      pop_idx{0},
+      push_idx{1},
       next{nullptr}
     {
       items[0].store(item, std::memory_order_relaxed);
@@ -116,7 +116,7 @@ template <class T, class... Policies>
 ramalhete_queue<T, Policies...>::ramalhete_queue()
 {
   auto n = new node(nullptr);
-  n->enqueue_idx.store(0, std::memory_order_relaxed);
+  n->push_idx.store(0, std::memory_order_relaxed);
   head.store(n, std::memory_order_relaxed);
   tail.store(n, std::memory_order_relaxed);
 }
@@ -136,7 +136,7 @@ ramalhete_queue<T, Policies...>::~ramalhete_queue()
 }
 
 template <class T, class... Policies>
-void ramalhete_queue<T, Policies...>::enqueue(value_type value)
+void ramalhete_queue<T, Policies...>::push(value_type value)
 {
   if (value == nullptr)
     throw std::invalid_argument("value can not be nullptr");
@@ -148,7 +148,7 @@ void ramalhete_queue<T, Policies...>::enqueue(value_type value)
     // (3) - this acquire-load synchronizes-with the release-CAS (5, 7)
     t.acquire(tail, std::memory_order_acquire);
 
-    const int idx = t->enqueue_idx.fetch_add(1, std::memory_order_relaxed);
+    const int idx = t->push_idx.fetch_add(1, std::memory_order_relaxed);
     if (idx > slots_per_node - 1)
     {
       // This node is full
@@ -192,7 +192,7 @@ void ramalhete_queue<T, Policies...>::enqueue(value_type value)
 }
 
 template <class T, class... Policies>
-bool ramalhete_queue<T, Policies...>::try_dequeue(value_type& result)
+bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
 {
   backoff backoff;
 
@@ -201,11 +201,11 @@ bool ramalhete_queue<T, Policies...>::try_dequeue(value_type& result)
     // (9) - this acquire-load synchronizes-with the release-CAS (11)
     h.acquire(head, std::memory_order_acquire);
 
-    if (h->dequeue_idx.load(std::memory_order_relaxed) >= h->enqueue_idx.load(std::memory_order_relaxed) &&
+    if (h->pop_idx.load(std::memory_order_relaxed) >= h->push_idx.load(std::memory_order_relaxed) &&
         h->next.load(std::memory_order_relaxed) == nullptr)
       break;
 
-    const int idx = h->dequeue_idx.fetch_add(1, std::memory_order_relaxed);
+    const int idx = h->pop_idx.fetch_add(1, std::memory_order_relaxed);
     if (idx > slots_per_node - 1)
     {
       // This node has been drained, check if there is another one

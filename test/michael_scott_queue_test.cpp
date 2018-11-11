@@ -30,23 +30,23 @@ using Reclaimers = ::testing::Types<
   >;
 TYPED_TEST_CASE(MichaelScottQueue, Reclaimers);
 
-TYPED_TEST(MichaelScottQueue, enqueue_try_deque_returns_enqueued_element)
+TYPED_TEST(MichaelScottQueue, push_try_pop_returns_pushed_element)
 {
   xenium::michael_scott_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
-  queue.enqueue(42);
+  queue.push(42);
   int elem;
-  EXPECT_TRUE(queue.try_dequeue(elem));
+  EXPECT_TRUE(queue.try_pop(elem));
   EXPECT_EQ(42, elem);
 }
 
-TYPED_TEST(MichaelScottQueue, enqueue_two_items_deque_them_in_FIFO_order)
+TYPED_TEST(MichaelScottQueue, push_two_items_pop_them_in_FIFO_order)
 {
   xenium::michael_scott_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
-  queue.enqueue(42);
-  queue.enqueue(43);
+  queue.push(42);
+  queue.push(43);
   int elem1, elem2;
-  EXPECT_TRUE(queue.try_dequeue(elem1));
-  EXPECT_TRUE(queue.try_dequeue(elem2));
+  EXPECT_TRUE(queue.try_pop(elem1));
+  EXPECT_TRUE(queue.try_pop(elem2));
   EXPECT_EQ(42, elem1);
   EXPECT_EQ(43, elem2);
 }
@@ -54,10 +54,10 @@ TYPED_TEST(MichaelScottQueue, enqueue_two_items_deque_them_in_FIFO_order)
 TYPED_TEST(MichaelScottQueue, supports_move_only_types)
 {
   xenium::michael_scott_queue<std::unique_ptr<int>, xenium::policy::reclaimer<TypeParam>> queue;
-  queue.enqueue(std::unique_ptr<int>(new int(42)));
+  queue.push(std::unique_ptr<int>(new int(42)));
 
   std::unique_ptr<int> elem;
-  ASSERT_TRUE(queue.try_dequeue(elem));
+  ASSERT_TRUE(queue.try_pop(elem));
   ASSERT_NE(nullptr, elem);
   EXPECT_EQ(42, *elem);
 }
@@ -80,9 +80,9 @@ TYPED_TEST(MichaelScottQueue, parallel_usage)
       for (int j = 0; j < MaxIterations; ++j)
       {
         typename Reclaimer::region_guard critical_region{};
-        queue.enqueue(i);
+        queue.push(i);
         int v;
-        EXPECT_TRUE(queue.try_dequeue(v));
+        EXPECT_TRUE(queue.try_pop(v));
       }
     }));
   }

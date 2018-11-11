@@ -33,24 +33,25 @@ using Reclaimers = ::testing::Types<
   >;
 TYPED_TEST_CASE(RamalheteQueue, Reclaimers);
 
-TYPED_TEST(RamalheteQueue, enqueue_try_deque_returns_enqueued_element)
+TYPED_TEST(RamalheteQueue, push_try_pop_returns_pushed_element)
 {
+  //xenium::ramalhete_queue<int, policy::reclaimer<TypeParam>, policy::slots_per_node<1024>, policy::backoff<no_backoff>, policy::padding_slots<3>>
   xenium::ramalhete_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
-  queue.enqueue(v1);
+  queue.push(v1);
   int* elem;
-  EXPECT_TRUE(queue.try_dequeue(elem));
+  EXPECT_TRUE(queue.try_pop(elem));
   EXPECT_EQ(v1, elem);
 }
 
-TYPED_TEST(RamalheteQueue, enqueue_two_items_deque_them_in_FIFO_order)
+TYPED_TEST(RamalheteQueue, push_two_items_pop_them_in_FIFO_order)
 {
   xenium::ramalhete_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
-  queue.enqueue(v1);
-  queue.enqueue(v2);
+  queue.push(v1);
+  queue.push(v2);
   int* elem1;
   int* elem2;
-  EXPECT_TRUE(queue.try_dequeue(elem1));
-  EXPECT_TRUE(queue.try_dequeue(elem2));
+  EXPECT_TRUE(queue.try_pop(elem1));
+  EXPECT_TRUE(queue.try_pop(elem2));
   EXPECT_EQ(v1, elem1);
   EXPECT_EQ(v2, elem2);
 }
@@ -73,9 +74,9 @@ TYPED_TEST(RamalheteQueue, parallel_usage)
       for (int j = 0; j < MaxIterations; ++j)
       {
         typename Reclaimer::region_guard critical_region{};
-        queue.enqueue(new int(i));
+        queue.push(new int(i));
         int* elem;
-        EXPECT_TRUE(queue.try_dequeue(elem));
+        EXPECT_TRUE(queue.try_pop(elem));
         EXPECT_TRUE(*elem >= 0 && *elem <= 4);
         delete elem;
       }

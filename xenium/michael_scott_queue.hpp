@@ -44,21 +44,21 @@ public:
   ~michael_scott_queue();
 
   /**
-   * Enqueues the given value to the queue.
+   * Pushes the given value to the queue.
    * This operation always allocates a new node.
    * Progress guarantees: lock-free (always performs a memory allocation)
    * @param value
    */
-  void enqueue(T value);
+  void push(T value);
 
   /**
-   * Tries to deqeueue an object from the queue. If the operation is
+   * Tries to pop an object from the queue. If the operation is
    * successful, the object will be moved to `result`. 
    * Progress guarantees: lock-free
    * @param result
    * @return `true` if the operation was successful, otherwise `false`
    */
-  bool try_dequeue(T& result);
+  bool try_pop(T &result);
 
 private:
   struct node;
@@ -100,7 +100,7 @@ michael_scott_queue<T, Policies...>::~michael_scott_queue()
 }
 
 template <class T, class... Policies>
-void michael_scott_queue<T, Policies...>::enqueue(T value)
+void michael_scott_queue<T, Policies...>::push(T value)
 {
   node* n = new node{};
   n->value = std::move(value);
@@ -141,7 +141,7 @@ void michael_scott_queue<T, Policies...>::enqueue(T value)
 }
 
 template <class T, class... Policies>
-bool michael_scott_queue<T, Policies...>::try_dequeue(T& result)
+bool michael_scott_queue<T, Policies...>::try_pop(T &result)
 {
   backoff backoff;
 
