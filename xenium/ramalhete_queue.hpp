@@ -12,6 +12,7 @@
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
 
+#include <algorithm>
 #include <atomic>
 #include <stdexcept>
 
@@ -19,11 +20,22 @@ namespace xenium {
 
 namespace policy {
   /**
-   * @brief Policy to configure the number of slots per allocated node in `ramalhete_queue`.
+   * @brief Policy to configure the number of entries per allocated node in `ramalhete_queue`.
    * @tparam Value
    */
   template <unsigned Value>
-  struct slots_per_node;
+  struct entries_per_node;
+
+  /**
+   * @brief Policy to configure the number of slots to pad entries in `ramalhete_queue` to
+   * reduce false sharing.
+   *
+   * Each padding slot has the same size as the queue's `value_type`. Thus the total size
+   * of a queue entry equals `sizeof(value_type) * (padding_slots + 1)`.
+   * @tparam Value
+   */
+  template <unsigned Value>
+  struct padding_slots;
 }
 
 /**
@@ -41,8 +53,10 @@ namespace policy {
  *    Defines the reclamation scheme to be used for internal nodes. (**required**)
  *  * `xenium::policy::backoff`<br>
  *    Defines the backoff strategy. (*optional*; defaults to `xenium::no_backoff`)
- *  * `xenium::policy::slots_per_node`<br>
- *    Defines the number of slots for each internal node. (*optional*; defaults to 512)
+ *  * `xenium::policy::entries_per_node`<br>
+ *    Defines the number of entries for each internal node. (*optional*; defaults to 512)
+ *  * `xenium::policy::padding slots`<br>
+ *    Defines the number of padding slots for each entry. (*optional*; defaults to 1)
  *
  * @tparam T
  * @tparam Policies list of policies to customize the behaviour
@@ -53,9 +67,10 @@ public:
   using value_type = T*;
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
-  static constexpr unsigned slots_per_node = parameter::value_param_t<unsigned, policy::slots_per_node, 512, Policies...>::value;
+  static constexpr unsigned entries_per_node = parameter::value_param_t<unsigned, policy::entries_per_node, 512, Policies...>::value;
+  static constexpr unsigned padding_slots = parameter::value_param_t<unsigned, policy::padding_slots, 1, Policies...>::value;
 
-  static_assert(slots_per_node > 0, "slots_per_node must be greater than zero");
+  static_assert(entries_per_node > 0, "entries_per_node must be greater than zero");
   static_assert(parameter::is_set<reclaimer>::value, "reclaimer policy must be specified");
 
   template <class... NewPolicies>
@@ -89,10 +104,22 @@ private:
 
   using marked_value = reclamation::detail::marked_ptr<T, 1>;
 
+  struct padded_entry {
+    std::atomic<marked_value> value;
+    // we use max here to avoid arrays of size zero which are not allowed by Visual C++
+    char padding[sizeof(marked_value) * std::max(padding_slots, 1u)];
+  };
+
+  struct unpadded_entry {
+    std::atomic<marked_value> value;
+  };
+
+  using entry = std::conditional_t<padding_slots == 0, unpadded_entry, padded_entry>;
+  static_assert(sizeof(entry) == sizeof(marked_value) * (padding_slots + 1), "");
+
   struct node : reclaimer::template enable_concurrent_ptr<node> {
     std::atomic<unsigned>     pop_idx;
-    // TODO - add optional padding between the slots
-    std::atomic<marked_value> items[slots_per_node];
+    entry entries[entries_per_node];
     std::atomic<unsigned>     push_idx;
     concurrent_ptr next;
 
@@ -102,9 +129,9 @@ private:
       push_idx{1},
       next{nullptr}
     {
-      items[0].store(item, std::memory_order_relaxed);
-      for (unsigned i = 1; i < slots_per_node; i++)
-        items[i].store(nullptr, std::memory_order_relaxed);
+      entries[0].value.store(item, std::memory_order_relaxed);
+      for (unsigned i = 1; i < entries_per_node; i++)
+        entries[i].value.store(nullptr, std::memory_order_relaxed);
     }
   };
 
@@ -149,7 +176,7 @@ void ramalhete_queue<T, Policies...>::push(value_type value)
     t.acquire(tail, std::memory_order_acquire);
 
     const int idx = t->push_idx.fetch_add(1, std::memory_order_relaxed);
-    if (idx > slots_per_node - 1)
+    if (idx > entries_per_node - 1)
     {
       // This node is full
       if (t != tail.load(std::memory_order_relaxed))
@@ -184,7 +211,7 @@ void ramalhete_queue<T, Policies...>::push(value_type value)
 
     marked_value expected = nullptr;
     // (8) - this release-CAS synchronizes-with the acquire-exchange (12)
-    if (t->items[idx].compare_exchange_strong(expected, value, std::memory_order_release, std::memory_order_relaxed))
+    if (t->entries[idx].value.compare_exchange_strong(expected, value, std::memory_order_release, std::memory_order_relaxed))
       return;
 
     backoff();
@@ -206,7 +233,7 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
       break;
 
     const int idx = h->pop_idx.fetch_add(1, std::memory_order_relaxed);
-    if (idx > slots_per_node - 1)
+    if (idx > entries_per_node - 1)
     {
       // This node has been drained, check if there is another one
       // (10) - this acquire-load synchronizes-with the release-CAS (4)
@@ -223,7 +250,7 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
     }
 
     // (12) - this acquire-exchange synchronizes-with the release-CAS (8)
-    auto value = h->items[idx].exchange(marked_value(nullptr, 1), std::memory_order_acquire);
+    auto value = h->entries[idx].value.exchange(marked_value(nullptr, 1), std::memory_order_acquire);
     if (value != nullptr) {
       result = value.get();
       return true;

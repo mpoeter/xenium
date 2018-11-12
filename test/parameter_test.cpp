@@ -8,7 +8,7 @@ struct my_backoff {};
 
 namespace {
   using pack = xenium::parameter::pack<
-    xenium::policy::slots_per_node<42>,
+    xenium::policy::entries_per_node<42>,
     xenium::policy::reclaimer<my_reclaimer>,
     xenium::policy::backoff<my_backoff>>;
 
@@ -23,7 +23,7 @@ namespace {
 
   TEST(Parameter, type_param_extracts_value_from_specified_policy)
   {
-    constexpr auto slots_per_node = xenium::parameter::value_param<unsigned, xenium::policy::slots_per_node, pack, 0>::value;
-    static_assert(slots_per_node == 42, "");
+    constexpr auto entries_per_node = xenium::parameter::value_param<unsigned, xenium::policy::entries_per_node, pack, 0>::value;
+    static_assert(entries_per_node == 42, "");
   }
 }
