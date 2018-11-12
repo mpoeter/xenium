@@ -87,6 +87,19 @@ TYPED_TEST(HarrisMichaelListBasedSet, find_returns_matching_iterator_for_existin
   EXPECT_EQ(list.end(), ++it);
 }
 
+TYPED_TEST(HarrisMichaelListBasedSet, comparer_policy_defines_order_of_entries)
+{
+  using my_list = xenium::harris_michael_list_based_set<int,
+    xenium::policy::reclaimer<TypeParam>, xenium::policy::compare<std::greater<int>>>;
+  my_list list;
+  list.emplace(42);
+  list.emplace(43);
+  auto it = list.begin();
+  EXPECT_EQ(43, *it);
+  ++it;
+  EXPECT_EQ(42, *it);
+}
+
 TYPED_TEST(HarrisMichaelListBasedSet, erase_existing_element_succeeds)
 {
   xenium::harris_michael_list_based_set<int, xenium::policy::reclaimer<TypeParam>> list;

@@ -38,5 +38,16 @@ struct reclaimer;
 template <class Backoff>
 struct backoff;
 
+/**
+ * @brief Policy to configure the comparison function.
+ *
+ * This policy is used by the following data structures:
+ *   * `harris_michael_list_based_set`
+ *
+ * @tparam Compare
+ */
+template <class Backoff>
+struct compare;
+
 }}
 #endif

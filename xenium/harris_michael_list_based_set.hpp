@@ -11,6 +11,8 @@
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
 
+#include <functional>
+
 namespace xenium {
 /**
  * @brief A lock-free container that contains a sorted set of unique objects of type `Key`.
@@ -27,6 +29,8 @@ namespace xenium {
  * * Supported policies:
  *  * `xenium::policy::reclaimer`<br>
  *    Defines the reclamation scheme to be used for internal nodes. (**required**)
+ *  * `xenium::policy::compare`<br>
+ *    Defines the comparison function that is used to order the list. (*optional*; defaults to `std::less<Key>`)
  *  * `xenium::policy::backoff`<br>
  *    Defines the backoff strategy. (*optional*; defaults to `xenium::no_backoff`)
  *
@@ -40,6 +44,7 @@ public:
   using value_type = Key;
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
+  using compare = parameter::type_param_t<policy::compare, std::less<Key>, Policies...>;
 
   template <class... NewPolicies>
   using with = harris_michael_list_based_set<Key, NewPolicies..., Policies...>;
@@ -264,7 +269,7 @@ auto harris_michael_list_based_set<Key, Policies...>::iterator::operator++() -> 
   else
   {
     // cur is marked for removal
-    // -> use find to remove it and get to the next node with a key >= cur->key
+    // -> use find to remove it and get to the next node with a compare(key, cur->key) == false
     auto key = info.cur->key;
     backoff backoff;
     list->find(key, info, backoff);
@@ -352,8 +357,9 @@ retry:
         goto retry; // cur might be cut from list.
 
       Key ckey = info.cur->key;
-      if (ckey >= key)
-        return ckey == key;
+      compare compare;
+      if (compare(ckey, key) == false)
+        return compare(key, ckey) == false;
 
       info.prev = &info.cur->next;
       std::swap(info.save, info.cur);
