@@ -36,6 +36,14 @@ namespace policy {
    */
   template <unsigned Value>
   struct padding_slots;
+
+  /**
+   * @brief Policy to configure the number of iterations to spin on a queue entry while waiting
+   * for a pending push operation to finish.
+   * @tparam Value
+   */
+  template <unsigned Value>
+  struct pop_retries;
 }
 
 /**
@@ -57,6 +65,9 @@ namespace policy {
  *    Defines the number of entries for each internal node. (*optional*; defaults to 512)
  *  * `xenium::policy::padding slots`<br>
  *    Defines the number of padding slots for each entry. (*optional*; defaults to 1)
+ *  * `xenium::policy::pop_retries slots`<br>
+ *    Defines the number of iterations to spin on a queue entry while waiting for a pending
+ *    push operation to finish. (*optional*; defaults to 10)
  *
  * @tparam T
  * @tparam Policies list of policies to customize the behaviour
@@ -69,6 +80,7 @@ public:
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
   static constexpr unsigned entries_per_node = parameter::value_param_t<unsigned, policy::entries_per_node, 512, Policies...>::value;
   static constexpr unsigned padding_slots = parameter::value_param_t<unsigned, policy::padding_slots, 1, Policies...>::value;
+  static constexpr unsigned pop_retries = parameter::value_param_t<unsigned, policy::pop_retries, 10, Policies...>::value;;
 
   static_assert(entries_per_node > 0, "entries_per_node must be greater than zero");
   static_assert(parameter::is_set<reclaimer>::value, "reclaimer policy must be specified");
@@ -247,6 +259,13 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
         h.reclaim(); // The old node has been unlinked -> reclaim it.
 
       continue;
+    }
+
+    if (pop_retries > 0) {
+      unsigned cnt = 0;
+      ramalhete_queue::backoff backoff;
+      while (h->entries[idx].value.load(std::memory_order_relaxed) == nullptr && ++cnt <= pop_retries)
+        backoff; // TODO - use a backoff tpye that can be configured separately
     }
 
     // (12) - this acquire-exchange synchronizes-with the release-CAS (8)
