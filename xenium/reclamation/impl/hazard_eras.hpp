@@ -86,13 +86,19 @@ namespace xenium { namespace reclamation {
   void hazard_eras<Policy>::guard_ptr<T, MarkedPtr>::acquire(concurrent_ptr<T>& p,
     std::memory_order order)
   {
+    if (order == std::memory_order_relaxed || order == std::memory_order_consume) {
+      // we have to use memory_order_acquire (or something stricter) to ensure that
+      // the era_clock.load cannot return an outdated value.
+      order = std::memory_order_acquire;
+    }
     auto prev_era = he == nullptr ? 0 : he->get_era();
     for (;;) {
-      // (1) - this load operation potentially synchronizes-with any release operation on p.
+      // (1) - this load operation synchronizes-with any release operation on p.
+      // we have to use acquire here to ensure that the subsequent era_clock.load
+      // sees a value >= p.construction_era
       auto ptr = p.load(order);
 
-      // TODO - do we need acquire here? isn't the fence in set_era/alloc_era enough?
-      auto era = era_clock.load(std::memory_order_acquire);
+      auto era = era_clock.load(std::memory_order_relaxed);
       if (era == prev_era) {
         this->ptr = ptr;
         return;
@@ -124,15 +130,24 @@ namespace xenium { namespace reclamation {
   bool hazard_eras<Policy>::guard_ptr<T, MarkedPtr>::acquire_if_equal(
     concurrent_ptr<T>& p,
     const MarkedPtr& expected,
-    std::memory_order order) {
-    auto p1 = p.load(std::memory_order_relaxed);
+    std::memory_order order)
+  {
+    if (order == std::memory_order_relaxed || order == std::memory_order_consume) {
+      // we have to use memory_order_acquire (or something stricter) to ensure that
+      // the era_clock.load cannot return an outdated value.
+      order = std::memory_order_acquire;
+    }
+
+    // (2) - this load operation synchronizes-with any release operation on p.
+    // we have to use acquire here to ensure that the subsequent era_clock.load
+    // sees a value >= p.construction_era
+    auto p1 = p.load(order);
     if (p1 == nullptr || p1 != expected) {
       reset();
       return p1 == expected;
     }
 
-    // TODO - do we need acquire here? isn't the fence in set_era/alloc_era enough?
-    const auto era = era_clock.load(std::memory_order_acquire);
+    const auto era = era_clock.load(std::memory_order_relaxed);
     if (he != nullptr && he->guards() == 1)
       he->set_era(era);
     else {
@@ -142,8 +157,7 @@ namespace xenium { namespace reclamation {
       he = local_thread_data.alloc_hazard_era(era);
     }
 
-    // (2) - this load operation potentially synchronizes-with any release operation on p.
-    this->ptr = p.load(order);
+    this->ptr = p.load(std::memory_order_relaxed);
     if (this->ptr != p1)
     {
       reset();
@@ -175,8 +189,8 @@ namespace xenium { namespace reclamation {
     auto p = this->ptr.get();
     reset();
     p->set_deleter(std::move(d));
-    // (TODO)
-    p->retirement_era = era_clock.fetch_add(1, std::memory_order_seq_cst);
+    // (3) - this release fetch-add synchronizes-with the seq-cst fence (5)
+    p->retirement_era = era_clock.fetch_add(1, std::memory_order_release);
 
     if (local_thread_data.add_retired_node(p) >= Policy::retired_nodes_threshold())
       local_thread_data.scan();
@@ -200,7 +214,7 @@ namespace xenium { namespace reclamation {
       void set_era(era_t era)
       {
         assert(era != 0);
-        // (3) - this release-store synchronizes-with the acquire-fence (9)
+        // (4) - this release-store synchronizes-with the acquire-fence (10)
         value.store(marked_ptr(reinterpret_cast<void**>(era << 1)), std::memory_order_release);
         // This release is required because when acquire/acquire_if_equal is called on a
         // guard_ptr with with an active HE entry, set_era is called without an intermediate
@@ -208,7 +222,8 @@ namespace xenium { namespace reclamation {
         // happens-before relation between releasing a guard_ptr to a node and reclamation
         // of that node.
 
-        // (4) - this seq_cst-fence enforces a total order with the seq_cst-fence (8)
+        // (5) - this seq_cst-fence enforces a total order with the seq_cst-fence (9)
+        //       and synchronizes-with the release-fetch-add (3)
         std::atomic_thread_fence(std::memory_order_seq_cst);
       }
 
@@ -227,7 +242,7 @@ namespace xenium { namespace reclamation {
 
       bool try_get_era(era_t& result) const
       {
-        // TSan does not support explicit fences, so we cannot rely on the acquire-fence (9)
+        // TSan does not support explicit fences, so we cannot rely on the acquire-fence (10)
         // but have to perform an acquire-load here to avoid false positives.
         constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
         auto v = value.load(memory_order);
@@ -242,7 +257,7 @@ namespace xenium { namespace reclamation {
       void set_link(hazard_era* link)
       {
         assert(guard_cnt == 0);
-        // (5) - this release store synchronizes-with the acquire fence (9)
+        // (6) - this release store synchronizes-with the acquire fence (10)
         value.store(marked_ptr(reinterpret_cast<void**>(link), 1), std::memory_order_release);
       }
       hazard_era* get_link() const
@@ -408,7 +423,7 @@ namespace xenium { namespace reclamation {
 
     const hazard_eras_block* next_block() const
     {
-      // (6) - this acquire-load synchronizes-with the release-store (7)
+      // (7) - this acquire-load synchronizes-with the release-store (8)
       return he_block.load(std::memory_order_acquire);
     }
     size_t number_of_hps() const { return total_number_of_hps; }
@@ -442,7 +457,7 @@ namespace xenium { namespace reclamation {
       auto block = ::new(buffer) hazard_eras_block(hps);
       auto result = this->initialize_block(*block);
       block->next = he_block.load(std::memory_order_relaxed);
-      // (7) - this release-store synchronizes-with the acquire-load (6)
+      // (8) - this release-store synchronizes-with the acquire-load (7)
       he_block.store(block, std::memory_order_release);
       return result;
     }
@@ -492,7 +507,7 @@ namespace xenium { namespace reclamation {
       std::vector<era_t> protected_eras;
       protected_eras.reserve(Policy::number_of_active_hazard_eras());
 
-      // (8) - this seq_cst-fence enforces a total order with the seq_cst-fence (4)
+      // (9) - this seq_cst-fence enforces a total order with the seq_cst-fence (5)
       std::atomic_thread_fence(std::memory_order_seq_cst);
 
       auto adopted_nodes = global_thread_block_list.adopt_abandoned_retired_nodes();
@@ -500,14 +515,14 @@ namespace xenium { namespace reclamation {
       std::for_each(global_thread_block_list.begin(), global_thread_block_list.end(),
         [&protected_eras](const auto& entry)
         {
-          // TSan does not support explicit fences, so we cannot rely on the acquire-fence (9)
+          // TSan does not support explicit fences, so we cannot rely on the acquire-fence (10)
           // but have to perform an acquire-load here to avoid false positives.
           constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
           if (entry.is_active(memory_order))
             entry.gather_protected_eras(protected_eras);
         });
 
-      // (9) - this acquire-fence synchronizes-with the release-store (3, 5)
+      // (10) - this acquire-fence synchronizes-with the release-store (4, 6)
       std::atomic_thread_fence(std::memory_order_acquire);
 
       std::sort(protected_eras.begin(), protected_eras.end());
