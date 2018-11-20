@@ -5,6 +5,7 @@
 #include <xenium/reclamation/new_epoch_based.hpp>
 #include <xenium/reclamation/quiescent_state_based.hpp>
 #include <xenium/reclamation/debra.hpp>
+#include <xenium/reclamation/generic_epoch_based.hpp>
 #include <xenium/reclamation/stamp_it.hpp>
 #include <xenium/harris_michael_list_based_set.hpp>
 
@@ -26,7 +27,10 @@ using Reclaimers = ::testing::Types<
     xenium::reclamation::new_epoch_based<10>,
     xenium::reclamation::quiescent_state_based,
     xenium::reclamation::debra<20>,
-    xenium::reclamation::stamp_it
+    xenium::reclamation::stamp_it,
+    xenium::reclamation::epoch_based2<>,
+    xenium::reclamation::new_epoch_based2<>,
+    xenium::reclamation::debra2<>
   >;
 TYPED_TEST_CASE(HarrisMichaelListBasedSet, Reclaimers);
 
