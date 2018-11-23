@@ -49,5 +49,15 @@ struct backoff;
 template <class Backoff>
 struct compare;
 
+/**
+ * @brief Policy to configure the capacity of various containers.
+ *
+ * This policy is used by the following data structures:
+ *   * `chase_work_stealing_deque`
+ *
+ * @tparam Value
+ */
+template <unsigned Value>
+struct capacity;
 }}
 #endif
