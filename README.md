@@ -26,6 +26,8 @@ which builds upon the original proposal by [Harris](https://www.cl.cam.ac.uk/res
 
 ### Reclamation Schemes
 
+The implementation of the reclamation schemes is based on an adapted version of the interface proposed by [Robison in Policy-Based Design for Safe Destruction in Concurrent Containers](http://www.open-std.org/JTC1/SC22/WG21/docs/papers/2013/n3712.pdf).
+
 * Lock-Free Reference Counting 
 * [Hazard Pointers](http://www.cs.otago.ac.nz/cosc440/readings/hazard-pointers.pdf)
 * [Hazard Eras](https://github.com/pramalhe/ConcurrencyFreaks/blob/master/papers/hazarderas-2017.pdf)
