@@ -151,7 +151,7 @@ public:
    *
    * @tparam Func
    * @param key the key of element to be inserted.
-   * @param value_factory a functor that is used to create the `Value` instance when constructing
+   * @param factory a functor that is used to create the `Value` instance when constructing
    * the new element to be inserted.
    * @return a pair consisting of an iterator to the inserted element, or the already-existing element
    * if no insertion happened, and a bool denoting whether the insertion took place;

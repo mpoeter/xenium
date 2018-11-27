@@ -16,6 +16,9 @@
 
 namespace xenium { namespace reclamation {
 
+  /**
+   * @brief Stamp-it
+   */
   class stamp_it
   {
     template <class T, class MarkedPtr>

@@ -19,54 +19,60 @@
 
 namespace xenium { namespace reclamation {
 
-  // Scan Strategies -- these strategies define how many threads should
-  // be scanned in an attempt to update the global epoch.
+  /**
+   * @brief This namespace contains various scan strategies to be used
+   * in the `generic_epoch_based` reclamation scheme.
+   *
+   * These strategies define how many threads should be scanned in an
+   * attempt to update the global epoch.
+   */
   namespace scan {
-    // Scan all threads (default behaviour in EBR/NEBR).
     struct all_threads;
-
-    // Scan a single thread (default behaviour in DEBRA).
     struct one_thread;
-
-    // Scan n threads.
     template <unsigned N>
     struct n_threads;
   }
 
-  // Abandon Strategies -- these strategies define when a thread should
-  // abandon its retired nodes (i.e., put them on the global list of
-  // retired nodes. A thread will always abandon any remaining retired
-  // nodes when it terminates.
-  // Note: the abandon strategy is applied for the retire list of each
-  // epoch individually.
+  /**
+   * @brief This namespace contains various abandonment strategies to be used
+   * in the `generic_epoch_based` reclamation scheme.
+   *
+   * These strategies define when a thread should abandon its retired nodes
+   * (i.e., put them on the global list of retired nodes. A thread will always
+   * abandon any remaining retired nodes when it terminates.
+   *
+   * @note The abandon strategy is applied for the retire list of each epoch
+   * individually. This is important in case the `when_exceeds_threshold` policy
+   * is used.
+   */
   namespace abandon {
-    // Never abandon any nodes (except when the thread terminates).
     struct never;
-
-    // Always abandon the remaining retired nodes when the thread leaves
-    // its critical region.
     struct always;
-
-    // Abandon the retired nodes upon leaving the critical region when the
-    // number of nodes exceeds the specified threshold.
     template <size_t Threshold>
     struct when_exceeds_threshold;
   }
 
-  // Region Extension Strategies -- these strategies define whether the size of
-  // a critical region can be extended using region_guards.
+  /**
+   * @brief Defines whether the size of a critical region can be extended using region_guards.
+   */
   enum class region_extension {
-    // Critical regions are never extended, i.e., region_guards are effectively
-    // no-ops.
+    /**
+     * @brief Critical regions are never extended, i.e., region_guards are effectively
+     * no-ops.
+     */
     none,
 
-    // The critical region is entered upon construction of the region_guard and
-    // left once the region_guard gets destroyed.
+    /**
+     * @brief The critical region is entered upon construction of the region_guard and
+     * left once the region_guard gets destroyed.
+     */
     eager,
 
-    // A critical region is only entered when a guard_ptr is created. But if
-    // this is done inside the scope of a region_guard, the critical region is
-    // only left once the region_guard gets destroyed.
+    /**
+     * @brief A critical region is only entered when a guard_ptr is created. But if this
+     * is done inside the scope of a region_guard, the critical region is only left once
+     * the region_guard gets destroyed.
+     */
     lazy
   };
 
@@ -99,6 +105,11 @@ namespace xenium { namespace reclamation {
     >;
   };
 
+  /**
+   * @brief A generalized implementation of epoch based reclamation.
+   *
+   * @tparam Traits
+   */
   template <class Traits = generic_epoch_based_traits<>>
   class generic_epoch_based
   {

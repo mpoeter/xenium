@@ -16,6 +16,11 @@
 
 namespace xenium { namespace reclamation {
 
+  /**
+   * @brief Lock-free reference counting
+   * @tparam InsertPadding
+   * @tparam ThreadLocalFreeListSize
+   */
   template <bool InsertPadding = false, size_t ThreadLocalFreeListSize = 0>
   class lock_free_ref_count
   {

@@ -16,6 +16,9 @@
 
 namespace xenium { namespace reclamation {
 
+  /**
+   * @brief Quiescent state based reclamation
+   */
   class quiescent_state_based
   {
     template <class T, class MarkedPtr>

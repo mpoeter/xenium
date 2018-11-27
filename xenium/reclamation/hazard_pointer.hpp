@@ -62,6 +62,11 @@ namespace xenium { namespace reclamation {
   template <size_t K = 2, size_t A = 2, size_t B = 100>
   using dynamic_hazard_pointer_policy = generic_hazard_pointer_policy<K, A, B, dynamic_hp_thread_control_block>;
 
+  /**
+   * @brief Hazard pointers
+   *
+   * @tparam Policy
+   */
   template <typename Policy>
   class hazard_pointer
   {

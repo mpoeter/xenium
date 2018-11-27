@@ -11,6 +11,9 @@
 
 namespace xenium { namespace reclamation {
   namespace scan {
+    /**
+     * @brief Scan all threads (default behaviour in EBR/NEBR).
+     */
     struct all_threads {
       template<class Reclaimer>
       struct type {
@@ -30,6 +33,9 @@ namespace xenium { namespace reclamation {
       };
     };
 
+    /**
+     * @brief Scan _N_ threads.
+     */
     template<unsigned N>
     struct n_threads {
       template<class Reclaimer>
@@ -56,6 +62,9 @@ namespace xenium { namespace reclamation {
       };
     };
 
+    /**
+     * @brief Scan a single thread (default behaviour in DEBRA).
+     */
     struct one_thread {
       template<class Reclaimer>
       using type = n_threads<1>::type<Reclaimer>;
@@ -63,11 +72,18 @@ namespace xenium { namespace reclamation {
   }
 
   namespace abandon {
+    /**
+     * @brief Never abandon any nodes (except when the thread terminates).
+     */
     struct never {
       using retire_list = detail::retire_list<>;
       static void apply(retire_list&, detail::orphan_list<>&) {}
     };
 
+    /**
+     * @brief Always abandon the remaining retired nodes when the thread leaves
+     * its critical region.
+     */
     struct always {
       using retire_list = detail::retire_list<>;
       static void apply(retire_list& retire_list, detail::orphan_list<>& orphans)
@@ -77,6 +93,10 @@ namespace xenium { namespace reclamation {
       }
     };
 
+    /**
+     * @brief Abandon the retired nodes upon leaving the critical region when the
+     * number of nodes exceeds the specified threshold.
+     */
     template <size_t Threshold>
     struct when_exceeds_threshold {
       using retire_list = detail::counting_retire_list<>;

@@ -23,6 +23,8 @@ which builds upon the original proposal by
 * `harris_michael_hash_map` - a lock-free hash-map based on the solution proposed by
 [Michael](http://www.liblfds.org/downloads/white%20papers/%5BHash%5D%20-%20%5BMichael%5D%20-%20High%20Performance%20Dynamic%20Lock-Free%20Hash%20Tables%20and%20List-Based%20Sets.pdf)
 which builds upon the original proposal by [Harris](https://www.cl.cam.ac.uk/research/srg/netos/papers/2001-caslists.pdf).
+* `chase_work_stealing_deque` - a work stealing deque based on the proposal by
+[Chase and Lev](https://www.dre.vanderbilt.edu/~schmidt/PDF/work-stealing-dequeue.pdf).
 
 ### Reclamation Schemes
 

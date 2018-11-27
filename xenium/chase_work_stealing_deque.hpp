@@ -14,7 +14,19 @@
 #include <cassert>
 
 namespace xenium {
-
+/**
+ * @brief A lock-free work stealing deque.
+ *
+ * This is an implementation of the work stealing deque proposed by [Chase and Lev]
+ * (https://www.dre.vanderbilt.edu/~schmidt/PDF/work-stealing-dequeue.pdf).
+ *
+ * Supported policies:
+ *  * `xenium::policy::capacity`<br>
+ *    Defines the capacity of the deque. (*optional*; defaults to 128)
+ *
+ * @tparam T
+ * @tparam Policies
+ */
 template <class T, class... Policies>
 struct chase_work_stealing_deque {
   using value_type = T*;
