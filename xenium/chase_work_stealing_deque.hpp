@@ -9,6 +9,7 @@
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
 #include <xenium/detail/fixed_size_circular_array.hpp>
+#include <xenium/detail/growing_circular_array.hpp>
 
 #include <atomic>
 #include <cassert>
@@ -22,7 +23,13 @@ namespace xenium {
  *
  * Supported policies:
  *  * `xenium::policy::capacity`<br>
- *    Defines the capacity of the deque. (*optional*; defaults to 128)
+ *    Defines the (minimum) capacity of the deque. (*optional*; defaults to 128)
+ *  * `xenium::policy::container`<br>
+ *    Defines the internal container type to store the entries.
+ *    (*optional*; defaults to `xenium::detail::growing_circular_array`)<br>
+ *    Possible containers are:
+ *    * `xenium::detail::fixed_size_circular_array`
+ *    * `xenium::detail::growing_circular_array`
  *
  * @tparam T
  * @tparam Policies
@@ -30,7 +37,8 @@ namespace xenium {
 template <class T, class... Policies>
 struct chase_work_stealing_deque {
   using value_type = T*;
-  static constexpr unsigned capacity = parameter::value_param_t<unsigned, policy::capacity, 128, Policies...>::value;
+  static constexpr std::size_t capacity = parameter::value_param_t<std::size_t, policy::capacity, 128, Policies...>::value;
+  using container = parameter::type_param_t<policy::container, detail::growing_circular_array<T, capacity>, Policies...>;
 
   chase_work_stealing_deque();
 
@@ -44,13 +52,13 @@ struct chase_work_stealing_deque {
   bool try_pop(value_type &result);
   bool try_steal(value_type &result);
 
-  unsigned size() {
+  std::size_t size() {
     auto t = top.load(std::memory_order_relaxed);
     return bottom.load(std::memory_order_relaxed) - t; }
 private:
-  detail::fixed_size_circular_array<T, capacity> items;
-  std::atomic<unsigned> bottom;
-  std::atomic<unsigned> top;
+  container items;
+  std::atomic<std::size_t> bottom;
+  std::atomic<std::size_t> top;
 };
 
 template <class T, class... Policies>
@@ -65,8 +73,13 @@ bool chase_work_stealing_deque<T, Policies...>::try_push(value_type item) {
   auto t = top.load(std::memory_order_relaxed);
   auto size = b - t;
   if (size >= items.capacity()) {
-    // TODO - grow if array is growable
-    return false;
+    if (items.can_grow()) {
+      items.grow(b, t);
+      assert(size < items.capacity());
+      // TODO - need to update top??
+    }
+    else
+      return false;
   }
 
   items.put(b, item, std::memory_order_relaxed);

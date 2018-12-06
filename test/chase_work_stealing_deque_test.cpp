@@ -66,6 +66,26 @@ namespace {
     EXPECT_EQ(n1.get(), elem);
   }
 
+  TEST(ChaseWorkStealingDeque, push_pop_steal_many)
+  {
+    constexpr unsigned count = 4000;
+    auto n = std::make_unique<node>();
+    xenium::chase_work_stealing_deque<node> queue;
+
+    for (int x = 0; x < 3; ++x) {
+      for (unsigned i = 0; i < count; ++i)
+        ASSERT_TRUE(queue.try_push(n.get()));
+
+      node *v;
+      for (unsigned i = 0; i < count; ++i) {
+        if (i % 2 == 0)
+          ASSERT_TRUE(queue.try_pop(v));
+        else
+          ASSERT_TRUE(queue.try_steal(v));
+      }
+    }
+  }
+
   TEST(ChaseWorkStealingDeque, parallel_usage)
   {
     constexpr unsigned num_threads = 8;

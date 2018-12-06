@@ -57,7 +57,20 @@ struct compare;
  *
  * @tparam Value
  */
-template <unsigned Value>
+template <std::size_t Value>
 struct capacity;
+
+
+/**
+ * @brief Policy to configure the internal container type of some
+ *   data structures.
+ *
+ * This policy is used by the following data structures:
+ *   * `chase_work_stealing_deque`
+ *
+ * @tparam Container
+ */
+template <class Container>
+struct container;
 }}
 #endif
