@@ -4,6 +4,12 @@ compiler:
   - gcc
   - clang
 
+addons:
+  apt:
+    packages:
+    - libboost-all-dev
+    - libgtest-dev
+
 before_script:
   - mkdir build
   - cd build
