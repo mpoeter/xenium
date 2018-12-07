@@ -19,8 +19,11 @@ namespace xenium { namespace reclamation {
       struct type {
         bool scan(typename Reclaimer::epoch_t epoch) {
           auto prevents_update = [epoch](const typename Reclaimer::thread_control_block &data) -> bool {
-            return data.is_in_critical_region.load(std::memory_order_relaxed) &&
-                   data.local_epoch.load(std::memory_order_relaxed) != epoch;
+            // TSan does not support explicit fences, so we cannot rely on the acquire-fence (6)
+            // but have to perform an acquire-load here to avoid false positives.
+            constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
+            return data.is_in_critical_region.load(memory_order) &&
+                   data.local_epoch.load(memory_order) != epoch;
           };
 
           // If any thread hasn't advanced to the current epoch, abort the attempt.
@@ -44,8 +47,11 @@ namespace xenium { namespace reclamation {
 
         bool scan(typename Reclaimer::epoch_t epoch) {
           for (unsigned i = 0; i < N; ++i) {
-            if (!thread_iterator->is_in_critical_region.load(std::memory_order_relaxed) ||
-                thread_iterator->local_epoch.load(std::memory_order_relaxed) == epoch) {
+            // TSan does not support explicit fences, so we cannot rely on the acquire-fence (6)
+            // but have to perform an acquire-load here to avoid false positives.
+            constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
+            if (!thread_iterator->is_in_critical_region.load(memory_order) ||
+                thread_iterator->local_epoch.load(memory_order) == epoch) {
               if (++thread_iterator == Reclaimer::global_thread_block_list.end())
                 return true;
             }
@@ -263,10 +269,6 @@ namespace xenium { namespace reclamation {
 
       assert(control_block->is_in_critical_region.load(std::memory_order_relaxed) == false);
       global_thread_block_list.release_entry(control_block);
-    }
-
-    bool is_in_critical_region() const {
-      return control_block != nullptr && control_block->is_in_critical_region.load(std::memory_order_relaxed);
     }
 
     void enter_region()

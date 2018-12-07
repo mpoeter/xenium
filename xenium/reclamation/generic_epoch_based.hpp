@@ -139,8 +139,6 @@ namespace xenium { namespace reclamation {
     template <class T, std::size_t N = T::number_of_mark_bits>
     using concurrent_ptr = xenium::reclamation::detail::concurrent_ptr<T, N, guard_ptr>;
 
-    static bool is_in_critical_region() { return local_thread_data().is_in_critical_region(); }
-
     ALLOCATION_TRACKER;
   private:
     using epoch_t = size_t;
