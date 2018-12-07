@@ -84,7 +84,7 @@ bool chase_work_stealing_deque<T, Policies...>::try_push(value_type item) {
 
   items.put(b, item, std::memory_order_relaxed);
 
-  // (TODO)
+  // (1) - this release-store synchronizes-with the seq-cst-load (3)
   bottom.store(b + 1, std::memory_order_release);
   return true;
 }
@@ -97,19 +97,19 @@ bool chase_work_stealing_deque<T, Policies...>::try_pop(value_type &result) {
     return false;
 
   --b;
-  // (TODO)
+  // (2) - this seq-cst-store enforces a total order with the seq-cst-load (3)
   bottom.store(b, std::memory_order_seq_cst);
 
   auto item = items.get(b, std::memory_order_relaxed);
-  t = top.load(std::memory_order_acquire);
+  t = top.load(std::memory_order_relaxed);
   if (b > t) {
     result = item;
     return true;
   }
 
   if (b == t) {
-    // (TODO)
-    if (top.compare_exchange_strong(t, t + 1, std::memory_order_release, std::memory_order_relaxed)) {
+    if (top.compare_exchange_strong(t, t + 1, std::memory_order_relaxed))
+    {
       bottom.store(t + 1, std::memory_order_relaxed);
       result = item;
       return true;
@@ -126,16 +126,17 @@ bool chase_work_stealing_deque<T, Policies...>::try_pop(value_type &result) {
 
 template <class T, class... Policies>
 bool chase_work_stealing_deque<T, Policies...>::try_steal(value_type &result) {
-  // (TODO)
-  auto t = top.load(std::memory_order_acquire);
-  auto b = bottom.load(std::memory_order_acquire);
+  auto t = top.load(std::memory_order_relaxed);
+
+  // (3) - this seq-cst-load enforces a total order with the seq-cst-store (2)
+  //       and synchronizes-with the release-store (1)
+  auto b = bottom.load(std::memory_order_seq_cst);
   auto size = (int)b - (int)t;
   if (size <= 0)
     return false;
 
   auto item = items.get(t, std::memory_order_relaxed);
-  // (TODO)
-  if (top.compare_exchange_strong(t, t + 1, std::memory_order_acquire, std::memory_order_relaxed)) {
+  if (top.compare_exchange_strong(t, t + 1, std::memory_order_relaxed)) {
     result = item;
     return true;
   }
