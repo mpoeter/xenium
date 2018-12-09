@@ -1,13 +1,14 @@
 project(xenium)
 cmake_minimum_required(VERSION 3.0)
 
+include(gtest.cmake)
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 enable_testing()
 
 find_package(Boost 1.61.0 REQUIRED)
-find_package(GTest REQUIRED)
 find_package(Threads REQUIRED)
 find_package(Doxygen)
 
@@ -21,7 +22,7 @@ include_directories(. ${Boost_INCLUDE_DIR} ${GTEST_INCLUDE_DIRS})
 
 add_executable(gtest ${TEST_FILES} ${XENIUM_FILES})
 
-target_link_libraries(gtest ${GTEST_BOTH_LIBRARIES})
+target_link_libraries(gtest googletest)
 
 if(CMAKE_THREAD_LIBS_INIT)
     target_link_libraries(gtest "${CMAKE_THREAD_LIBS_INIT}")
