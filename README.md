@@ -1,5 +1,7 @@
 # xenium
 
+[![Build Status](https://travis-ci.org/mpoeter/xenium.svg?branch=master)](https://travis-ci.org/mpoeter/xenium)
+
 xenium is a collection of concurrent data structures and memory reclamation algorithms.
 The data structures are parameterized so that they can be used with various reclamation
 schemes (similar to how the STL allows customization of allocators).

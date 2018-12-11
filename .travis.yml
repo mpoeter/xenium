@@ -1,9 +1,5 @@
 language: cpp
 
-compiler:
-  - gcc
-  - clang
-
 os: linux
 dist: xenial
 
@@ -24,6 +20,5 @@ before_script:
   - cmake .. -DCMAKE_CXX_COMPILER=g++-7 -DBOOST_ROOT=./boost_1_68_0
 
 script:
-  - gcc -v
   - make -j 2
-  - make test
+  - ./gtest
