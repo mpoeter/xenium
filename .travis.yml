@@ -21,7 +21,7 @@ install:
 before_script:
   - mkdir build
   - cd build
-  - cmake .. -DCMAKE_CXX_COMPILER=g++-7 -DBOOST_ROOT=../boost_1_68_0
+  - cmake .. -DCMAKE_CXX_COMPILER=g++-7 -DBOOST_ROOT=./boost_1_68_0
 
 script:
   - gcc -v
