@@ -35,8 +35,7 @@ TYPED_TEST_CASE(RamalheteQueue, Reclaimers);
 
 TYPED_TEST(RamalheteQueue, push_try_pop_returns_pushed_element)
 {
-  //xenium::ramalhete_queue<int, policy::reclaimer<TypeParam>, policy::slots_per_node<1024>, policy::backoff<no_backoff>, policy::padding_slots<3>>
-  xenium::ramalhete_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
+  xenium::ramalhete_queue<int*, xenium::policy::reclaimer<TypeParam>> queue;
   queue.push(v1);
   int* elem;
   EXPECT_TRUE(queue.try_pop(elem));
@@ -45,7 +44,7 @@ TYPED_TEST(RamalheteQueue, push_try_pop_returns_pushed_element)
 
 TYPED_TEST(RamalheteQueue, push_two_items_pop_them_in_FIFO_order)
 {
-  xenium::ramalhete_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
+  xenium::ramalhete_queue<int*, xenium::policy::reclaimer<TypeParam>> queue;
   queue.push(v1);
   queue.push(v2);
   int* elem1;
@@ -59,7 +58,7 @@ TYPED_TEST(RamalheteQueue, push_two_items_pop_them_in_FIFO_order)
 TYPED_TEST(RamalheteQueue, parallel_usage)
 {
   using Reclaimer = TypeParam;
-  xenium::ramalhete_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
+  xenium::ramalhete_queue<int*, xenium::policy::reclaimer<TypeParam>> queue;
 
   std::vector<std::thread> threads;
   for (int i = 0; i < 4; ++i)

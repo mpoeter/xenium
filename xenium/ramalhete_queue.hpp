@@ -27,15 +27,17 @@ namespace policy {
   struct entries_per_node;
 
   /**
-   * @brief Policy to configure the number of slots to pad entries in `ramalhete_queue` to
-   * reduce false sharing.
+   * @brief Policy to configure the number of padding bytes to add to each entry in
+   * `ramalhete_queue` to reduce false sharing.
    *
-   * Each padding slot has the same size as the queue's `value_type`. Thus the total size
-   * of a queue entry equals `sizeof(value_type) * (padding_slots + 1)`.
+   * Note that this number of bytes is a lower bound. Depending on the size of the
+   * queue's `value_type` the compiler may add some additional padding. The effective
+   * size of a queue entry is provided in `ramalhete_queue::entry_size`.
+   *
    * @tparam Value
    */
   template <unsigned Value>
-  struct padding_slots;
+  struct padding_bytes;
 
   /**
    * @brief Policy to configure the number of iterations to spin on a queue entry while waiting
@@ -54,7 +56,9 @@ namespace policy {
  * http://concurrencyfreaks.blogspot.com/2016/11/faaarrayqueue-mpmc-lock-free-queue-part.html
  * 
  * It is faster and more efficient than the `michael_scott_queue`, but less generic as it can
- * only handle pointers to instances of `T`.
+ * only handle pointers (i.e., `T` must be a pointer type).
+ *
+ * A generic version that does not have this limitation is planned for a future version.
  *
  * Supported policies:
  *  * `xenium::policy::reclaimer`<br>
@@ -75,11 +79,12 @@ namespace policy {
 template <class T, class... Policies>
 class ramalhete_queue {
 public:
-  using value_type = T*;
+  static_assert(std::is_pointer<T>::value, "T must be a pointer type");
+  using value_type = T;
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
   static constexpr unsigned entries_per_node = parameter::value_param_t<unsigned, policy::entries_per_node, 512, Policies...>::value;
-  static constexpr unsigned padding_slots = parameter::value_param_t<unsigned, policy::padding_slots, 1, Policies...>::value;
+  static constexpr unsigned padding_bytes = parameter::value_param_t<unsigned, policy::padding_bytes, sizeof(T*), Policies...>::value;
   static constexpr unsigned pop_retries = parameter::value_param_t<unsigned, policy::pop_retries, 10, Policies...>::value;;
 
   static_assert(entries_per_node > 0, "entries_per_node must be greater than zero");
@@ -114,21 +119,27 @@ private:
   using marked_ptr = typename concurrent_ptr::marked_ptr;
   using guard_ptr = typename concurrent_ptr::guard_ptr;
 
-  using marked_value = reclamation::detail::marked_ptr<T, 1>;
+  using marked_value = reclamation::detail::marked_ptr<std::remove_pointer_t<T>, 1>;
 
   struct padded_entry {
     std::atomic<marked_value> value;
     // we use max here to avoid arrays of size zero which are not allowed by Visual C++
-    char padding[sizeof(marked_value) * std::max(padding_slots, 1u)];
+    char padding[std::max(padding_bytes, 1u)];
   };
 
   struct unpadded_entry {
     std::atomic<marked_value> value;
   };
 
-  using entry = std::conditional_t<padding_slots == 0, unpadded_entry, padded_entry>;
-  static_assert(sizeof(entry) == sizeof(marked_value) * (padding_slots + 1), "");
+  using entry = std::conditional_t<padding_bytes == 0, unpadded_entry, padded_entry>;
 
+public:
+  /**
+   * @brief Provides the effective size of a single queue entry (including padding).
+   */
+  static constexpr std::size_t entry_size = sizeof(entry);
+
+private:
   struct node : reclaimer::template enable_concurrent_ptr<node> {
     std::atomic<unsigned>     pop_idx;
     entry entries[entries_per_node];
@@ -136,7 +147,7 @@ private:
     concurrent_ptr next;
 
     // Start with the first entry pre-filled
-    node(T* item) :
+    node(value_type item) :
       pop_idx{0},
       push_idx{1},
       next{nullptr}
