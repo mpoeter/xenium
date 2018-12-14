@@ -15,8 +15,8 @@ namespace xenium {
 /**
  * @brief An unbounded generic lock-free multi-producer/multi-consumer FIFO queue.
  * 
- * This is an implementation of the lock-free MPMC queue proposed by [Michael and Scott]
- * (http://www.cs.rochester.edu/~scott/papers/1996_PODC_queues.pdf)
+ * This is an implementation of the lock-free MPMC queue proposed by Michael and Scott
+ * \[[9](index.html#ref-michael-1996)\].
  * It is fully generic and can handle any type `T` that is copyable or movable.
  *
  * Supported policies:

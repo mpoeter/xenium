@@ -41,11 +41,9 @@ namespace policy {
  * 
  * This hash-map is less efficient than many other available concurrent hash-maps, but it is
  * lock-free and fully generic, i.e., it supports arbitrary types for `Key` and `Value`.
- * 
- * This data structure is based on the solution proposed by [Michael]
- * (http://www.liblfds.org/downloads/white%20papers/%5BHash%5D%20-%20%5BMichael%5D%20-%20High%20Performance%20Dynamic%20Lock-Free%20Hash%20Tables%20and%20List-Based%20Sets.pdf)
- * which builds upon the original proposal by [Harris]
- * (https://www.cl.cam.ac.uk/research/srg/netos/papers/2001-caslists.pdf). 
+ *
+ * This data structure is based on the solution proposed by Michael \[[6](index.html#ref-michael-2002)\]
+ * which builds upon the original proposal by Harris \[[4](index.html#ref-harris-2001)\].
  *
  * Supported policies:
  *  * `xenium::policy::reclaimer`<br>

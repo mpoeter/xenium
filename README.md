@@ -21,7 +21,7 @@ Ramalhete \[[12](#ref-ramalhete-2016)\].
 This data structure is based on the solution proposed by Michael \[[6](#ref-michael-2002)\] which builds
 upon the original proposal by Harris \[[4](#ref-harris-2001)\].
 * `harris_michael_hash_map` - a lock-free hash-map based on the solution proposed by Michael
-\[[6](#ref-michael-2002) which builds upon the original proposal by Harris \[[4](#ref-harris-2001)\].
+\[[6](#ref-michael-2002)\] which builds upon the original proposal by Harris \[[4](#ref-harris-2001)\].
 * `chase_work_stealing_deque` - a work stealing deque based on the proposal by
 Chase and Lev \[[2](#ref-chase-2005)\].
 

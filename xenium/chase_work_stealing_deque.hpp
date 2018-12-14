@@ -18,9 +18,9 @@ namespace xenium {
 /**
  * @brief A lock-free work stealing deque.
  *
- * This is an implementation of the work stealing deque proposed by [Chase and Lev]
- * (https://www.dre.vanderbilt.edu/~schmidt/PDF/work-stealing-dequeue.pdf).
- *
+ * This is an implementation of the work stealing deque proposed by Chase and Lev
+ * \[[2](index.html#ref-chase-2005)\].
+ * 
  * Supported policies:
  *  * `xenium::policy::capacity`<br>
  *    Defines the (minimum) capacity of the deque. (*optional*; defaults to 128)

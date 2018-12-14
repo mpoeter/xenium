@@ -78,6 +78,11 @@ namespace xenium { namespace reclamation {
   template <size_t K = 2, size_t A = 2, size_t B = 100>
   using dynamic_hazard_eras_policy = generic_hazard_eras_policy<K, A, B, dynamic_he_thread_control_block>;
 
+  /**
+   * @brief Hazard eras
+   *
+   * @tparam Policy
+   */
   template <typename Policy>
   class hazard_eras
   {

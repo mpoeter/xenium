@@ -21,10 +21,8 @@ namespace xenium {
  * a runtime complexity linear in the size of the list (in the absence of conflicting
  * operations).
  * 
- * This data structure is based on the solution proposed by [Michael]
- * (http://www.liblfds.org/downloads/white%20papers/%5BHash%5D%20-%20%5BMichael%5D%20-%20High%20Performance%20Dynamic%20Lock-Free%20Hash%20Tables%20and%20List-Based%20Sets.pdf)
- * which builds upon the original proposal by [Harris]
- * (https://www.cl.cam.ac.uk/research/srg/netos/papers/2001-caslists.pdf). 
+ * This data structure is based on the solution proposed by Michael \[[6](index.html#ref-michael-2002)\]
+ * which builds upon the original proposal by Harris \[[4](index.html#ref-harris-2001)\].
  *
  * * Supported policies:
  *  * `xenium::policy::reclaimer`<br>
