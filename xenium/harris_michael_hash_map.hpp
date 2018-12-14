@@ -10,6 +10,7 @@
 #include <xenium/backoff.hpp>
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
+#include <xenium/utils.hpp>
 
 #include <atomic>
 #include <functional>
@@ -25,11 +26,22 @@ namespace policy {
   struct buckets;
 
   /**
-   * @brief Policy to configure the hash funtion in `harris_michael_hash_map`.
+   * @brief Policy to configure the hash function in `harris_michael_hash_map`.
    * @tparam T 
    */
   template <class T>
   struct hash;
+
+  /**
+   * @brief Policy to configure the function that maps the hash value to a bucket
+   * in `harris_michael_hash_map`.
+   *
+   * This can be used to apply other multiplicative methods like fibonacci hashing.
+   *
+   * @tparam T
+   */
+  template <class T>
+  struct map_to_bucket;
 }
 
 /**
@@ -50,6 +62,9 @@ namespace policy {
  *    Defines the reclamation scheme to be used for internal nodes. (**required**)
  *  * `xenium::policy::hash`<br>
  *    Defines the hash function. (*optional*; defaults to `std::hash<Key>`)
+ *  * `xenium::policy::map_to_bucket`<br>
+ *    Defines the function that is used to map the calculated hash to a bucket.
+ *    (*optional*; defaults to `xenium::utils::modulo<std::size_t>`)
  *  * `xenium::policy::backoff`<br>
  *    Defines the backoff strategy. (*optional*; defaults to `xenium::no_backoff`)
  *  * `xenium::policy::buckets`<br>
@@ -65,6 +80,7 @@ public:
   using value_type = std::pair<const Key, Value>;
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
   using hash = parameter::type_param_t<policy::hash, std::hash<Key>, Policies...>;
+  using map_to_bucket = parameter::type_param_t<policy::map_to_bucket, utils::modulo<std::size_t>, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
   static constexpr std::size_t num_buckets = parameter::value_param_t<std::size_t, policy::buckets, 512, Policies...>::value;
 
@@ -481,7 +497,8 @@ retry:
 template <class Key, class Value, class... Policies>
 bool harris_michael_hash_map<Key, Value, Policies...>::contains(const Key& key)
 {
-  auto bucket = hash{}(key) % num_buckets;
+  auto h = hash{}(key);
+  auto bucket = map_to_bucket{}(h, num_buckets);
   find_info info{&buckets[bucket]};
   backoff backoff;
   return find(key, bucket, info, backoff);
@@ -490,7 +507,8 @@ bool harris_michael_hash_map<Key, Value, Policies...>::contains(const Key& key)
 template <class Key, class Value, class... Policies>
 auto harris_michael_hash_map<Key, Value, Policies...>::find(const Key& key) -> iterator
 {
-  auto bucket = hash{}(key) % num_buckets;
+  auto h = hash{}(key);
+  auto bucket = map_to_bucket{}(h, num_buckets);
   find_info info{&buckets[bucket]};
   backoff backoff;
   if (find(key, bucket, info, backoff))
@@ -534,7 +552,8 @@ auto harris_michael_hash_map<Key, Value, Policies...>::do_get_or_emplace_lazy(Ke
   -> std::pair<iterator, bool>
 {
   node* n = nullptr;
-  auto bucket = hash{}(key) % num_buckets;
+  auto h = hash{}(key);
+  auto bucket = map_to_bucket{}(h, num_buckets);
 
   const Key* pkey = &key;
   find_info info{&buckets[bucket]};
@@ -575,7 +594,9 @@ auto harris_michael_hash_map<Key, Value, Policies...>::emplace_or_get(Args&&... 
   -> std::pair<iterator, bool>
 {
   node* n = new node(std::forward<Args>(args)...);
-  auto bucket = hash{}(n->value.first) % num_buckets;
+
+  auto h = hash{}(n->value.first);
+  auto bucket = map_to_bucket{}(h, num_buckets);
 
   find_info info{&buckets[bucket]};
   backoff backoff;
@@ -607,7 +628,8 @@ auto harris_michael_hash_map<Key, Value, Policies...>::emplace_or_get(Args&&... 
 template <class Key, class Value, class... Policies>
 bool harris_michael_hash_map<Key, Value, Policies...>::erase(const Key& key)
 {
-  auto bucket = hash{}(key) % num_buckets;
+  auto h = hash{}(key);
+  auto bucket = map_to_bucket{}(h, num_buckets);
   backoff backoff;
   find_info info{&buckets[bucket]};
   // Find node in hash_map with matching key and mark it for erasure.

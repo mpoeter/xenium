@@ -6,7 +6,7 @@
 #ifndef XENIUM_GROWING_CIRCULAR_ARRAY_HPP
 #define XENIUM_GROWING_CIRCULAR_ARRAY_HPP
 
-#include <xenium/detail/utils.hpp>
+#include <xenium/utils.hpp>
 
 #include <atomic>
 #include <cassert>

@@ -20,6 +20,9 @@ namespace xenium { namespace utils {
     return result;
   }
 
-
-  }}
+  template <typename T>
+  struct modulo {
+    T operator()(T a, T b) { return a % b; }
+  };
+}}
 #endif
