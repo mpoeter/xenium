@@ -261,30 +261,36 @@ TYPED_TEST(HarrisMichaelHashMap, parallel_usage)
 {
   using Reclaimer = TypeParam;
 
+  using hash_map = xenium::harris_michael_hash_map<std::string, int,
+    xenium::policy::reclaimer<Reclaimer>,
+    xenium::policy::buckets<10>>;
+  hash_map map;
+
   std::vector<std::thread> threads;
   for (int i = 0; i < 8; ++i)
   {
-    threads.push_back(std::thread([i, this]
+    threads.push_back(std::thread([i, &map]
     {
       for (int j = 0; j < MaxIterations; ++j)
       {
+        std::string k = std::to_string(i);
         typename Reclaimer::region_guard critical_region{};
-		    EXPECT_EQ(this->map.end(), this->map.find(i));
-        EXPECT_TRUE(this->map.emplace(i, i));
-        auto it = this->map.find(i);
-        EXPECT_NE(this->map.end(), it);
-        EXPECT_EQ(i, it->first);
+		    EXPECT_EQ(map.end(), map.find(k));
+        EXPECT_TRUE(map.emplace(k, i));
+        auto it = map.find(k);
+        EXPECT_NE(map.end(), it);
+        EXPECT_EQ(k, it->first);
         EXPECT_EQ(i, it->second);
         it.reset();
-        EXPECT_TRUE(this->map.erase(i));
-        EXPECT_FALSE(this->map.contains(i));
-        auto result = this->map.get_or_emplace_lazy(i, [i](){ return i; });
+        EXPECT_TRUE(map.erase(k));
+        EXPECT_FALSE(map.contains(k));
+        auto result = map.get_or_emplace_lazy(k, [i](){ return i; });
         EXPECT_TRUE(result.second);
-        it = this->map.erase(std::move(result.first));
+        it = map.erase(std::move(result.first));
         it.reset();
-        EXPECT_FALSE(this->map.contains(i));
+        EXPECT_FALSE(map.contains(k));
 
-        for (auto& v : this->map)
+        for (auto& v : map)
           ;
       }
     }));
@@ -298,28 +304,34 @@ TYPED_TEST(HarrisMichaelHashMap, parallel_usage_with_same_values)
 {
   using Reclaimer = TypeParam;
 
+  using hash_map = xenium::harris_michael_hash_map<std::string, int,
+    xenium::policy::reclaimer<Reclaimer>,
+    xenium::policy::buckets<10>>;
+  hash_map map;
+
   std::vector<std::thread> threads;
   for (int i = 0; i < 8; ++i)
   {
-    threads.push_back(std::thread([this]
+    threads.push_back(std::thread([&map]
     {
       for (int j = 0; j < MaxIterations / 10; ++j)
         for (int i = 0; i < 10; ++i)
         {
+          std::string k = std::to_string(i);
           typename Reclaimer::region_guard critical_region{};
-          this->map.contains(i);
-          this->map.emplace(i, i);
-          auto it = this->map.find(i);
+          map.contains(k);
+          map.emplace(k, i);
+          auto it = map.find(k);
           it.reset();
-          this->map.erase(i);
-          auto result = this->map.get_or_emplace(i, i);
+          map.erase(k);
+          auto result = map.get_or_emplace(k, i);
           if (result.second) {
-            it = this->map.erase(std::move(result.first));
+            it = map.erase(std::move(result.first));
             it.reset();
           }
           result.first.reset();
 
-          for (auto& v : this->map)
+          for (auto& v : map)
             ;
         }
     }));
