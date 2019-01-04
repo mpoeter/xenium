@@ -70,7 +70,7 @@ namespace xenium { namespace reclamation {
 
   template <std::size_t UpdateThreshold>
   template <class T, class MarkedPtr>
-  void debra<UpdateThreshold>::guard_ptr<T, MarkedPtr>::acquire(concurrent_ptr<T>& p,
+  void debra<UpdateThreshold>::guard_ptr<T, MarkedPtr>::acquire(const concurrent_ptr<T>& p,
     std::memory_order order) noexcept
   {
     if (p.load(std::memory_order_relaxed) == nullptr)
@@ -90,7 +90,7 @@ namespace xenium { namespace reclamation {
   template <std::size_t UpdateThreshold>
   template <class T, class MarkedPtr>
   bool debra<UpdateThreshold>::guard_ptr<T, MarkedPtr>::acquire_if_equal(
-    concurrent_ptr<T>& p,
+    const concurrent_ptr<T>& p,
     const MarkedPtr& expected,
     std::memory_order order) noexcept
   {

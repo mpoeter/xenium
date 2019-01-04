@@ -127,12 +127,12 @@ namespace xenium { namespace reclamation {
     guard_ptr& operator=(guard_ptr&& p);
 
     // Atomically take snapshot of p, and *if* it points to unreclaimed object, acquire shared ownership of it.
-    void acquire(concurrent_ptr<T>& p, std::memory_order order = std::memory_order_seq_cst) noexcept;
+    void acquire(const concurrent_ptr<T>& p, std::memory_order order = std::memory_order_seq_cst) noexcept;
 
     // Like acquire, but quit early if a snapshot != expected.
-    bool acquire_if_equal(concurrent_ptr<T>& p,
-      const MarkedPtr& expected,
-      std::memory_order order = std::memory_order_seq_cst) noexcept;
+    bool acquire_if_equal(const concurrent_ptr<T>& p,
+                          const MarkedPtr& expected,
+                          std::memory_order order = std::memory_order_seq_cst) noexcept;
 
     // Release ownership. Postcondition: get() == nullptr.
     void reset() noexcept;

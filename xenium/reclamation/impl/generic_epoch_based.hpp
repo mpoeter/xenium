@@ -183,7 +183,7 @@ namespace xenium { namespace reclamation {
   template <class Traits>
   template <class T, class MarkedPtr>
   void generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::acquire(
-    concurrent_ptr<T>& p, std::memory_order order) noexcept
+    const concurrent_ptr<T>& p, std::memory_order order) noexcept
   {
     if (p.load(std::memory_order_relaxed) == nullptr)
     {
@@ -202,7 +202,7 @@ namespace xenium { namespace reclamation {
   template <class Traits>
   template <class T, class MarkedPtr>
   bool generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::acquire_if_equal(
-    concurrent_ptr<T>& p, const MarkedPtr& expected, std::memory_order order) noexcept
+    const concurrent_ptr<T>& p, const MarkedPtr& expected, std::memory_order order) noexcept
   {
     auto actual = p.load(std::memory_order_relaxed);
     if (actual == nullptr || actual != expected)

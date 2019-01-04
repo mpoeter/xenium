@@ -83,7 +83,7 @@ namespace xenium { namespace reclamation {
 
   template <typename Policy>
   template <class T, class MarkedPtr>
-  void hazard_eras<Policy>::guard_ptr<T, MarkedPtr>::acquire(concurrent_ptr<T>& p,
+  void hazard_eras<Policy>::guard_ptr<T, MarkedPtr>::acquire(const concurrent_ptr<T>& p,
     std::memory_order order)
   {
     if (order == std::memory_order_relaxed || order == std::memory_order_consume) {
@@ -128,7 +128,7 @@ namespace xenium { namespace reclamation {
   template <typename Policy>
   template <class T, class MarkedPtr>
   bool hazard_eras<Policy>::guard_ptr<T, MarkedPtr>::acquire_if_equal(
-    concurrent_ptr<T>& p,
+    const concurrent_ptr<T>& p,
     const MarkedPtr& expected,
     std::memory_order order)
   {

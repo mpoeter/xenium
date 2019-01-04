@@ -224,7 +224,7 @@ namespace xenium { namespace reclamation {
     template<bool InsertPadding, size_t ThreadLocalFreeListSize>
     template<class T, class MarkedPtr>
     void lock_free_ref_count<InsertPadding, ThreadLocalFreeListSize>::
-    guard_ptr<T, MarkedPtr>::acquire(concurrent_ptr <T> &p, std::memory_order order) noexcept {
+    guard_ptr<T, MarkedPtr>::acquire(const concurrent_ptr <T> &p, std::memory_order order) noexcept {
       for (;;) {
         reset();
         // FIXME: If this load is relaxed, TSan reports a data race between the following
@@ -252,7 +252,7 @@ namespace xenium { namespace reclamation {
     template<class T, class MarkedPtr>
     bool lock_free_ref_count<InsertPadding, ThreadLocalFreeListSize>::
     guard_ptr<T, MarkedPtr>::acquire_if_equal(
-      concurrent_ptr <T> &p, const MarkedPtr &expected, std::memory_order order) noexcept {
+      const concurrent_ptr <T> &p, const MarkedPtr &expected, std::memory_order order) noexcept {
       reset();
       // FIXME: same issue with TSan as in acquire (see above).
       auto q = p.load(std::memory_order_acquire);
