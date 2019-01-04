@@ -53,7 +53,7 @@ namespace policy {
    * @tparam T
    */
   template <bool Value>
-  struct store_hash_value;
+  struct memoize_hash;
 }
 
 /**
@@ -81,7 +81,7 @@ namespace policy {
  *    Defines the backoff strategy. (*optional*; defaults to `xenium::no_backoff`)
  *  * `xenium::policy::buckets`<br>
  *    Defines the number of buckets. (*optional*; defaults to 512)
- *  * `xenium::policy::store_hash_value`<br>
+ *  * `xenium::policy::memoize_hash`<br>
  *    Defines whether the hash should be stored and used during lookup operations.
  *    (*optional*; defaults to false for scalar `Key` types; otherwise true)
  *
@@ -98,8 +98,8 @@ public:
   using map_to_bucket = parameter::type_param_t<policy::map_to_bucket, utils::modulo<std::size_t>, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
   static constexpr std::size_t num_buckets = parameter::value_param_t<std::size_t, policy::buckets, 512, Policies...>::value;
-  static constexpr bool store_hash_value =
-    parameter::value_param_t<bool, policy::store_hash_value, !std::is_scalar<Key>::value, Policies...>::value;
+  static constexpr bool memoize_hash =
+    parameter::value_param_t<bool, policy::memoize_hash, !std::is_scalar<Key>::value, Policies...>::value;
 
   template <class... NewPolicies>
   using with = harris_michael_hash_map<Key, Value, NewPolicies..., Policies...>;
@@ -303,7 +303,7 @@ private:
     bool greater_or_equal(hash_t h, const Key& key) const { return hash >= h && value.first >= key; }
   };
 
-  using data_t = std::conditional_t<store_hash_value, data_with_hash, data_without_hash>;
+  using data_t = std::conditional_t<memoize_hash, data_with_hash, data_without_hash>;
 
 
   struct node : reclaimer::template enable_concurrent_ptr<node, 1>

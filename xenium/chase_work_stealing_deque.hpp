@@ -108,8 +108,7 @@ bool chase_work_stealing_deque<T, Policies...>::try_pop(value_type &result) {
   }
 
   if (b == t) {
-    if (top.compare_exchange_strong(t, t + 1, std::memory_order_relaxed))
-    {
+    if (top.compare_exchange_strong(t, t + 1, std::memory_order_relaxed)) {
       bottom.store(t + 1, std::memory_order_relaxed);
       result = item;
       return true;

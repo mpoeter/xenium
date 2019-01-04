@@ -124,7 +124,7 @@ namespace xenium { namespace reclamation {
 
     template<bool InsertPadding, size_t ThreadLocalFreeListSize>
     template<class T, std::size_t N, class Deleter>
-    void *lock_free_ref_count<InsertPadding, ThreadLocalFreeListSize>::
+    void* lock_free_ref_count<InsertPadding, ThreadLocalFreeListSize>::
     enable_concurrent_ptr<T, N, Deleter>::operator new(size_t sz) {
       assert(sz == sizeof(T) && "Cannot handle allocations of anything other than T instances");
       T *result = global_free_list.pop();

@@ -98,22 +98,20 @@ namespace xenium { namespace  detail {
     auto start = top;
     auto start_mod = top & mod_mask;
     if(start_mod == (top & new_mod_mask)) {
-    	// Make sure we don't iterate through useless indices
+      // Make sure we don't iterate through useless indices
       start += capacity - start_mod;
     }
 
     for(std::size_t i = start; i < bottom; i++) {
       auto oldI = i & mod_mask;
       auto newI = i % new_mod_mask;
-      if(oldI != newI)
-      {
+      if(oldI != newI) {
         auto oldBit = utils::find_last_bit_set(oldI);
         auto newBit = utils::find_last_bit_set(newI);
         auto v = _data[oldBit][oldI ^ ((1 << (oldBit)) >> 1)].load(std::memory_order_relaxed);
         _data[newBit][newI ^ ((1 << (newBit)) >> 1)].store(v, std::memory_order_relaxed);
-      }
-      else
-      {	// Make sure we don't iterate through useless indices
+      } else {
+        // Make sure we don't iterate through useless indices
         break;
       }
     }

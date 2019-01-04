@@ -23,20 +23,17 @@ struct no_backoff
 };
 
 template <unsigned Max>
-struct exponential_backoff
-{
+struct exponential_backoff {
   static_assert(Max > 0, "Max must be greater than zero. If you don't want to backoff use the `no_backoff` class.");
 
-  void operator()()
-  {
+  void operator()() {
     for (unsigned i = 0; i < count; ++i)
       do_backoff();
     count = std::min(Max, count * 2);
   }
 
 private:
-  void do_backoff()
-  {
+  void do_backoff() {
 #if BOOST_ARCH_X86
     _mm_pause();
 #else
