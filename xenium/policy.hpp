@@ -72,5 +72,17 @@ struct capacity;
  */
 template <class Container>
 struct container;
+
+/**
+ * @brief Policy to configure the hash function.
+ * 
+ * This policy is used by the following data structures:
+ *   * `harris_michael_hash_map`
+ *   * `vyukov_hash_map`
+ * 
+ * @tparam T 
+ */
+template <class T>
+struct hash;
 }}
 #endif

@@ -21,6 +21,15 @@ namespace xenium { namespace utils {
   }
 
   template <typename T>
+  constexpr T next_power_of_two(T val)
+  {
+    if (is_power_of_two(val))
+      return val;
+
+    return 1ul << find_last_bit_set(val);
+  }
+
+  template <typename T>
   struct modulo {
     T operator()(T a, T b) { return a % b; }
   };

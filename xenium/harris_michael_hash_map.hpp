@@ -26,13 +26,6 @@ namespace policy {
   struct buckets;
 
   /**
-   * @brief Policy to configure the hash function in `harris_michael_hash_map`.
-   * @tparam T 
-   */
-  template <class T>
-  struct hash;
-
-  /**
    * @brief Policy to configure the function that maps the hash value to a bucket
    * in `harris_michael_hash_map`.
    *
