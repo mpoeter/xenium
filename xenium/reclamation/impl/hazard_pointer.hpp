@@ -82,6 +82,8 @@ namespace xenium { namespace reclamation {
     std::memory_order order)
   {
     auto p1 = p.load(std::memory_order_relaxed);
+    if (p1 == this->ptr)
+      return;
     if (p1 != nullptr && hp == nullptr)
       hp = local_thread_data.alloc_hazard_pointer();
     auto p2 = p1;
