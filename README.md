@@ -50,7 +50,7 @@ The following reclamation schemes are implemented:
     <td>Trevor Alexander Brown.
     <a href=http://www.cs.utoronto.ca/~tabrown/debra/paper.podc15.pdf>
     Reclaiming memory for lock-free data structures: There has to be a better way</a>.
-    In *Proceedings of the 2015 ACM Symposium on Principles of Distributed Computing (PODC)*,
+    In <i>Proceedings of the 2015 ACM Symposium on Principles of Distributed Computing (PODC)</i>,
     pages 261–270. ACM, 2015.</td>
 </tr>
 <tr>
@@ -58,14 +58,14 @@ The following reclamation schemes are implemented:
     <td>David Chase and Yossi Lev.
     <a href=https://www.dre.vanderbilt.edu/~schmidt/PDF/work-stealing-dequeue.pdf>
     Dynamic circular work-stealing deque</a>.
-    In *Proceedings of the 17th Annual ACM Symposium on Parallelism in Algorithms and Architectures (SPAA)*,
+    In <i>Proceedings of the 17th Annual ACM Symposium on Parallelism in Algorithms and Architectures (SPAA)</i>,
     pages 21–28. ACM, 2005.</td>
 </tr>
 <tr>
     <td valign="top"><a name="ref-fraser-2004"></a>[Fra04]</td>
     <td>Keir Fraser.
     <a href=https://www.cl.cam.ac.uk/techreports/UCAM-CL-TR-579.pdf>
-    *Practical lock-freedom*</a>.
+    <i>Practical lock-freedom</i></a>.
     PhD thesis, University of Cambridge Computer Laboratory, 2004.</td>
 </tr>
 <tr>
@@ -73,7 +73,7 @@ The following reclamation schemes are implemented:
     <td>Timothy L. Harris.
     <a href=https://www.cl.cam.ac.uk/research/srg/netos/papers/2001-caslists.pdf>
     A pragmatic implementation of non-blocking linked-lists</a>.
-    In *Proceedings of the 15th International Conference on Distributed Computing (DISC)*,
+    In <i>Proceedings of the 15th International Conference on Distributed Computing (DISC)</i>,
     pages 300–314. Springer-Verlag, 2001.</td>
 </tr>
 <tr>
@@ -88,8 +88,8 @@ The following reclamation schemes are implemented:
     <td>Maged M. Michael.
     <a href=http://www.liblfds.org/downloads/white%20papers/%5BHash%5D%20-%20%5BMichael%5D%20-%20High%20Performance%20Dynamic%20Lock-Free%20Hash%20Tables%20and%20List-Based%20Sets.pdf>
     High performance dynamic lock-free hash tables and list-based sets</a>.
-    In *Proceedings of the 14th Annual ACM Symposium on Parallel Algorithms and Architectures
-    (SPAA)*, pages 73–82. ACM, 2002.</td>
+    In <i>Proceedings of the 14th Annual ACM Symposium on Parallel Algorithms and Architectures
+    (SPAA)</i>, pages 73–82. ACM, 2002.</td>
 </tr>
 <tr>
     <td valign="top"><a name="ref-michael-2004"></a>[Mic04]</td>
@@ -110,14 +110,14 @@ The following reclamation schemes are implemented:
     <td>Maged M. Michael and Michael L. Scott.
     <a href=http://www.cs.rochester.edu/~scott/papers/1996_PODC_queues.pdf>
     Simple, fast, and practical non-blocking and blocking concurrent queue algorithms</a>.
-    In *Proceedings of the 15th Annual ACM Symposium on Principles of Distributed Computing (PODC)*,
+    In <i>Proceedings of the 15th Annual ACM Symposium on Principles of Distributed Computing (PODC)</i>,
     pages 267–275. ACM, 1996.</td>
 </tr>
 <tr>
     <td valign="top"><a name="ref-pöter-2018"></a>[PT18a]</td>
     <td>Manuel Pöter and Jesper Larsson Träff.
     Brief announcement: Stamp-it, a more thread-efficient, concurrent memory reclamation scheme in the C++ memory model.
-    In *Proceedings of the 30th Annual ACM Symposium on Parallelism in Algorithms and Architectures (SPAA)*,
+    In <i>Proceedings of the 30th Annual ACM Symposium on Parallelism in Algorithms and Architectures (SPAA)</i>,
     pages 355–358. ACM, 2018.</td>
 </tr>
 <tr>
@@ -139,7 +139,7 @@ The following reclamation schemes are implemented:
     <td>Pedro Ramalhete and Andreia Correia.
     <a href=https://github.com/pramalhe/ConcurrencyFreaks/blob/master/papers/hazarderas-2017.pdf>
     Brief announcement: Hazard eras - non-blocking memory reclamation</a>.
-    In *Proceedings of the 29th Annual ACM Symposium on Parallelism in Algorithms and Architectures (SPAA)*,
+    In <i>Proceedings of the 29th Annual ACM Symposium on Parallelism in Algorithms and Architectures (SPAA)</i>,
     pages 367–369. ACM, 2017.</td>
 </tr>
 <tr>
@@ -151,7 +151,7 @@ The following reclamation schemes are implemented:
 </tr>
 <tr>
     <td valign="top"><a name="ref-valois-1995"></a>[Val95]</td>
-    <td>John D. Valois. *Lock-Free Data Structures*.
+    <td>John D. Valois. <i>Lock-Free Data Structures</i>.
     PhD thesis, Rensselaer Polytechnic Institute, 1995.</td>
 </tr>
 <tr>
