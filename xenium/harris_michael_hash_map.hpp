@@ -59,8 +59,8 @@ namespace policy {
  * This hash-map is less efficient than many other available concurrent hash-maps, but it is
  * lock-free and fully generic, i.e., it supports arbitrary types for `Key` and `Value`.
  *
- * This data structure is based on the solution proposed by Michael \[[6](index.html#ref-michael-2002)\]
- * which builds upon the original proposal by Harris \[[4](index.html#ref-harris-2001)\].
+ * This data structure is based on the solution proposed by Michael \[[Mic02](index.html#ref-michael-2002)\]
+ * which builds upon the original proposal by Harris \[[Har01](index.html#ref-harris-2001)\].
  *
  * Supported policies:
  *  * `xenium::policy::reclaimer`<br>
@@ -79,6 +79,7 @@ namespace policy {
  *    (*optional*; defaults to false for scalar `Key` types; otherwise true)
  *
  * @tparam Key
+ * @tparam Value
  * @tparam Policies list of policies to customize the behaviour
  */
 template <class Key, class Value, class... Policies>

@@ -51,7 +51,7 @@ namespace policy {
 /**
  * @brief A fast unbounded lock-free multi-producer/multi-consumer FIFO queue.
  * 
- * This is an implementation of the `FAAArrayQueue` by Ramalhete and Correia \[[12](index.html#ref-ramalhete-2016)\].
+ * This is an implementation of the `FAAArrayQueue` by Ramalhete and Correia \[[Ram16](index.html#ref-ramalhete-2016)\].
  *
  * It is faster and more efficient than the `michael_scott_queue`, but less generic as it can
  * only handle pointers (i.e., `T` must be a pointer type).

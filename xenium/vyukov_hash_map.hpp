@@ -28,12 +28,37 @@ namespace detail {
   };
 }
 
+/**
+ * @brief A concurrent hash-map that uses fine-grained locking.
+ *
+ * **This is a preliminary version; the interface will be subject to change.**
+ *
+ * This hash-map is heavily inspired by the hash-map presented by Vyukov
+ * It uses bucket-level locking for update operations (`emplace`/`erase`); however, read-only
+ * operations (`try_get_value`) are lock-free. Buckets are cacheline aligned to reduce false
+ * sharing and minimize cache trashing.
+ *
+ * The current version only supports trivial types of size 4 or 8 as `Key` and `Value`.
+ * Also, life-time management of keys/values is left entirely to the user. These limitations
+ * will be lifted in future versions.
+ *
+ * Supported policies:
+ *  * `xenium::policy::reclaimer`<br>
+ *    Defines the reclamation scheme to be used for internal allocations. (**required**)
+ *  * `xenium::policy::hash`<br>
+ *    Defines the hash function. (*optional*; defaults to `std::hash<Key>`)
+ *  * `xenium::policy::backoff`<br>
+ *    Defines the backoff strategy. (*optional*; defaults to `xenium::no_backoff`)
+ *
+ * @tparam Key
+ * @tparam Value
+ * @tparam Policies
+ */
 template <class Key, class Value, class... Policies>
 struct vyukov_hash_map {
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
   using hash = parameter::type_param_t<policy::hash, std::hash<Key>, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
-  //using map_to_bucket = parameter::type_param_t<policy::map_to_bucket, utils::modulo<std::size_t>, Policies...>;
 
   template <class... NewPolicies>
   using with = vyukov_hash_map<Key, Value, NewPolicies..., Policies...>;
@@ -49,7 +74,6 @@ struct vyukov_hash_map {
   class accessor;
 
   bool emplace(Key key, Value value);
-  bool emplace(Key key, Value value, Value& existing_value);
 
   //template <class... Args>
   //std::pair<iterator, bool> get_or_emplace(Key key, Args&&... args);

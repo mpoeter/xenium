@@ -19,7 +19,7 @@ namespace xenium {
  * @brief A lock-free work stealing deque.
  *
  * This is an implementation of the work stealing deque proposed by Chase and Lev
- * \[[2](index.html#ref-chase-2005)\].
+ * \[[CL05](index.html#ref-chase-2005)\].
  * 
  * Supported policies:
  *  * `xenium::policy::capacity`<br>

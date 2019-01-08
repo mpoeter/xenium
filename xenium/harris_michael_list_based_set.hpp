@@ -21,8 +21,8 @@ namespace xenium {
  * a runtime complexity linear in the size of the list (in the absence of conflicting
  * operations).
  * 
- * This data structure is based on the solution proposed by Michael \[[6](index.html#ref-michael-2002)\]
- * which builds upon the original proposal by Harris \[[4](index.html#ref-harris-2001)\].
+ * This data structure is based on the solution proposed by Michael \[[Mic02](index.html#ref-michael-2002)\]
+ * which builds upon the original proposal by Harris \[[Har01](index.html#ref-harris-2001)\].
  *
  * * Supported policies:
  *  * `xenium::policy::reclaimer`<br>
