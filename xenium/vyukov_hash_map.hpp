@@ -15,9 +15,19 @@
 #include <atomic>
 #include <cstdint>
 
+#define XENIUM_VYUKOV_HASH_MAP_TRAITS
+#include <xenium/impl/vyukov_hash_map_traits.hpp>
+#undef XENIUM_VYUKOV_HASH_MAP_TRAITS
+
 namespace xenium {
 
 namespace policy {
+  /**
+   * @brief Policy to configure the reclaimer used for values stored in `vyukov_hash_map`.
+   * @tparam T
+   */
+  template <class T>
+  struct value_reclaimer;
 }
 
 namespace detail {
@@ -57,6 +67,7 @@ namespace detail {
 template <class Key, class Value, class... Policies>
 struct vyukov_hash_map {
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
+  using value_reclaimer = parameter::type_param_t<policy::value_reclaimer, parameter::nil, Policies...>;
   using hash = parameter::type_param_t<policy::hash, std::hash<Key>, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
 
@@ -67,11 +78,15 @@ struct vyukov_hash_map {
   static_assert(detail::vyukov_supported_type<Value>::value,
     "This version of vykov_hash_map only supports trivial types of size 4 or 8 as Key and Value.");
 
+private:
+  using value_traits = typename impl::vyukov_value_traits<Value, value_reclaimer>;
+
+public:
   vyukov_hash_map(std::size_t initial_capacity = 128);
   ~vyukov_hash_map();
 
   //class iterator;
-  class accessor;
+  using accessor = typename value_traits::accessor;
 
   bool emplace(Key key, Value value);
 
@@ -83,11 +98,13 @@ struct vyukov_hash_map {
 
   bool erase(const Key& key);
 
+  bool extract(const Key& key, accessor& value);
+
   //iterator erase(iterator pos);
 
   //iterator find(const Key& key);
 
-  bool try_get_value(const Key& key, Value& result) const;
+  bool try_get_value(const Key& key, accessor& result) const;
   
   bool contains(const Key& key);
 
@@ -97,6 +114,7 @@ struct vyukov_hash_map {
 
   //iterator end();
 private:
+
   struct block;
   
   using concurrent_ptr = typename reclaimer::template concurrent_ptr<block, 0>;

@@ -74,33 +74,51 @@ TYPED_TEST(VyukovHashMap, erase_existing_element_returns_true_and_removes_elemen
   EXPECT_FALSE(this->map.erase(42));
 }
 
+TYPED_TEST(VyukovHashMap, extract_existing_element_returns_true_and_removes_element_and_returns_old_value)
+{
+  this->map.emplace(42, 43);
+  int v;
+  EXPECT_TRUE(this->map.extract(42, v));
+  EXPECT_EQ(43, v);
+  EXPECT_FALSE(this->map.erase(42));
+}
+
 TYPED_TEST(VyukovHashMap, map_grows_if_needed)
 {
   for (int i = 0; i < 10000; ++i)
     EXPECT_TRUE(this->map.emplace(i, i));
 }
 
-/*
-
-TYPED_TEST(VyukovHashMap, containts_returns_false_for_non_existing_element)
+TYPED_TEST(VyukovHashMap, with_pointer)
 {
-  EXPECT_FALSE(this->map.contains(43));
+  struct node : TypeParam::template enable_concurrent_ptr<node> {
+    node(int v): v(v) {}
+    int v;
+  };
+
+  using hash_map = xenium::vyukov_hash_map<int, node*,
+    xenium::policy::reclaimer<TypeParam>, xenium::policy::value_reclaimer<TypeParam>>;
+  hash_map map;
+
+  using concurrent_ptr = typename TypeParam::template concurrent_ptr<node>;
+
+  EXPECT_TRUE(map.emplace(42, new node(43)));
+  typename hash_map::accessor accessor;
+  EXPECT_TRUE(map.try_get_value(42, accessor));
+  EXPECT_EQ(accessor->v, 43);
+  EXPECT_TRUE(map.erase(42));
+
+  EXPECT_TRUE(map.emplace(42, new node(44)));
+  EXPECT_TRUE(map.extract(42, accessor));
+  EXPECT_EQ(accessor->v, 44);
+  accessor.reclaim();
 }
 
-TYPED_TEST(VyukovHashMap, contains_returns_true_for_existing_element)
-{
-  this->map.emplace(42, 43);
-  EXPECT_TRUE(this->map.contains(42));
-}
-*/
-namespace
-{
 #ifdef DEBUG
-  const int MaxIterations = 4000;
+  const int MaxIterations = 2000;
 #else
   const int MaxIterations = 40000;
 #endif
-}
 
 TYPED_TEST(VyukovHashMap, parallel_usage)
 {
