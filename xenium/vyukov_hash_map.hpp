@@ -79,14 +79,15 @@ struct vyukov_hash_map {
     "This version of vykov_hash_map only supports trivial types of size 4 or 8 as Key and Value.");
 
 private:
-  using value_traits = typename impl::vyukov_value_traits<Value, value_reclaimer>;
+  using traits = typename impl::vyukov_hash_map_traits<Key, Value, value_reclaimer,
+    detail::vyukov_supported_type<Key>::value, detail::vyukov_supported_type<Value>::value>;
 
 public:
   vyukov_hash_map(std::size_t initial_capacity = 128);
   ~vyukov_hash_map();
 
   //class iterator;
-  using accessor = typename value_traits::accessor;
+  using accessor = typename traits::accessor;
 
   bool emplace(Key key, Value value);
 

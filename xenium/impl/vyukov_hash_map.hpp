@@ -19,28 +19,6 @@
 
 namespace xenium { 
 
-namespace impl {
-  template <
-    class Key,
-    class Value,
-    class Reclaimer,
-    class ValueReclaimer,
-    class Hash,
-    class Backoff
-  >
-  struct vyukov_hash_map_traits {
-    using key = Key;
-    using value = Value;
-    using reclaimer = Reclaimer;
-    using value_reclaimer = ValueReclaimer;
-    using hash = Hash;
-    using backoff = Backoff;
-  };
-
-  template <class Traits>
-  struct vyukov_hash_map {
-  }; 
-}
 template <class Key, class Value, class... Policies>
 struct vyukov_hash_map<Key, Value, Policies...>::bucket_state {
   bucket_state() : value() {}
@@ -118,13 +96,13 @@ struct vyukov_hash_map<Key, Value, Policies...>::bucket {
   std::atomic<bucket_state> state;
   std::atomic<extension_item*> head;
   std::atomic<Key> key[bucket_item_count];
-  typename value_traits::type value[bucket_item_count];
+  typename traits::value_type value[bucket_item_count];
 };
 
 template <class Key, class Value, class... Policies>
 struct vyukov_hash_map<Key, Value, Policies...>::extension_item {
   std::atomic<Key> key;
-  typename value_traits::type value;
+  typename traits::value_type value;
   std::atomic<extension_item*> next;
 };
 
@@ -246,7 +224,7 @@ template <class Key, class Value, class... Policies>
 bool vyukov_hash_map<Key, Value, Policies...>::erase(const Key& key) {
   accessor acc;
   bool result = extract(key, acc);
-  value_traits::reclaim(acc);
+  traits::reclaim(acc);
   return result;
 }
 
@@ -282,7 +260,7 @@ restart:
 
   for (std::uint32_t i = 0; i != item_count; ++i) {
     if (key == bucket.key[i].load(std::memory_order_relaxed)) {
-      result = value_traits::acquire(bucket.value[i], std::memory_order_relaxed);
+      result = traits::acquire(bucket.value[i], std::memory_order_relaxed);
       extension_item* extension = bucket.head.load(std::memory_order_relaxed);
       if (extension) {
         // signal which item we are deleting
@@ -333,7 +311,7 @@ restart:
   extension_item* extension = extension_prev->load(std::memory_order_relaxed);
   while (extension) {
     if (key == extension->key.load(std::memory_order_relaxed)) {
-      result = value_traits::acquire(extension->value, std::memory_order_relaxed);
+      result = traits::acquire(extension->value, std::memory_order_relaxed);
       extension_item* extension_next = extension->next.load(std::memory_order_relaxed);    
       extension_prev->store(extension_next, std::memory_order_relaxed);
 
@@ -378,7 +356,7 @@ retry:
       // in remove() to ensure that if we see the changed value here we also see the
       // changed state in the subsequent reload of state
       // (TODO)
-      accessor v = value_traits::acquire(bucket.value[i], std::memory_order_acquire);
+      accessor v = traits::acquire(bucket.value[i], std::memory_order_acquire);
 
       // ensure that we can use the value we just read
       const auto state2 = bucket.state.load(std::memory_order_relaxed);
@@ -412,7 +390,7 @@ retry:
   while (extension) {
     if (key == extension->key.load(std::memory_order_relaxed)) {
       // (TODO)
-      accessor v = value_traits::acquire(extension->value, std::memory_order_acquire);
+      accessor v = traits::acquire(extension->value, std::memory_order_acquire);
 
       auto state2 = bucket.state.load(std::memory_order_relaxed);
       if (state.version() != state2.version()) {
@@ -555,17 +533,20 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_block(std::uint32_t buck
   void* mem = boost::alignment::aligned_alloc(cacheline_size, size);
   if (mem == nullptr)
     return nullptr;
+
   std::memset(mem, 0, size);
   block* b = new (mem) block;
   b->mask = bucket_count - 1;
   b->bucket_count = bucket_count;
   b->extension_bucket_count = extension_bucket_count;
-  // TODO - rewrite casts
-  b->extension_buckets = (extension_bucket*)((char*)b + sizeof(block) + sizeof(bucket) * bucket_count);
-  if ((uintptr_t)b->extension_buckets % sizeof(extension_bucket))
-    // TODO - rewrite casts
-    (char*&)b->extension_buckets += sizeof(extension_bucket) - ((uintptr_t)b->extension_buckets % sizeof(extension_bucket));
   
+  std::size_t extension_bucket_addr =
+    reinterpret_cast<std::size_t>(b) + sizeof(block) + sizeof(bucket) * bucket_count;
+  if (extension_bucket_addr % sizeof(extension_bucket) != 0) {
+    extension_bucket_addr += sizeof(extension_bucket) - (extension_bucket_addr % sizeof(extension_bucket));
+  }
+  b->extension_buckets = reinterpret_cast<extension_bucket*>(extension_bucket_addr);
+
   for (std::uint32_t i = 0; i != extension_bucket_count; ++i) {
     auto& bucket = b->extension_buckets[i];
     extension_item* head = nullptr;
@@ -632,16 +613,15 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_extension_item(block* b,
 
 template <class Key, class Value, class... Policies>
 void vyukov_hash_map<Key, Value, Policies...>::free_extension_item(extension_item* item) {
-  // TODO - rewrite casts
-  extension_bucket& bucket = *(extension_bucket*)((intptr_t)item - (intptr_t)item % sizeof(extension_bucket));
+  std::size_t item_addr = reinterpret_cast<std::size_t>(item);
+  auto bucket = reinterpret_cast<extension_bucket*>(item_addr - item_addr % sizeof(extension_bucket));
 
-  bucket.acquire_lock();
-
-  auto head = bucket.head;
+  bucket->acquire_lock();
+  auto head = bucket->head;
   // (TODO)
   item->next.store(head, std::memory_order_release);
-  bucket.head = item;
-  bucket.release_lock();
+  bucket->head = item;
+  bucket->release_lock();
 }
 
 }

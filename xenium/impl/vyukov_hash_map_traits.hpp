@@ -8,16 +8,16 @@
 #endif
 
 namespace xenium { namespace impl {
-  template <class Value, class ValueReclaimer>
-  struct vyukov_value_traits;
+  template <class Key, class Value, class ValueReclaimer, bool TrivialKey, bool TrivialValue>
+  struct vyukov_hash_map_traits;
 
-  template <class Value, class ValueReclaimer>
-  struct vyukov_value_traits<Value*, ValueReclaimer> {
+  template <class Key, class Value, class ValueReclaimer>
+  struct vyukov_hash_map_traits<Key, Value*, ValueReclaimer, true, true> {
     static_assert(
       std::is_base_of<typename ValueReclaimer::template enable_concurrent_ptr<Value>, Value>::value,
       "if policy::value_reclaimer is specified, then Value must be a pointer to a type that inherits from value_reclaimer::enable_concurrent_ptr");
 
-    using type = typename ValueReclaimer::template concurrent_ptr<Value>;
+    using value_type = typename ValueReclaimer::template concurrent_ptr<Value>;
 
     class accessor {
     public:
@@ -27,15 +27,15 @@ namespace xenium { namespace impl {
       void reset() { guard.reset(); }
       void reclaim() { guard.reclaim(); }
     private:
-      accessor(type& v, std::memory_order order):
+      accessor(value_type& v, std::memory_order order):
         guard(acquire_guard(v, order))
       {}
-      typename type::guard_ptr guard;
-      template <class, class>
-      friend struct vyukov_value_traits;
+      typename value_type::guard_ptr guard;
+      template <class, class, class, bool, bool>
+      friend struct vyukov_hash_map_traits;
     };
 
-    static accessor acquire(type& v, std::memory_order order) {
+    static accessor acquire(value_type& v, std::memory_order order) {
       return accessor(v, order);
     }
 
@@ -44,9 +44,9 @@ namespace xenium { namespace impl {
     }
   };
 
-  template <class Value>
-  struct vyukov_value_traits<Value, parameter::nil>  {
-    using type = std::atomic<Value>;
+  template <class Key, class Value>
+  struct vyukov_hash_map_traits<Key, Value, parameter::nil, true, true> {
+    using value_type = std::atomic<Value>;
 
    /*class accessor {
     public:
@@ -62,7 +62,7 @@ namespace xenium { namespace impl {
 
     using accessor = Value;
 
-    static accessor acquire(type& v, std::memory_order order) {
+    static accessor acquire(value_type& v, std::memory_order order) {
       return v.load(order);
     }
 
