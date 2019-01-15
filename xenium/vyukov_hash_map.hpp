@@ -75,11 +75,11 @@ struct vyukov_hash_map {
   using with = vyukov_hash_map<Key, Value, NewPolicies..., Policies...>;
 
   static_assert(parameter::is_set<reclaimer>::value, "reclaimer policy must be specified");
-  static_assert(detail::vyukov_supported_type<Value>::value,
-    "This version of vykov_hash_map only supports trivial types of size 4 or 8 as Key and Value.");
+  static_assert(detail::vyukov_supported_type<Key>::value,
+    "This version of vykov_hash_map only supports trivial types of size 4 or 8 as Key.");
 
 private:
-  using traits = typename impl::vyukov_hash_map_traits<Key, Value, value_reclaimer,
+  using traits = typename impl::vyukov_hash_map_traits<Key, Value, value_reclaimer, reclaimer,
     detail::vyukov_supported_type<Key>::value, detail::vyukov_supported_type<Value>::value>;
 
 public:

@@ -8,11 +8,17 @@
 #endif
 
 namespace xenium { namespace impl {
-  template <class Key, class Value, class ValueReclaimer, bool TrivialKey, bool TrivialValue>
+  template <
+    class Key,
+    class Value,
+    class ValueReclaimer,
+    class Reclaimer,
+    bool TrivialKey,
+    bool TrivialValue>
   struct vyukov_hash_map_traits;
 
-  template <class Key, class Value, class ValueReclaimer>
-  struct vyukov_hash_map_traits<Key, Value*, ValueReclaimer, true, true> {
+  template <class Key, class Value, class ValueReclaimer, class Reclaimer>
+  struct vyukov_hash_map_traits<Key, Value*, ValueReclaimer, Reclaimer, true, true> {
     static_assert(
       std::is_base_of<typename ValueReclaimer::template enable_concurrent_ptr<Value>, Value>::value,
       "if policy::value_reclaimer is specified, then Value must be a pointer to a type that inherits from value_reclaimer::enable_concurrent_ptr");
@@ -31,7 +37,6 @@ namespace xenium { namespace impl {
         guard(acquire_guard(v, order))
       {}
       typename value_type::guard_ptr guard;
-      template <class, class, class, bool, bool>
       friend struct vyukov_hash_map_traits;
     };
 
@@ -39,13 +44,15 @@ namespace xenium { namespace impl {
       return accessor(v, order);
     }
 
-    static void reclaim(accessor& a) {
-      a.guard.reclaim();
+    static void store_value(value_type& cell, Value* v, std::memory_order order) {
+      cell.store(v, order);
     }
+
+    static void reclaim(accessor& a) { a.guard.reclaim(); }
   };
 
-  template <class Key, class Value>
-  struct vyukov_hash_map_traits<Key, Value, parameter::nil, true, true> {
+  template <class Key, class Value, class Reclaimer>
+  struct vyukov_hash_map_traits<Key, Value, parameter::nil, Reclaimer, true, true> {
     using value_type = std::atomic<Value>;
 
    /*class accessor {
@@ -66,6 +73,47 @@ namespace xenium { namespace impl {
       return v.load(order);
     }
 
+    static void store_value(value_type& cell, Value v, std::memory_order order) {
+      cell.store(v, order);
+    }
+
     static void reclaim(accessor& a) {} // noop
+  };
+
+  template <class Key, class Value, class ValueReclaimer, class Reclaimer>
+  struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, true, false> {
+    using reclaimer = std::conditional_t<
+      std::is_same<ValueReclaimer, parameter::nil>::value, Reclaimer, ValueReclaimer>;
+
+    struct node : reclaimer::template enable_concurrent_ptr<node> {
+      node(Value&& value): value(std::move(value)) {}
+      Value value;
+    };
+
+    using value_type = typename reclaimer::template concurrent_ptr<node>;
+
+    class accessor {
+    public:
+      accessor() = default;
+      Value* operator->() const noexcept { return &guard->value; }
+      Value& operator*() const noexcept { return guard->value; }
+      void reset() { guard.reset(); }
+    private:
+      accessor(value_type& v, std::memory_order order):
+        guard(acquire_guard(v, order))
+      {}
+      typename value_type::guard_ptr guard;
+      friend struct vyukov_hash_map_traits;
+    };
+
+    static accessor acquire(value_type& v, std::memory_order order) {
+      return accessor(v, order);
+    }
+
+    static void store_value(value_type& cell, Value&& v, std::memory_order order) {
+      cell.store(new node(std::move(v)), order);
+    }
+
+    static void reclaim(accessor& a) { a.guard.reclaim(); }
   };
 }}

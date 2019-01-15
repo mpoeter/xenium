@@ -180,7 +180,7 @@ retry:
 
   if (item_count < bucket_item_count) {
     bucket.key[item_count].store(key, std::memory_order_relaxed);
-    bucket.value[item_count].store(value, std::memory_order_relaxed);
+    traits::store_value(bucket.value[item_count], std::move(value), std::memory_order_relaxed);
     // release the bucket lock and increment the item count
     // (TODO)
     bucket.state.store(state.inc_item_count(), std::memory_order_release);
@@ -204,7 +204,7 @@ retry:
     goto retry;
   }
   extension->key.store(key, std::memory_order_relaxed);
-  extension->value.store(value, std::memory_order_relaxed);
+  traits::store_value(extension->value, std::move(value), std::memory_order_relaxed);
 
   // use release semantic here to ensure that a thread in get() that sees the
   // new pointer also sees the new key/value pair

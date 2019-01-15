@@ -89,7 +89,7 @@ TYPED_TEST(VyukovHashMap, map_grows_if_needed)
     EXPECT_TRUE(this->map.emplace(i, i));
 }
 
-TYPED_TEST(VyukovHashMap, with_pointer)
+TYPED_TEST(VyukovHashMap, with_managed_pointer_value)
 {
   struct node : TypeParam::template enable_concurrent_ptr<node> {
     node(int v): v(v) {}
@@ -99,8 +99,6 @@ TYPED_TEST(VyukovHashMap, with_pointer)
   using hash_map = xenium::vyukov_hash_map<int, node*,
     xenium::policy::reclaimer<TypeParam>, xenium::policy::value_reclaimer<TypeParam>>;
   hash_map map;
-
-  using concurrent_ptr = typename TypeParam::template concurrent_ptr<node>;
 
   EXPECT_TRUE(map.emplace(42, new node(43)));
   typename hash_map::accessor accessor;
@@ -112,6 +110,23 @@ TYPED_TEST(VyukovHashMap, with_pointer)
   EXPECT_TRUE(map.extract(42, accessor));
   EXPECT_EQ(accessor->v, 44);
   accessor.reclaim();
+}
+
+TYPED_TEST(VyukovHashMap, with_string_value)
+{
+  using hash_map = xenium::vyukov_hash_map<int, std::string, xenium::policy::reclaimer<TypeParam>>;
+  hash_map map;
+
+  EXPECT_TRUE(map.emplace(42, "foo"));
+  typename hash_map::accessor accessor;
+  EXPECT_TRUE(map.try_get_value(42, accessor));
+  EXPECT_EQ(*accessor, "foo");
+  EXPECT_TRUE(map.erase(42));
+
+  EXPECT_TRUE(map.emplace(42, "bar"));
+  EXPECT_TRUE(map.extract(42, accessor));
+  EXPECT_EQ(*accessor, "bar");
+  // TODO - reclaim extracted internal nodes
 }
 
 #ifdef DEBUG
