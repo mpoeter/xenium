@@ -152,6 +152,8 @@ private:
   bucket& lock_bucket(hash_t hash, guard_ptr& block, bucket_state& state);
   void grow(bucket& bucket, bucket_state state);
 
+  bool do_extract(const Key& key, accessor& value);
+  
   static extension_item* allocate_extension_item(block* b, hash_t hash);
   static void free_extension_item(extension_item* item);
 };

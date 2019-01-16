@@ -49,6 +49,7 @@ namespace xenium { namespace impl {
     }
 
     static void reclaim(accessor& a) { a.guard.reclaim(); }
+    static void reclaim_internal(accessor& a) {} // noop
   };
 
   template <class Key, class Value, class Reclaimer>
@@ -78,6 +79,7 @@ namespace xenium { namespace impl {
     }
 
     static void reclaim(accessor& a) {} // noop
+    static void reclaim_internal(accessor& a) {} // noop
   };
 
   template <class Key, class Value, class ValueReclaimer, class Reclaimer>
@@ -115,5 +117,12 @@ namespace xenium { namespace impl {
     }
 
     static void reclaim(accessor& a) { a.guard.reclaim(); }
+    static void reclaim_internal(accessor& a) {
+      // copy guard to avoid resetting the accessor's guard_ptr.
+      // TODO - this could be simplified by avoiding reset of
+      // guard_ptrs in reclaim().
+      auto g = a.guard;
+      g.reclaim();
+    }
   };
 }}

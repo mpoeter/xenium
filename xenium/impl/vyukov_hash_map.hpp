@@ -223,13 +223,20 @@ retry:
 template <class Key, class Value, class... Policies>
 bool vyukov_hash_map<Key, Value, Policies...>::erase(const Key& key) {
   accessor acc;
-  bool result = extract(key, acc);
+  bool result = do_extract(key, acc);
   traits::reclaim(acc);
   return result;
 }
 
 template <class Key, class Value, class... Policies>
-bool vyukov_hash_map<Key, Value, Policies...>::extract(const Key& key, accessor& result) {
+bool vyukov_hash_map<Key, Value, Policies...>::extract(const Key& key, accessor& acc) {
+  bool result = do_extract(key, acc);
+  traits::reclaim_internal(acc);
+  return result;
+}
+
+template <class Key, class Value, class... Policies>
+bool vyukov_hash_map<Key, Value, Policies...>::do_extract(const Key& key, accessor& result) {
   const hash_t h = hash{}(key);
   backoff backoff;
   guard_ptr b;

@@ -126,7 +126,6 @@ TYPED_TEST(VyukovHashMap, with_string_value)
   EXPECT_TRUE(map.emplace(42, "bar"));
   EXPECT_TRUE(map.extract(42, accessor));
   EXPECT_EQ(*accessor, "bar");
-  // TODO - reclaim extracted internal nodes
 }
 
 #ifdef DEBUG
