@@ -128,6 +128,43 @@ TYPED_TEST(VyukovHashMap, with_string_value)
   EXPECT_EQ(*accessor, "bar");
 }
 
+TYPED_TEST(VyukovHashMap, with_string_key)
+{
+  using hash_map = xenium::vyukov_hash_map<std::string, int, xenium::policy::reclaimer<TypeParam>>;
+  hash_map map;
+
+  EXPECT_TRUE(map.emplace("foo", 42));
+  typename hash_map::accessor accessor;
+  EXPECT_TRUE(map.try_get_value("foo", accessor));
+  EXPECT_EQ(*accessor, 42);
+  EXPECT_TRUE(map.erase("foo"));
+
+  EXPECT_TRUE(map.emplace("foo", 43));
+  EXPECT_TRUE(map.extract("foo", accessor));
+  EXPECT_EQ(*accessor, 43);
+}
+
+TYPED_TEST(VyukovHashMap, correctly_handles_hash_collisions_of_nontrivial_keys)
+{
+  struct dummy_hash {
+    dummy_hash() = default;
+    std::size_t operator()(const std::string&) { return 1; }
+  };
+  using hash_map = xenium::vyukov_hash_map<std::string, int,
+    xenium::policy::reclaimer<TypeParam>, xenium::policy::hash<dummy_hash>>;
+  hash_map map;
+
+  EXPECT_TRUE(map.emplace("foo", 42));
+  EXPECT_TRUE(map.emplace("bar", 43));
+  typename hash_map::accessor accessor;
+  EXPECT_TRUE(map.try_get_value("foo", accessor));
+  EXPECT_EQ(*accessor, 42);
+  EXPECT_TRUE(map.try_get_value("bar", accessor));
+  EXPECT_EQ(*accessor, 43);
+  
+  EXPECT_TRUE(map.extract("foo", accessor));
+  EXPECT_EQ(*accessor, 42);
+}
 #ifdef DEBUG
   const int MaxIterations = 2000;
 #else
@@ -159,6 +196,41 @@ TYPED_TEST(VyukovHashMap, parallel_usage)
             EXPECT_EQ(v, k);
           }
           EXPECT_TRUE(map.erase(k));
+        }
+      }
+    }));
+  }
+
+  for (auto& thread : threads)
+    thread.join();
+}
+
+TYPED_TEST(VyukovHashMap, parallel_usage_with_nontrivial_types)
+{
+  using Reclaimer = TypeParam;
+
+  using hash_map = xenium::vyukov_hash_map<std::string, std::string,
+    xenium::policy::reclaimer<Reclaimer>>;
+  hash_map map(8);
+
+  static constexpr int keys_per_thread = 8;
+
+  std::vector<std::thread> threads;
+  for (int i = 0; i < 8; ++i)
+  {
+    threads.push_back(std::thread([i, &map]
+    {
+      for (int k = i * keys_per_thread; k < (i + 1) * keys_per_thread; ++k) {
+        for (int j = 0; j < MaxIterations / keys_per_thread; ++j) {
+          std::string v = std::to_string(k);
+          typename Reclaimer::region_guard critical_region{};
+          EXPECT_TRUE(map.emplace(v, v));
+          for (int x = 0; x < 10; ++x) {
+            typename hash_map::accessor a;
+            EXPECT_TRUE(map.try_get_value(v, a));
+            EXPECT_EQ(*a, v);
+          }
+          EXPECT_TRUE(map.erase(v));
         }
       }
     }));

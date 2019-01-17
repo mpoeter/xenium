@@ -95,13 +95,13 @@ template <class Key, class Value, class... Policies>
 struct vyukov_hash_map<Key, Value, Policies...>::bucket {
   std::atomic<bucket_state> state;
   std::atomic<extension_item*> head;
-  std::atomic<Key> key[bucket_item_count];
+  typename traits::key_type key[bucket_item_count];
   typename traits::value_type value[bucket_item_count];
 };
 
 template <class Key, class Value, class... Policies>
 struct vyukov_hash_map<Key, Value, Policies...>::extension_item {
-  std::atomic<Key> key;
+  typename traits::key_type key;
   typename traits::value_type value;
   std::atomic<extension_item*> next;
 };
@@ -166,6 +166,7 @@ template <class Key, class Value, class... Policies>
 bool vyukov_hash_map<Key, Value, Policies...>::emplace(Key key, Value value) {
   const hash_t h = hash{}(key);
   
+  accessor acc;
 retry:
   guard_ptr b;
   bucket_state state;
@@ -173,14 +174,15 @@ retry:
   std::uint32_t item_count = state.item_count();
 
   for (std::uint32_t i = 0; i != item_count; ++i)
-    if (key == bucket.key[i].load(std::memory_order_relaxed)) {
+    if (traits::compare_key_and_get_accessor(bucket.key[i], bucket.value[i], key, h, acc)) {
       bucket.state.store(state, std::memory_order_relaxed);
       return false;
     }
 
   if (item_count < bucket_item_count) {
-    bucket.key[item_count].store(key, std::memory_order_relaxed);
-    traits::store_value(bucket.value[item_count], std::move(value), std::memory_order_relaxed);
+    traits::store_item(
+      bucket.key[item_count],
+      bucket.value[item_count], h, std::move(key), std::move(value), std::memory_order_relaxed);
     // release the bucket lock and increment the item count
     // (TODO)
     bucket.state.store(state.inc_item_count(), std::memory_order_release);
@@ -191,20 +193,19 @@ retry:
   for (extension_item* extension = bucket.head.load(std::memory_order_relaxed);
        extension != nullptr;
        extension = extension->next.load(std::memory_order_relaxed)) {
-    if (key == extension->key.load(std::memory_order_relaxed)) {
+    if (traits::compare_key_and_get_accessor(extension->key, extension->value, key, h, acc)) {
       // release the lock
       bucket.state.store(state, std::memory_order_relaxed);
       return false;
     }
   }
 
-  extension_item* extension = allocate_extension_item(b.get(), key);
+  extension_item* extension = allocate_extension_item(b.get(), h);
   if (extension == nullptr) {
     grow(bucket, state);
     goto retry;
   }
-  extension->key.store(key, std::memory_order_relaxed);
-  traits::store_value(extension->value, std::move(value), std::memory_order_relaxed);
+  traits::store_item(extension->key, extension->value, h, std::move(key), std::move(value), std::memory_order_relaxed);
 
   // use release semantic here to ensure that a thread in get() that sees the
   // new pointer also sees the new key/value pair
@@ -266,8 +267,7 @@ restart:
   // we have the lock - now look for the key
 
   for (std::uint32_t i = 0; i != item_count; ++i) {
-    if (key == bucket.key[i].load(std::memory_order_relaxed)) {
-      result = traits::acquire(bucket.value[i], std::memory_order_relaxed);
+    if (traits::compare_key_and_get_accessor(bucket.key[i], bucket.value[i], key, h, result)) {
       extension_item* extension = bucket.head.load(std::memory_order_relaxed);
       if (extension) {
         // signal which item we are deleting
@@ -317,8 +317,7 @@ restart:
   auto extension_prev = &bucket.head;
   extension_item* extension = extension_prev->load(std::memory_order_relaxed);
   while (extension) {
-    if (key == extension->key.load(std::memory_order_relaxed)) {
-      result = traits::acquire(extension->value, std::memory_order_relaxed);
+    if (traits::compare_key_and_get_accessor(extension->key, extension->value, key, h, result)) {
       extension_item* extension_next = extension->next.load(std::memory_order_relaxed);    
       extension_prev->store(extension_next, std::memory_order_relaxed);
 
@@ -358,7 +357,7 @@ bool vyukov_hash_map<Key, Value, Policies...>::try_get_value(const Key& key, acc
 retry:
   std::uint32_t item_count = state.item_count();
   for (std::uint32_t i = 0; i != item_count; ++i) {
-    if (key == bucket.key[i].load(std::memory_order_relaxed)) {
+    if (traits::compare_trivial_key(bucket.key[i], key, h)) {
       // use acquire semantic here - should synchronize-with the release store to value
       // in remove() to ensure that if we see the changed value here we also see the
       // changed state in the subsequent reload of state
@@ -387,6 +386,9 @@ retry:
         continue;
       }
 
+      if (!traits::compare_nontrivial_key(v, key))
+        continue;
+
       value = std::move(v);
       return true;
     }
@@ -395,7 +397,7 @@ retry:
   // (TODO)
   extension_item* extension = bucket.head.load(std::memory_order_acquire);
   while (extension) {
-    if (key == extension->key.load(std::memory_order_relaxed)) {
+    if (traits::compare_trivial_key(extension->key, key, h)) {
       // (TODO)
       accessor v = traits::acquire(extension->value, std::memory_order_acquire);
 
@@ -405,6 +407,10 @@ retry:
         state = state2;
         goto retry;
       }
+
+      if (!traits::compare_nontrivial_key(v, key))
+        continue;
+
       value = std::move(v);
       return true;
     }
@@ -483,8 +489,8 @@ void vyukov_hash_map<Key, Value, Policies...>::grow(bucket& bucket, bucket_state
     auto& bucket = buckets[bucket_idx];
     const std::uint32_t item_count = bucket.state.load(std::memory_order_relaxed).item_count();
     for (std::uint32_t i = 0; i != item_count; ++i) {
-      Key k = bucket.key[i].load(std::memory_order_relaxed);
-      hash_t h = hash{}(k);
+      auto k = bucket.key[i].load(std::memory_order_relaxed);
+      hash_t h = traits::rehash(k);
       auto& new_bucket = new_buckets[h & new_block->mask];
       auto state = new_bucket.state.load(std::memory_order_relaxed);
       auto new_bucket_count = state.item_count();
@@ -499,8 +505,8 @@ void vyukov_hash_map<Key, Value, Policies...>::grow(bucket& bucket, bucket_state
         extension != nullptr;
         extension = extension->next.load(std::memory_order_relaxed))
     {
-      Key k = extension->key.load(std::memory_order_relaxed);
-      hash_t h = hash{}(k);
+      auto k = extension->key.load(std::memory_order_relaxed);
+      hash_t h = traits::rehash(k);
       auto& new_bucket = new_buckets[h & new_block->mask];
       auto state = new_bucket.state.load(std::memory_order_relaxed);
       auto new_bucket_count = state.item_count();
