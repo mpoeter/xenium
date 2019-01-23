@@ -275,7 +275,7 @@ TYPED_TEST(HarrisMichaelHashMap, parallel_usage)
       {
         std::string k = std::to_string(i);
         typename Reclaimer::region_guard critical_region{};
-		    EXPECT_EQ(map.end(), map.find(k));
+        EXPECT_EQ(map.end(), map.find(k));
         EXPECT_TRUE(map.emplace(k, i));
         auto it = map.find(k);
         EXPECT_NE(map.end(), it);
