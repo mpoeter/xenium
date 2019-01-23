@@ -168,9 +168,10 @@ bool vyukov_hash_map<Key, Value, Policies...>::emplace(Key key, Value value) {
   
   accessor acc;
 retry:
-  guard_ptr b;
+  guarded_block b;
   bucket_state state;
   bucket& bucket = lock_bucket(h, b, state);
+  // TODO - unlock bucket in case of exception!
   std::uint32_t item_count = state.item_count();
 
   for (std::uint32_t i = 0; i != item_count; ++i)
@@ -240,7 +241,7 @@ template <class Key, class Value, class... Policies>
 bool vyukov_hash_map<Key, Value, Policies...>::do_extract(const Key& key, accessor& result) {
   const hash_t h = hash{}(key);
   backoff backoff;
-  guard_ptr b;
+  guarded_block b;
 
 restart:
   // (TODO)
@@ -341,11 +342,82 @@ restart:
 }
 
 template <class Key, class Value, class... Policies>
+void vyukov_hash_map<Key, Value, Policies...>::erase(iterator& it) {
+  if (it.extension) {
+    // the item we are currently looking at is an extension item
+    auto next = it.extension->next.load(std::memory_order_relaxed);
+    it.prev->store(next, std::memory_order_relaxed);
+    auto new_state = it.current_bucket_state.locked().new_version();
+    it.current_bucket->state.store(new_state, std::memory_order_release);
+
+    free_extension_item(it.extension);
+    it.extension = next;
+    if (next == nullptr)
+      it.move_to_next_bucket();
+    return;
+  }
+
+  // the item we are currently looking at is in the bucket array
+
+  auto extension = it.current_bucket->head.load(std::memory_order_relaxed);
+  if (extension) {
+    auto locked_state = it.current_bucket_state;
+    auto marked_state = locked_state.set_delete_marker(it.index + 1);
+    it.current_bucket->state.store(marked_state, std::memory_order_relaxed);
+
+    auto k = extension->key.load(std::memory_order_relaxed);
+    auto v = extension->value.load(std::memory_order_relaxed);
+    it.current_bucket->key[it.index].store(k, std::memory_order_relaxed);
+    // (TODO)
+    it.current_bucket->value[it.index].store(v, std::memory_order_release);
+    
+    // reset the delete marker
+    locked_state = locked_state.new_version();        
+    // (TODO)
+    it.current_bucket->state.store(locked_state, std::memory_order_release);
+
+    auto next = extension->next.load(std::memory_order_relaxed);
+    // (TODO)
+    it.current_bucket->head.store(next, std::memory_order_release);
+
+    // increase the version but keep the lock
+    // (TODO)
+    it.current_bucket->state.store(locked_state.new_version(), std::memory_order_release);
+
+    free_extension_item(extension);
+  } else {
+    auto max_index = it.current_bucket_state.item_count() - 1;
+    if (it.index != max_index) {
+      // signal which item we are deleting
+      auto locked_state = it.current_bucket_state;
+      auto marked_state = locked_state.set_delete_marker(it.index + 1);
+      it.current_bucket->state.store(marked_state, std::memory_order_relaxed);
+
+      auto k = it.current_bucket->key[max_index].load(std::memory_order_relaxed);
+      auto v = it.current_bucket->value[max_index].load(std::memory_order_relaxed);
+      it.current_bucket->key[it.index].store(k, std::memory_order_relaxed);
+      // (TODO)
+      it.current_bucket->value[it.index].store(v, std::memory_order_release);
+    }
+
+    auto new_state = it.current_bucket_state.new_version().dec_item_count();
+    it.current_bucket_state = new_state;
+    it.current_bucket->state.store(new_state, std::memory_order_release);
+    if (it.index == new_state.item_count()) {
+      it.prev = &it.current_bucket->head;
+      it.extension = it.current_bucket->head.load(std::memory_order_relaxed);
+      if (it.extension == nullptr)
+        it.move_to_next_bucket();
+    }
+  }
+}
+
+template <class Key, class Value, class... Policies>
 bool vyukov_hash_map<Key, Value, Policies...>::try_get_value(const Key& key, accessor& value) const {
   const hash_t h = hash{}(key);
 
   // (TODO)
-  guard_ptr b = acquire_guard(data_block, std::memory_order_acquire);
+  guarded_block b = acquire_guard(data_block, std::memory_order_acquire);
   const std::size_t bucket_idx = h & b->mask;
   bucket& bucket = b->buckets()[bucket_idx];
   // (TODO)
@@ -531,7 +603,7 @@ void vyukov_hash_map<Key, Value, Policies...>::grow(bucket& bucket, bucket_state
   resize_lock.store(0, std::memory_order_release);
   
   // reclaim the old data block
-  guard_ptr g(b);
+  guarded_block g(b);
   g.reclaim();
 }
 
@@ -574,7 +646,7 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_block(std::uint32_t buck
 }
 
 template <class Key, class Value, class... Policies>
-auto vyukov_hash_map<Key, Value, Policies...>::lock_bucket(hash_t hash, guard_ptr& block, bucket_state& state)
+auto vyukov_hash_map<Key, Value, Policies...>::lock_bucket(hash_t hash, guarded_block& block, bucket_state& state)
   -> bucket&
 {
   backoff backoff;
@@ -635,6 +707,123 @@ void vyukov_hash_map<Key, Value, Policies...>::free_extension_item(extension_ite
   item->next.store(head, std::memory_order_release);
   bucket->head = item;
   bucket->release_lock();
+}
+
+template <class Key, class Value, class... Policies>
+vyukov_hash_map<Key, Value, Policies...>::iterator::iterator() :
+  block(),
+  current_bucket(),
+  current_bucket_state(),
+  index(),
+  extension(),
+  prev()
+{}
+
+template <class Key, class Value, class... Policies>
+vyukov_hash_map<Key, Value, Policies...>::iterator::~iterator() {
+  reset();
+}
+
+template <class Key, class Value, class... Policies>
+void vyukov_hash_map<Key, Value, Policies...>::iterator::reset() {
+  // unlock the current bucket
+  if (current_bucket)
+    current_bucket->state.store(current_bucket_state, std::memory_order_release);
+
+  block.reset();
+  current_bucket = nullptr;
+  current_bucket_state = bucket_state();
+  index = 0;
+  extension = nullptr;
+  prev = nullptr;
+}
+
+template <class Key, class Value, class... Policies>
+bool vyukov_hash_map<Key, Value, Policies...>::iterator::operator==(const iterator& r) const {
+  return block == r.block &&
+    current_bucket == r.current_bucket &&
+    current_bucket_state == r.current_bucket_state &&
+    index == r.index &&
+    extension == r.extension;
+}
+
+template <class Key, class Value, class... Policies>
+bool vyukov_hash_map<Key, Value, Policies...>::iterator::operator!=(const iterator& r) const {
+  return !(*this == r);
+}
+
+template <class Key, class Value, class... Policies>
+auto vyukov_hash_map<Key, Value, Policies...>::iterator::operator++() -> iterator& {
+  if (extension) {
+    prev = &extension->next;
+    extension = extension->next.load(std::memory_order_relaxed);
+    if (extension == nullptr)
+      move_to_next_bucket();
+    return *this;
+  }
+
+  ++index;
+  if (index == current_bucket_state.item_count()) {
+    prev = &current_bucket->head;
+    extension = current_bucket->head.load(std::memory_order_relaxed);
+    if (extension == nullptr)
+      move_to_next_bucket();
+  }
+  return *this;
+}
+
+template <class Key, class Value, class... Policies>
+auto vyukov_hash_map<Key, Value, Policies...>::iterator::operator->() -> pointer {
+  // TODO - static_assert that fails if this operator is not supported for key/value pair.
+}
+
+template <class Key, class Value, class... Policies>
+auto vyukov_hash_map<Key, Value, Policies...>::iterator::operator*() -> reference {
+  if (extension) {
+      return std::make_pair(
+        extension->key.load(std::memory_order_relaxed),
+        extension->value.load(std::memory_order_relaxed));
+  }
+  return std::make_pair(
+    current_bucket->key[index].load(std::memory_order_relaxed),
+    current_bucket->value[index].load(std::memory_order_relaxed));
+}
+
+template <class Key, class Value, class... Policies>
+void vyukov_hash_map<Key, Value, Policies...>::iterator::move_to_next_bucket() {
+  assert(current_bucket != nullptr);
+  if (current_bucket == block->buckets() + block->bucket_count - 1) {
+    // we reached the end of the container -> reset the iterator
+    reset();
+    return;
+  }
+
+  auto old_bucket = current_bucket;
+  auto old_bucket_state = current_bucket_state;
+  ++current_bucket; // move pointer to the next bucket
+
+  for (;;) {
+    auto st = current_bucket->state.load(std::memory_order_acquire);
+    if (st.is_locked()) {
+      // TODO backoff();
+      continue;
+    }
+
+    if (current_bucket->state.compare_exchange_strong(st, st.locked(), std::memory_order_acquire,
+                                                                       std::memory_order_relaxed))
+    {
+      current_bucket_state = st;
+      break;
+    }
+  }
+
+  old_bucket->state.store(old_bucket_state, std::memory_order_release); // unlock the previous bucket
+
+  index = 0;
+  extension = nullptr;
+  prev = nullptr;
+  if (current_bucket_state.item_count() == 0)
+    move_to_next_bucket();
 }
 
 }
