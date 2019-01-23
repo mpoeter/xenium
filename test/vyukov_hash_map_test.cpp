@@ -165,6 +165,76 @@ TYPED_TEST(VyukovHashMap, correctly_handles_hash_collisions_of_nontrivial_keys)
   EXPECT_TRUE(map.extract("foo", accessor));
   EXPECT_EQ(*accessor, 42);
 }
+
+TYPED_TEST(VyukovHashMap, begin_returns_end_iterator_for_empty_map)
+{
+  auto it = this->map.begin();
+  ASSERT_EQ(this->map.end(), it);
+}
+
+TYPED_TEST(VyukovHashMap, begin_returns_iterator_to_first_entry)
+{
+  this->map.emplace(42, 43);
+  auto it = this->map.begin();
+  ASSERT_NE(this->map.end(), it);
+  EXPECT_EQ(42, (*it).first);
+  EXPECT_EQ(43, (*it).second);
+  ++it;
+  ASSERT_EQ(this->map.end(), it);
+}
+
+TYPED_TEST(VyukovHashMap, drain_densely_populated_map_using_erase)
+{
+  for (int i = 0; i < 200; ++i)
+    this->map.emplace(i, i);
+
+  auto it = this->map.begin();
+  while (it != this->map.end())
+    this->map.erase(it);
+
+  EXPECT_EQ(this->map.end(), this->map.begin());
+}
+
+TYPED_TEST(VyukovHashMap, drain_sparsely_populated_map_using_erase)
+{
+  for (int i = 0; i < 4; ++i)
+    this->map.emplace(i * 7, i);
+
+  auto it = this->map.begin();
+  while (it != this->map.end())
+    this->map.erase(it);
+
+  EXPECT_EQ(this->map.end(), this->map.begin());
+}
+
+TYPED_TEST(VyukovHashMap, iterator_covers_all_entries_in_densely_populated_map)
+{
+  std::map<int, bool> values;
+  for (int i = 0; i < 200; ++i) {
+    values[i] = false;
+    this->map.emplace(i, i);
+  }
+  for (auto v : this->map)
+    values[v.first] = true;
+
+  for (auto& v : values)
+    EXPECT_TRUE(v.second) << v.first << " was not visited";
+}
+
+TYPED_TEST(VyukovHashMap, iterator_covers_all_entries_in_sparsely_populated_map)
+{
+  std::map<int, bool> values;
+  for (int i = 0; i < 4; ++i) {
+    values[i * 7] = false;
+    this->map.emplace(i * 7, i);
+  }
+  for (auto v : this->map)
+    values[v.first] = true;
+
+  for (auto& v : values)
+    EXPECT_TRUE(v.second) << v.first << " was not visited";
+}
+
 #ifdef DEBUG
   const int MaxIterations = 2000;
 #else

@@ -86,7 +86,8 @@ public:
   vyukov_hash_map(std::size_t initial_capacity = 128);
   ~vyukov_hash_map();
 
-  //class iterator;
+  class iterator;
+  
   using accessor = typename traits::accessor;
 
   bool emplace(Key key, Value value);
@@ -97,11 +98,10 @@ public:
   //template <class Factory>
   //std::pair<iterator, bool> get_or_emplace_lazy(Key key, Factory factory);
 
-  bool erase(const Key& key);
-
   bool extract(const Key& key, accessor& value);
 
-  //iterator erase(iterator pos);
+  bool erase(const Key& key);
+  void erase(iterator& pos);
 
   //iterator find(const Key& key);
 
@@ -111,18 +111,25 @@ public:
 
   //accessor operator[](const Key& key);
 
-  //iterator begin();
-
-  //iterator end();
+  iterator begin() {
+    iterator result;
+    result.current_bucket = &lock_bucket(0, result.block, result.current_bucket_state);
+    if (result.current_bucket_state.item_count() == 0)
+      result.move_to_next_bucket();
+    return result;
+  }
+  iterator end() { return iterator(); }
 private:
-
-  struct block;
-  
-  using concurrent_ptr = typename reclaimer::template concurrent_ptr<block, 0>;
-  using marked_ptr = typename concurrent_ptr::marked_ptr;
-  using guard_ptr = typename concurrent_ptr::guard_ptr;
-
   using hash_t = std::size_t;
+
+  struct bucket_state;
+  struct bucket;
+  struct extension_item;
+  struct extension_bucket;
+  struct block;
+  using block_ptr = typename reclaimer::template concurrent_ptr<block, 0>;  
+  using guarded_block = typename block_ptr::guard_ptr;
+
   
   static constexpr std::uint32_t bucket_to_extension_ratio = 128;
   static constexpr std::uint32_t bucket_item_count = 3;
@@ -138,18 +145,12 @@ private:
   static constexpr std::uint32_t item_count_mask = (1u << item_counter_bits) - 1;
   static constexpr std::uint32_t delete_item_mask = item_count_mask << item_counter_bits;
 
-  struct bucket_state;
-  struct bucket;
-  struct extension_item;
-  struct extension_bucket;
-  struct block;
-
-  concurrent_ptr data_block;
+  block_ptr data_block;
   std::atomic<int> resize_lock;
 
   block* allocate_block(std::uint32_t bucket_count);
   
-  bucket& lock_bucket(hash_t hash, guard_ptr& block, bucket_state& state);
+  bucket& lock_bucket(hash_t hash, guarded_block& block, bucket_state& state);
   void grow(bucket& bucket, bucket_state state);
 
   bool do_extract(const Key& key, accessor& value);
@@ -157,6 +158,46 @@ private:
   static extension_item* allocate_extension_item(block* b, hash_t hash);
   static void free_extension_item(extension_item* item);
 };
+
+template <class Key, class Value, class... Policies>
+class vyukov_hash_map<Key, Value, Policies...>::iterator {
+public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = std::pair<const Key, Value>;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type;
+  using reference = value_type;
+
+  iterator();
+  ~iterator();
+
+  iterator(iterator&&) = default;
+  iterator& operator=(iterator&&) = default;
+  
+  iterator(const iterator&) = delete;
+  iterator& operator=(const iterator&) = delete;
+
+  bool operator==(const iterator& r) const;
+  bool operator!=(const iterator& r) const;
+  iterator& operator++();
+
+  reference operator*();
+  pointer operator->();
+
+  void reset();
+private:
+  guarded_block block;
+  bucket* current_bucket;
+  bucket_state current_bucket_state;
+  std::uint32_t index;
+  extension_item* extension;
+  std::atomic<extension_item*>* prev;
+  friend class vyukov_hash_map;
+
+  void move_to_next_bucket();
+  Value* erase_current();
+};
+
 }
 
 #define XENIUM_VYUKOV_HASH_MAP_IMPL
