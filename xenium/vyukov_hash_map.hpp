@@ -163,10 +163,10 @@ template <class Key, class Value, class... Policies>
 class vyukov_hash_map<Key, Value, Policies...>::iterator {
 public:
   using iterator_category = std::forward_iterator_tag;
-  using value_type = std::pair<const Key, Value>;
   using difference_type = std::ptrdiff_t;
-  using pointer = value_type;
-  using reference = value_type;
+  using value_type = typename traits::iterator_value_type;  
+  using reference = typename traits::iterator_reference;
+  using pointer = value_type*;
 
   iterator();
   ~iterator();

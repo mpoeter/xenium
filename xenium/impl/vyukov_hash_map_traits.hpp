@@ -26,6 +26,8 @@ namespace xenium { namespace impl {
 
     using key_type = std::atomic<Key>;
     using value_type = typename ValueReclaimer::template concurrent_ptr<Value>;
+    using iterator_value_type = std::pair<const Key, Value>;
+    using iterator_reference = iterator_value_type;
 
     class accessor {
     public:
@@ -68,6 +70,10 @@ namespace xenium { namespace impl {
 
     static bool compare_nontrivial_key(const accessor& acc, const Key& key) { return true; }
 
+    static iterator_reference deref_iterator(key_type& k, value_type& v) {
+      return {k.load(std::memory_order_relaxed), v.load(std::memory_order_relaxed)};
+    }
+
     static std::size_t rehash(Key k) { return Hash{}(k); }
 
     static void reclaim(accessor& a) { a.guard.reclaim(); }
@@ -78,6 +84,8 @@ namespace xenium { namespace impl {
   struct vyukov_hash_map_traits<Key, Value, parameter::nil, Reclaimer, Hash, true, true> {
     using key_type = std::atomic<Key>;
     using value_type = std::atomic<Value>;
+    using iterator_value_type = std::pair<const Key, Value>;
+    using iterator_reference = iterator_value_type;
 
    /*class accessor {
     public:
@@ -119,6 +127,9 @@ namespace xenium { namespace impl {
 
     static bool compare_nontrivial_key(const accessor& acc, const Key& key) { return true; }
 
+    static iterator_reference deref_iterator(key_type& k, value_type& v) {
+      return {k.load(std::memory_order_relaxed), v.load(std::memory_order_relaxed)};
+    }
 
     static std::size_t rehash(Key k) { return Hash{}(k); }
 
@@ -138,6 +149,8 @@ namespace xenium { namespace impl {
 
     using key_type = std::atomic<Key>;
     using value_type = typename reclaimer::template concurrent_ptr<node>;
+    using iterator_value_type = std::pair<const Key, Value&>;
+    using iterator_reference = iterator_value_type;
 
     class accessor {
     public:
@@ -179,6 +192,11 @@ namespace xenium { namespace impl {
       value_cell.store(new node(std::move(v)), order);
     }
 
+    static iterator_reference deref_iterator(key_type& k, value_type& v) {
+      auto node = v.load(std::memory_order_relaxed);
+      return {k.load(std::memory_order_relaxed), node->value};
+    }
+
     static std::size_t rehash(Key k) { return Hash{}(k); }
 
     static void reclaim(accessor& a) { a.guard.reclaim(); }
@@ -198,22 +216,22 @@ namespace xenium { namespace impl {
 
     struct node : reclaimer::template enable_concurrent_ptr<node> {
       node(Key&& key, Value&& value):
-        key(std::move(key)),
-        value(std::move(value))
+        data(std::move(key), std::move(value))
       {}
 
-      Key key;
-      Value value;
+      std::pair<const Key, Value> data;
     };
 
     using key_type = std::atomic<std::size_t>;
     using value_type = typename reclaimer::template concurrent_ptr<node>;
+    using iterator_value_type = std::pair<const Key, Value>;
+    using iterator_reference = iterator_value_type&;
 
     class accessor {
     public:
       accessor() = default;
-      Value* operator->() const noexcept { return &guard->value; }
-      Value& operator*() const noexcept { return guard->value; }
+      Value* operator->() const noexcept { return &guard->data.second; }
+      Value& operator*() const noexcept { return guard->data.second; }
       void reset() { guard.reset(); }
     private:
       accessor(value_type& v, std::memory_order order):
@@ -240,7 +258,7 @@ namespace xenium { namespace impl {
       if (key_cell.load(std::memory_order_relaxed) != hash)
         return false;
       acc.guard = typename value_type::guard_ptr(value_cell.load(std::memory_order_relaxed));
-      return acc.guard->key == key;
+      return acc.guard->data.first == key;
     }
 
     static bool compare_trivial_key(key_type& key_cell, const Key& key, std::size_t hash) {
@@ -248,7 +266,12 @@ namespace xenium { namespace impl {
     }
 
     static bool compare_nontrivial_key(const accessor& acc, const Key& key) {
-       return acc.guard->key == key;
+       return acc.guard->data.first == key;
+    }
+
+    static iterator_reference deref_iterator(key_type& k, value_type& v) {
+      auto node = v.load(std::memory_order_relaxed);
+      return node->data;
     }
 
     static std::size_t rehash(std::size_t h) { return h; }

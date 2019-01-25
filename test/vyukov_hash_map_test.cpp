@@ -124,6 +124,17 @@ TYPED_TEST(VyukovHashMap, with_string_value)
   EXPECT_TRUE(map.erase(42));
 
   EXPECT_TRUE(map.emplace(42, "bar"));
+  auto it = map.begin();
+  EXPECT_EQ((*it).first, 42);
+  EXPECT_EQ((*it).second, "bar");
+
+  it.reset();
+
+  for (auto v : map) {
+    EXPECT_EQ(v.first, 42);
+    EXPECT_EQ(v.second, "bar");
+  }
+  
   EXPECT_TRUE(map.extract(42, accessor));
   EXPECT_EQ(*accessor, "bar");
 }
@@ -140,6 +151,18 @@ TYPED_TEST(VyukovHashMap, with_string_key)
   EXPECT_TRUE(map.erase("foo"));
 
   EXPECT_TRUE(map.emplace("foo", 43));
+  auto it = map.begin();
+  EXPECT_EQ((*it).first, "foo");
+  EXPECT_EQ((*it).second, 43);
+  EXPECT_EQ(it->first, "foo");
+  EXPECT_EQ(it->second, 43);
+  it.reset();
+
+  for (auto& v : map) {
+    EXPECT_EQ(v.first, "foo");
+    EXPECT_EQ(v.second, 43);
+  }
+
   EXPECT_TRUE(map.extract("foo", accessor));
   EXPECT_EQ(*accessor, 43);
 }
@@ -216,7 +239,6 @@ TYPED_TEST(VyukovHashMap, iterator_covers_all_entries_in_densely_populated_map)
   }
   for (auto v : this->map)
     values[v.first] = true;
-
   for (auto& v : values)
     EXPECT_TRUE(v.second) << v.first << " was not visited";
 }
@@ -265,6 +287,10 @@ TYPED_TEST(VyukovHashMap, parallel_usage)
             EXPECT_TRUE(map.try_get_value(k, v));
             EXPECT_EQ(v, k);
           }
+          if (j % 8 == 0) {
+            for (auto v : map)
+              EXPECT_EQ(v.first, v.second);
+          }
           EXPECT_TRUE(map.erase(k));
         }
       }
@@ -300,6 +326,10 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_nontrivial_types)
             EXPECT_TRUE(map.try_get_value(v, a));
             EXPECT_EQ(*a, v);
           }
+          if (j % 8 == 0) {
+            for (auto& v : map)
+              EXPECT_EQ(v.first, v.second);
+          }
           EXPECT_TRUE(map.erase(v));
         }
       }
@@ -332,6 +362,11 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_same_values)
           int v = 0;
           if (map.try_get_value(k, v))
             EXPECT_EQ(v, k);
+
+          if (j % 4 == 0) {
+            for (auto v : map)
+              ;
+          }
           map.erase(k);
         }
     }));

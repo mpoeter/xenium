@@ -774,19 +774,19 @@ auto vyukov_hash_map<Key, Value, Policies...>::iterator::operator++() -> iterato
 
 template <class Key, class Value, class... Policies>
 auto vyukov_hash_map<Key, Value, Policies...>::iterator::operator->() -> pointer {
-  // TODO - static_assert that fails if this operator is not supported for key/value pair.
+  static_assert(std::is_reference<reference>::value,
+    "operator-> is only available for instantiations with non-trivial key types. Use explicit "
+    "dereferenciation instead (operator*). The reason is that all other instantiations create "
+    "temporary std::pair<> instances since key and value are stored separately.");
+  return &this->operator*();
 }
 
 template <class Key, class Value, class... Policies>
 auto vyukov_hash_map<Key, Value, Policies...>::iterator::operator*() -> reference {
   if (extension) {
-      return std::make_pair(
-        extension->key.load(std::memory_order_relaxed),
-        extension->value.load(std::memory_order_relaxed));
+    return traits::deref_iterator(extension->key, extension->value);
   }
-  return std::make_pair(
-    current_bucket->key[index].load(std::memory_order_relaxed),
-    current_bucket->value[index].load(std::memory_order_relaxed));
+  return traits::deref_iterator(current_bucket->key[index], current_bucket->value[index]);
 }
 
 template <class Key, class Value, class... Policies>
@@ -802,12 +802,11 @@ void vyukov_hash_map<Key, Value, Policies...>::iterator::move_to_next_bucket() {
   auto old_bucket_state = current_bucket_state;
   ++current_bucket; // move pointer to the next bucket
 
+  backoff backoff;
   for (;;) {
     auto st = current_bucket->state.load(std::memory_order_acquire);
-    if (st.is_locked()) {
-      // TODO backoff();
+    if (st.is_locked())
       continue;
-    }
 
     if (current_bucket->state.compare_exchange_strong(st, st.locked(), std::memory_order_acquire,
                                                                        std::memory_order_relaxed))
@@ -815,6 +814,7 @@ void vyukov_hash_map<Key, Value, Policies...>::iterator::move_to_next_bucket() {
       current_bucket_state = st;
       break;
     }
+    backoff();
   }
 
   old_bucket->state.store(old_bucket_state, std::memory_order_release); // unlock the previous bucket
