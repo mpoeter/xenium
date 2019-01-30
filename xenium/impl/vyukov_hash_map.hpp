@@ -95,14 +95,14 @@ template <class Key, class Value, class... Policies>
 struct vyukov_hash_map<Key, Value, Policies...>::bucket {
   std::atomic<bucket_state> state;
   std::atomic<extension_item*> head;
-  typename traits::key_type key[bucket_item_count];
-  typename traits::value_type value[bucket_item_count];
+  typename traits::storage_key_type key[bucket_item_count];
+  typename traits::storage_value_type value[bucket_item_count];
 };
 
 template <class Key, class Value, class... Policies>
 struct vyukov_hash_map<Key, Value, Policies...>::extension_item {
-  typename traits::key_type key;
-  typename traits::value_type value;
+  typename traits::storage_key_type key;
+  typename traits::storage_value_type value;
   std::atomic<extension_item*> next;
 };
 
@@ -139,7 +139,7 @@ struct alignas(64) vyukov_hash_map<Key, Value, Policies...>::block :
   extension_bucket* extension_buckets;
 
   // TODO - adapt to be customizable via map_to_bucket policy
-  std::uint32_t index(Key key) const { return static_cast<std::uint32_t>(key & mask); }
+  std::uint32_t index(const key_type& key) const { return static_cast<std::uint32_t>(key & mask); }
   bucket* buckets() { return reinterpret_cast<bucket*>(this+1); }
 
   void operator delete(void* p) { boost::alignment::aligned_free(p); }
@@ -163,7 +163,7 @@ vyukov_hash_map<Key, Value, Policies...>::~vyukov_hash_map() {
 }
 
 template <class Key, class Value, class... Policies>
-bool vyukov_hash_map<Key, Value, Policies...>::emplace(Key key, Value value) {
+bool vyukov_hash_map<Key, Value, Policies...>::emplace(key_type key, value_type value) {
   const hash_t h = hash{}(key);
   
   accessor acc;
@@ -223,7 +223,7 @@ retry:
 }
 
 template <class Key, class Value, class... Policies>
-bool vyukov_hash_map<Key, Value, Policies...>::erase(const Key& key) {
+bool vyukov_hash_map<Key, Value, Policies...>::erase(const key_type& key) {
   accessor acc;
   bool result = do_extract(key, acc);
   traits::reclaim(acc);
@@ -231,14 +231,14 @@ bool vyukov_hash_map<Key, Value, Policies...>::erase(const Key& key) {
 }
 
 template <class Key, class Value, class... Policies>
-bool vyukov_hash_map<Key, Value, Policies...>::extract(const Key& key, accessor& acc) {
+bool vyukov_hash_map<Key, Value, Policies...>::extract(const key_type& key, accessor& acc) {
   bool result = do_extract(key, acc);
   traits::reclaim_internal(acc);
   return result;
 }
 
 template <class Key, class Value, class... Policies>
-bool vyukov_hash_map<Key, Value, Policies...>::do_extract(const Key& key, accessor& result) {
+bool vyukov_hash_map<Key, Value, Policies...>::do_extract(const key_type& key, accessor& result) {
   const hash_t h = hash{}(key);
   backoff backoff;
   guarded_block b;
@@ -413,7 +413,7 @@ void vyukov_hash_map<Key, Value, Policies...>::erase(iterator& it) {
 }
 
 template <class Key, class Value, class... Policies>
-bool vyukov_hash_map<Key, Value, Policies...>::try_get_value(const Key& key, accessor& value) const {
+bool vyukov_hash_map<Key, Value, Policies...>::try_get_value(const key_type& key, accessor& value) const {
   const hash_t h = hash{}(key);
 
   // (TODO)

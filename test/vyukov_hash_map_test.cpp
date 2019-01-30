@@ -96,8 +96,8 @@ TYPED_TEST(VyukovHashMap, with_managed_pointer_value)
     int v;
   };
 
-  using hash_map = xenium::vyukov_hash_map<int, node*,
-    xenium::policy::reclaimer<TypeParam>, xenium::policy::value_reclaimer<TypeParam>>;
+  using hash_map = xenium::vyukov_hash_map<int, xenium::managed_ptr<node, TypeParam>,
+    xenium::policy::reclaimer<TypeParam>>;
   hash_map map;
 
   EXPECT_TRUE(map.emplace(42, new node(43)));

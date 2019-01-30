@@ -15,10 +15,6 @@
 #include <atomic>
 #include <cstdint>
 
-#define XENIUM_VYUKOV_HASH_MAP_TRAITS
-#include <xenium/impl/vyukov_hash_map_traits.hpp>
-#undef XENIUM_VYUKOV_HASH_MAP_TRAITS
-
 namespace xenium {
 
 namespace policy {
@@ -30,11 +26,40 @@ namespace policy {
   struct value_reclaimer;
 }
 
+namespace impl {
+  template <
+    class Key,
+    class Value,
+    class ValueReclaimer,
+    class Reclaimer,
+    class Hash,
+    bool TrivialKey,
+    bool TrivialValue>
+  struct vyukov_hash_map_traits;
+}
+
+/**
+ * @brief A helper struct to define that the lifetime of value objects of type `T`
+ * has to be managed by the specified reclaimer. (only supported by `vyukov_hash_map`)
+ * 
+ * @tparam T
+ * @tparam Reclaimer  
+ */
+template <class T, class Reclaimer>
+struct managed_ptr;
+
 namespace detail {
   template <class T>
   struct vyukov_supported_type {
     static constexpr bool value =
       std::is_trivial<T>::value && (sizeof(T) == 4 || sizeof(T) == 8);
+  };
+  template <class T, class Reclaimer>
+  struct vyukov_supported_type<managed_ptr<T, Reclaimer>> {
+    static_assert(
+      std::is_base_of<typename Reclaimer::template enable_concurrent_ptr<T>, T>::value,
+      "The type T specified in managed_ptr must derive from Reclaimer::enable_concurrent_ptr");
+    static constexpr bool value = true;
   };
 }
 
@@ -75,8 +100,6 @@ struct vyukov_hash_map {
   using with = vyukov_hash_map<Key, Value, NewPolicies..., Policies...>;
 
   static_assert(parameter::is_set<reclaimer>::value, "reclaimer policy must be specified");
-  //static_assert(detail::vyukov_supported_type<Key>::value,
-  //  "This version of vykov_hash_map only supports trivial types of size 4 or 8 as Key.");
 
 private:
   using traits = typename impl::vyukov_hash_map_traits<Key, Value, value_reclaimer, reclaimer, hash,
@@ -88,9 +111,11 @@ public:
 
   class iterator;
   
+  using key_type = typename traits::key_type;
+  using value_type = typename traits::value_type;
   using accessor = typename traits::accessor;
 
-  bool emplace(Key key, Value value);
+  bool emplace(key_type key, value_type value);
 
   //template <class... Args>
   //std::pair<iterator, bool> get_or_emplace(Key key, Args&&... args);
@@ -98,16 +123,16 @@ public:
   //template <class Factory>
   //std::pair<iterator, bool> get_or_emplace_lazy(Key key, Factory factory);
 
-  bool extract(const Key& key, accessor& value);
+  bool extract(const key_type& key, accessor& value);
 
-  bool erase(const Key& key);
+  bool erase(const key_type& key);
   void erase(iterator& pos);
 
   //iterator find(const Key& key);
 
-  bool try_get_value(const Key& key, accessor& result) const;
+  bool try_get_value(const key_type& key, accessor& result) const;
   
-  bool contains(const Key& key);
+  bool contains(const key_type& key);
 
   //accessor operator[](const Key& key);
 
@@ -153,7 +178,7 @@ private:
   bucket& lock_bucket(hash_t hash, guarded_block& block, bucket_state& state);
   void grow(bucket& bucket, bucket_state state);
 
-  bool do_extract(const Key& key, accessor& value);
+  bool do_extract(const key_type& key, accessor& value);
   
   static extension_item* allocate_extension_item(block* b, hash_t hash);
   static void free_extension_item(extension_item* item);
@@ -201,6 +226,7 @@ private:
 }
 
 #define XENIUM_VYUKOV_HASH_MAP_IMPL
+#include <xenium/impl/vyukov_hash_map_traits.hpp>
 #include <xenium/impl/vyukov_hash_map.hpp>
 #undef XENIUM_VYUKOV_HASH_MAP_IMPL
 
