@@ -17,7 +17,7 @@ namespace xenium { namespace impl {
     using value_type = Value*;
     using storage_key_type = std::atomic<Key>;
     using storage_value_type = typename VReclaimer::template concurrent_ptr<Value>;
-    using iterator_value_type = std::pair<const Key, Value>;
+    using iterator_value_type = std::pair<const Key, Value*>;
     using iterator_reference = iterator_value_type;
 
     class accessor {
@@ -62,7 +62,7 @@ namespace xenium { namespace impl {
     static bool compare_nontrivial_key(const accessor& acc, const Key& key) { return true; }
 
     static iterator_reference deref_iterator(storage_key_type& k, storage_value_type& v) {
-      return {k.load(std::memory_order_relaxed), v.load(std::memory_order_relaxed)};
+      return {k.load(std::memory_order_relaxed), v.load(std::memory_order_relaxed).get()};
     }
 
     static std::size_t rehash(Key k) { return Hash{}(k); }
@@ -71,8 +71,8 @@ namespace xenium { namespace impl {
     static void reclaim_internal(accessor& a) {} // noop
   };
 
-  template <class Key, class Value, class VReclaimer, class Reclaimer, class Hash>
-  struct vyukov_hash_map_traits<Key, Value, VReclaimer, Reclaimer, Hash, true, true> {
+  template <class Key, class Value, class ValueReclaimer, class Reclaimer, class Hash>
+  struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, Hash, true, true> {
     static_assert(!parameter::is_set<ValueReclaimer>::value,
       "value_reclaimer policy can only be used with non-trivial key/value types");
 

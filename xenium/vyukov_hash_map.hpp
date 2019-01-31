@@ -19,8 +19,12 @@ namespace xenium {
 
 namespace policy {
   /**
-   * @brief Policy to configure the reclaimer used for values stored in `vyukov_hash_map`.
-   * @tparam T
+   * @brief Policy to configure the reclaimer used for internally alloced nodes in `vyukov_hash_map`.
+   * 
+   * If this policy is not specified, the implementation falls back to the reclaimer specified by
+   * `xenium::policy::reclaimer`.
+   * 
+   * @tparam T the reclaimer to be used.
    */
   template <class T>
   struct value_reclaimer;
@@ -69,14 +73,52 @@ namespace detail {
  * **This is a preliminary version; the interface will be subject to change.**
  *
  * This hash-map is heavily inspired by the hash-map presented by Vyukov
+ * \[[Vyu08](index.html#ref-vyukov-2008)\].
  * It uses bucket-level locking for update operations (`emplace`/`erase`); however, read-only
  * operations (`try_get_value`) are lock-free. Buckets are cacheline aligned to reduce false
- * sharing and minimize cache trashing.
- *
- * The current version only supports trivial types of size 4 or 8 as `Key` and `Value`.
- * Also, life-time management of keys/values is left entirely to the user. These limitations
- * will be lifted in future versions.
- *
+ * sharing and minimize cache thrashing.
+ * 
+ * There are two ways to access values of entries: via `iterator` or via `accessor`.
+ * An `iterator` can be used to iterate the map, providing access to the current key/value
+ * pair. An `iterator` keeps a lock on the currently iterated bucket, preventing concurrent
+ * update operations on that bucket.
+ * In contrast, an `accessor` provides safe access to a _single_ value, but without holding
+ * any lock. The entry can safely be removed from the map even though some other thread
+ * may have an `accessor` to its value. 
+ * 
+ * Some parts of the interface depend on whether the key/value types are trivially copyable
+ * and have a size of 4 or 8 bytes (e.g., raw pointers, integers); such types are further
+ * simply referred to as "trivial".
+ * 
+ * In addition to the distinction between trivial and non-trivial key/value types, it is
+ * possible to specify a `managed_ptr` instantiation as value type.
+ * 
+ * Based on these possibilities the class behaves as follows:
+ *   * trivial key, trivial value:
+ *     * key/value are stored in separate atomics
+ *     * `accessor` is simply an alias for `Value`
+ *     * `iterator` dereferentiation returns a temporary `std::pair<const Key, Value>` object;
+ *        the `operator->` is therefore not supported.
+ *   * trivial key, managed_ptr with type `T` and reclaimer `R`:
+ *     * `T` has to derive from `R::enable_concurrent_ptr<T>`
+ *     * key is stored in an atomic, value is storend in a `concurrent_ptr<T>`
+ *     * `accessor` is a thin wrapper around a `guard_ptr<T>`
+ *     * `iterator` dereferentiation returns a temporary `std::pair<const Key, T*>` object;
+ *        the `operator->` is therefore not supported.
+ *   * trivial key, non-trivial value
+ *     * key is stored in an atomic, values are stored in internally allocated nodes.
+ *       The lifetime of these nodes is managed via the specified the reclamation scheme
+ *       (see `xenium::policy::value_reclaimer`).
+ *     * `accessor` is a thin wrapper around a `guard_ptr` to the value's internal node
+ *     * `iterator` dereferentiation returns a temporary `std::pair<const Key, Value&>` object;
+ *        the `operator->` is therefore not supported.
+ *   * non-trivial key, non-trivial value
+ *     * key and value are stored in a `std::pair` in an internally allocated node
+ *     * the key's hash value is memoized in an atomic in the bucket to ensure fast comparison
+ *     * `accessor` is a thin wrapper around a `guard_ptr` to the internal node
+ *     * `iterator` dereferentiation returns a reference to the node's `std::pair` object;
+ *        this is the only configuration that supports the `operator->`.
+ * 
  * Supported policies:
  *  * `xenium::policy::reclaimer`<br>
  *    Defines the reclamation scheme to be used for internal allocations. (**required**)
@@ -125,7 +167,24 @@ public:
 
   bool extract(const key_type& key, accessor& value);
 
+  /**
+   * @brief Removes the element with the key equivalent to key (if one exists).
+   *
+   * No iterators or accessors are invalidated.
+   * 
+   * @param key key of the element to remove
+   * @return `true` if an element was removed, otherwise `false`
+   */
   bool erase(const key_type& key);
+
+  /**
+   * @brief Removes the specified element from the container.
+   *
+   * No iterators or references are invalidated.
+   * 
+   * @param pos the iterator identifying the element to remove;
+   * pos is implicitly updated to refer to the next element.
+   */
   void erase(iterator& pos);
 
   //iterator find(const Key& key);
@@ -184,6 +243,24 @@ private:
   static void free_extension_item(extension_item* item);
 };
 
+/**
+ * @brief A ForwardIterator to safely iterate `vyukov_hash_map`.
+ * 
+ * Iterators hold a lock on the currently iterated bucket, blocking concurrent
+ * updates (emplace/erase) of that bucket as well as resize operations or other
+ * iterators trying to acquire a lock on that bucket.
+ * In order to avoid deadlocks consider the following guidelines:
+ *   * `reset` an iterator once it is no longer required,
+ *   * do not acquire more than one iterator on the same map,
+ *   * do not call `emplace` while holding an iterator,
+ *   * do not call `erase` with a key while holding an iterator;
+ * 
+ * Since the bucket locks are exclusive, it is not possible to copy iterators;
+ * i.e., copy constructor, copy assignment and postfix increment are not available.
+ * Instead, use move construction, move assignment and prefix increment.
+ * 
+ * Iterators are not invalidated by concurrent update operations!
+ */
 template <class Key, class Value, class... Policies>
 class vyukov_hash_map<Key, Value, Policies...>::iterator {
 public:
@@ -209,6 +286,11 @@ public:
   reference operator*();
   pointer operator->();
 
+  /**
+   * @brief Releases the bucket lock and resets the iterator.
+   * 
+   * After calling `reset` the iterator equals `end()`.
+   */
   void reset();
 private:
   guarded_block block;
