@@ -1,8 +1,8 @@
 # xenium
 
 [![Build Status](https://travis-ci.org/mpoeter/xenium.svg?branch=master)](https://travis-ci.org/mpoeter/xenium)
-[![MIT Licensed](https://img.shields.io/badge/License-MIT-00838F.svg)](https://opensource.org/licenses/MIT)
-[![Documentation](https://img.shields.io/badge/Documentation-Doxygen-26A69A.svg)](https://mpoeter.github.io/xenium)
+[![MIT Licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Documentation](https://img.shields.io/badge/docs-doxygen-orange.svg)](https://mpoeter.github.io/xenium)
 
 xenium is a collection of concurrent data structures and memory reclamation algorithms.
 The data structures are parameterized so that they can be used with various reclamation
