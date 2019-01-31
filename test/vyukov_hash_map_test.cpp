@@ -106,7 +106,19 @@ TYPED_TEST(VyukovHashMap, with_managed_pointer_value)
   EXPECT_EQ(accessor->v, 43);
   EXPECT_TRUE(map.erase(42));
 
-  EXPECT_TRUE(map.emplace(42, new node(44)));
+  auto n = new node(44);
+  EXPECT_TRUE(map.emplace(42, n));
+
+  auto it = map.begin();
+  EXPECT_EQ((*it).first, 42);
+  EXPECT_EQ((*it).second, n);
+  it.reset();
+  
+  for (auto v : map) {
+    EXPECT_EQ(v.first, 42);
+    EXPECT_EQ(v.second, n);
+  }
+
   EXPECT_TRUE(map.extract(42, accessor));
   EXPECT_EQ(accessor->v, 44);
   accessor.reclaim();
