@@ -152,18 +152,47 @@ public:
   ~vyukov_hash_map();
 
   class iterator;
-  
+  using accessor = typename traits::accessor;
+
   using key_type = typename traits::key_type;
   using value_type = typename traits::value_type;
-  using accessor = typename traits::accessor;
 
   bool emplace(key_type key, value_type value);
 
-  //template <class... Args>
-  //std::pair<iterator, bool> get_or_emplace(Key key, Args&&... args);
+  /**
+   * @brief Inserts a new element into the container if the container doesn't already contain an
+   * element with an equivalent key.
+   *
+   * The element is only constructed if no element with the key exists in the container.
+   * No iterators or accessors are invalidated.
+   *
+   * @param key the key of element to be inserted.
+   * @param args arguments to forward to the constructor of the element
+   * @return a pair consisting of an accessor to the inserted element, or the already-existing element
+   * if no insertion happened, and a bool denoting whether the insertion took place;
+   * `true` if an element was inserted, otherwise `false`
+   */
+  template <class... Args>
+  std::pair<accessor, bool> get_or_emplace(key_type key, Args&&... args);
 
-  //template <class Factory>
-  //std::pair<iterator, bool> get_or_emplace_lazy(Key key, Factory factory);
+  /**
+   * @brief Inserts a new element into the container if the container doesn't already contain an
+   * element with an equivalent key. The value for the newly constructed element is created by
+   * calling `value_factory`.
+   *
+   * The element is only constructed if no element with the key exists in the container.
+   * No iterators or accessors are invalidated.
+   *
+   * @tparam Func
+   * @param key the key of element to be inserted.
+   * @param factory a functor that is used to create the `Value` instance when constructing
+   * the new element to be inserted.
+   * @return a pair consisting of an accessor to the inserted element, or the already-existing element
+   * if no insertion happened, and a bool denoting whether the insertion took place;
+   * `true` if an element was inserted, otherwise `false`
+   */
+  template <class Factory>
+  std::pair<accessor, bool> get_or_emplace_lazy(key_type key, Factory&& factory);
 
   bool extract(const key_type& key, accessor& value);
 
@@ -180,28 +209,18 @@ public:
   /**
    * @brief Removes the specified element from the container.
    *
-   * No iterators or references are invalidated.
+   * No iterators or accessors are invalidated.
    * 
    * @param pos the iterator identifying the element to remove;
    * pos is implicitly updated to refer to the next element.
    */
   void erase(iterator& pos);
 
-  //iterator find(const Key& key);
-
   bool try_get_value(const key_type& key, accessor& result) const;
   
-  bool contains(const key_type& key);
+  bool contains(const key_type& key) const;
 
-  //accessor operator[](const Key& key);
-
-  iterator begin() {
-    iterator result;
-    result.current_bucket = &lock_bucket(0, result.block, result.current_bucket_state);
-    if (result.current_bucket_state.item_count() == 0)
-      result.move_to_next_bucket();
-    return result;
-  }
+  iterator begin();
   iterator end() { return iterator(); }
 private:
   using hash_t = std::size_t;
@@ -237,6 +256,9 @@ private:
   bucket& lock_bucket(hash_t hash, guarded_block& block, bucket_state& state);
   void grow(bucket& bucket, bucket_state state);
 
+  template <class Factory, class Callback>
+  bool do_get_or_emplace(Key&& key, Factory&& factory, Callback&& callback);
+  
   bool do_extract(const key_type& key, accessor& value);
   
   static extension_item* allocate_extension_item(block* b, hash_t hash);
@@ -247,19 +269,19 @@ private:
  * @brief A ForwardIterator to safely iterate `vyukov_hash_map`.
  * 
  * Iterators hold a lock on the currently iterated bucket, blocking concurrent
- * updates (emplace/erase) of that bucket as well as resize operations or other
+ * updates (emplace/erase) of that bucket, as well as grow operations or other
  * iterators trying to acquire a lock on that bucket.
- * In order to avoid deadlocks consider the following guidelines:
- *   * `reset` an iterator once it is no longer required,
- *   * do not acquire more than one iterator on the same map,
- *   * do not call `emplace` while holding an iterator,
- *   * do not call `erase` with a key while holding an iterator;
+ * In order to avoid deadlocks, consider the following guidelines:
+ *   * `reset` an iterator once it is no longer required.
+ *   * do not acquire more than one iterator on the same map.
+ *   * do not call `emplace` while holding an iterator.
+ *   * do not call `erase` with a key while holding an iterator.
  * 
  * Since the bucket locks are exclusive, it is not possible to copy iterators;
  * i.e., copy constructor, copy assignment and postfix increment are not available.
  * Instead, use move construction, move assignment and prefix increment.
  * 
- * Iterators are not invalidated by concurrent update operations!
+ * Iterators are not invalidated by concurrent update operations.
  */
 template <class Key, class Value, class... Policies>
 class vyukov_hash_map<Key, Value, Policies...>::iterator {
