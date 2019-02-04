@@ -31,12 +31,18 @@ namespace xenium { namespace impl {
       accessor(storage_value_type& v, std::memory_order order):
         guard(acquire_guard(v, order))
       {}
+      accessor(typename storage_value_type::marked_ptr v) : guard(v) {}
       typename storage_value_type::guard_ptr guard;
       friend struct vyukov_hash_map_traits;
     };
 
+    static void reset(accessor&& acc) { acc.reset(); }
     static accessor acquire(storage_value_type& v, std::memory_order order) {
       return accessor(v, order);
+    }
+
+    static accessor access(storage_value_type& v) {
+      return accessor(v.load(std::memory_order_relaxed));
     }
 
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
@@ -85,7 +91,10 @@ namespace xenium { namespace impl {
 
     using accessor = Value;
 
+    static void reset(accessor&& acc) {}
     static accessor acquire(storage_value_type& v, std::memory_order order) { return v.load(order); }
+
+    static accessor access(storage_value_type& v) { return v.load(std::memory_order_relaxed); }
 
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
       std::size_t hash, Key k, Value v, std::memory_order order)
@@ -146,12 +155,18 @@ namespace xenium { namespace impl {
       accessor(storage_value_type& v, std::memory_order order):
         guard(acquire_guard(v, order))
       {}
+      accessor(typename storage_value_type::marked_ptr v) : guard(v) {}
       typename storage_value_type::guard_ptr guard;
       friend struct vyukov_hash_map_traits;
     };
 
+    static void reset(accessor&& acc) { acc.reset(); }
     static accessor acquire(storage_value_type& v, std::memory_order order) {
       return accessor(v, order);
+    }
+
+    static accessor access(storage_value_type& v) {
+      return accessor(v.load(std::memory_order_relaxed));
     }
 
     static bool compare_key_and_get_accessor(storage_key_type& key_cell, storage_value_type& value_cell,
@@ -223,12 +238,18 @@ namespace xenium { namespace impl {
       accessor(storage_value_type& v, std::memory_order order):
         guard(acquire_guard(v, order))
       {}
+      accessor(typename storage_value_type::marked_ptr v) : guard(v) {}
       typename storage_value_type::guard_ptr guard;
       friend struct vyukov_hash_map_traits;
     };
 
+    static void reset(accessor&& acc) { acc.reset(); }
     static accessor acquire(storage_value_type& v, std::memory_order order) {
       return accessor(v, order);
+    }
+
+    static accessor access(storage_value_type& v) {
+      return accessor(v.load(std::memory_order_relaxed));
     }
 
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,

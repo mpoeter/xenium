@@ -48,6 +48,46 @@ TYPED_TEST(VyukovHashMap, emplace_returns_false_for_failed_insert)
   EXPECT_FALSE(this->map.emplace(42, 43));
 }
 
+TYPED_TEST(VyukovHashMap, get_or_emplace_returns_accessor_to_newly_inserted_element)
+{
+  auto result = this->map.get_or_emplace(42, 43);
+  EXPECT_TRUE(result.second);
+  EXPECT_EQ(43, result.first);
+}
+
+TYPED_TEST(VyukovHashMap, get_or_emplace_returns_accessor_to_existing_element)
+{
+  this->map.emplace(42, 41);
+  auto result = this->map.get_or_emplace(42, 43);
+  EXPECT_FALSE(result.second);
+  EXPECT_EQ(41, result.first);
+}
+
+TYPED_TEST(VyukovHashMap, get_or_emplace_lazy_calls_factory_and_returns_accessor_to_newly_inserted_element)
+{
+  bool called_factory = false;
+  auto result = this->map.get_or_emplace_lazy(42,
+    [&](){
+      called_factory = true;
+      return 43;
+    });
+  EXPECT_TRUE(result.second);
+  EXPECT_EQ(43, result.first);
+}
+
+TYPED_TEST(VyukovHashMap, get_or_emplace_lazy_does_not_call_factory_and_returns_accessor_to_existing_element)
+{
+  bool called_factory = false;
+  this->map.emplace(42, 41);
+  auto result = this->map.get_or_emplace_lazy(42,
+                                              [&](){
+                                                called_factory = true;
+                                                return 43;
+                                              });
+  EXPECT_FALSE(result.second);
+  EXPECT_EQ(41, result.first);
+}
+
 TYPED_TEST(VyukovHashMap, try_get_value_returns_false_key_is_not_found)
 {
   int v;
@@ -119,6 +159,12 @@ TYPED_TEST(VyukovHashMap, with_managed_pointer_value)
     EXPECT_EQ(v.second, n);
   }
 
+  accessor.reset();
+  bool inserted;
+  std::tie(accessor, inserted) = map.get_or_emplace(42, nullptr);
+  EXPECT_FALSE(inserted);
+  EXPECT_EQ(accessor->v, 44);
+
   EXPECT_TRUE(map.extract(42, accessor));
   EXPECT_EQ(accessor->v, 44);
   accessor.reclaim();
@@ -147,6 +193,12 @@ TYPED_TEST(VyukovHashMap, with_string_value)
     EXPECT_EQ(v.second, "bar");
   }
   
+  accessor.reset();
+  bool inserted;
+  std::tie(accessor, inserted) = map.get_or_emplace(42, "xyz");
+  EXPECT_FALSE(inserted);
+  EXPECT_EQ(*accessor, "bar");
+
   EXPECT_TRUE(map.extract(42, accessor));
   EXPECT_EQ(*accessor, "bar");
 }
@@ -174,6 +226,12 @@ TYPED_TEST(VyukovHashMap, with_string_key)
     EXPECT_EQ(v.first, "foo");
     EXPECT_EQ(v.second, 43);
   }
+
+  accessor.reset();
+  bool inserted;
+  std::tie(accessor, inserted) = map.get_or_emplace("foo", 42);
+  EXPECT_FALSE(inserted);
+  EXPECT_EQ(*accessor, 43);
 
   EXPECT_TRUE(map.extract("foo", accessor));
   EXPECT_EQ(*accessor, 43);
@@ -299,7 +357,7 @@ TYPED_TEST(VyukovHashMap, parallel_usage)
             EXPECT_TRUE(map.try_get_value(k, v));
             EXPECT_EQ(v, k);
           }
-          if (j % 8 == 0) {
+          if ((j + i) % 8 == 0) {
             for (auto v : map)
               EXPECT_EQ(v.first, v.second);
           }
@@ -338,7 +396,7 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_nontrivial_types)
             EXPECT_TRUE(map.try_get_value(v, a));
             EXPECT_EQ(*a, v);
           }
-          if (j % 8 == 0) {
+          if ((j + i) % 8 == 0) {
             for (auto& v : map)
               EXPECT_EQ(v.first, v.second);
           }
