@@ -153,7 +153,7 @@ public:
 
   class iterator;
   using accessor = typename traits::accessor;
-
+  
   using key_type = typename traits::key_type;
   using value_type = typename traits::value_type;
 
@@ -233,7 +233,6 @@ private:
   using block_ptr = typename reclaimer::template concurrent_ptr<block, 0>;  
   using guarded_block = typename block_ptr::guard_ptr;
 
-  
   static constexpr std::uint32_t bucket_to_extension_ratio = 128;
   static constexpr std::uint32_t bucket_item_count = 3;
   static constexpr std::uint32_t extension_item_count = 10;

@@ -52,7 +52,7 @@ TYPED_TEST(VyukovHashMap, get_or_emplace_returns_accessor_to_newly_inserted_elem
 {
   auto result = this->map.get_or_emplace(42, 43);
   EXPECT_TRUE(result.second);
-  EXPECT_EQ(43, result.first);
+  EXPECT_EQ(43, *result.first);
 }
 
 TYPED_TEST(VyukovHashMap, get_or_emplace_returns_accessor_to_existing_element)
@@ -60,7 +60,7 @@ TYPED_TEST(VyukovHashMap, get_or_emplace_returns_accessor_to_existing_element)
   this->map.emplace(42, 41);
   auto result = this->map.get_or_emplace(42, 43);
   EXPECT_FALSE(result.second);
-  EXPECT_EQ(41, result.first);
+  EXPECT_EQ(41, *result.first);
 }
 
 TYPED_TEST(VyukovHashMap, get_or_emplace_lazy_calls_factory_and_returns_accessor_to_newly_inserted_element)
@@ -72,7 +72,7 @@ TYPED_TEST(VyukovHashMap, get_or_emplace_lazy_calls_factory_and_returns_accessor
       return 43;
     });
   EXPECT_TRUE(result.second);
-  EXPECT_EQ(43, result.first);
+  EXPECT_EQ(43, *result.first);
 }
 
 TYPED_TEST(VyukovHashMap, get_or_emplace_lazy_does_not_call_factory_and_returns_accessor_to_existing_element)
@@ -85,21 +85,21 @@ TYPED_TEST(VyukovHashMap, get_or_emplace_lazy_does_not_call_factory_and_returns_
                                                 return 43;
                                               });
   EXPECT_FALSE(result.second);
-  EXPECT_EQ(41, result.first);
+  EXPECT_EQ(41, *result.first);
 }
 
 TYPED_TEST(VyukovHashMap, try_get_value_returns_false_key_is_not_found)
 {
-  int v;
-  EXPECT_FALSE(this->map.try_get_value(42, v));
+  typename VyukovHashMap<TypeParam>::hash_map::accessor acc;
+  EXPECT_FALSE(this->map.try_get_value(42, acc));
 }
 
 TYPED_TEST(VyukovHashMap, try_get_value_returns_true_and_sets_result_if_matching_entry_exists)
 {
   this->map.emplace(42, 43);
-  int v;
-  EXPECT_TRUE(this->map.try_get_value(42, v));
-  EXPECT_EQ(v, 43);
+  typename VyukovHashMap<TypeParam>::hash_map::accessor acc;
+  EXPECT_TRUE(this->map.try_get_value(42, acc));
+  EXPECT_EQ(43, *acc);
 }
 
 TYPED_TEST(VyukovHashMap, erase_nonexisting_element_returns_false)
@@ -117,9 +117,9 @@ TYPED_TEST(VyukovHashMap, erase_existing_element_returns_true_and_removes_elemen
 TYPED_TEST(VyukovHashMap, extract_existing_element_returns_true_and_removes_element_and_returns_old_value)
 {
   this->map.emplace(42, 43);
-  int v;
-  EXPECT_TRUE(this->map.extract(42, v));
-  EXPECT_EQ(43, v);
+  typename VyukovHashMap<TypeParam>::hash_map::accessor acc;
+  EXPECT_TRUE(this->map.extract(42, acc));
+  EXPECT_EQ(43, *acc);
   EXPECT_FALSE(this->map.erase(42));
 }
 
@@ -141,33 +141,34 @@ TYPED_TEST(VyukovHashMap, with_managed_pointer_value)
   hash_map map;
 
   EXPECT_TRUE(map.emplace(42, new node(43)));
-  typename hash_map::accessor accessor;
-  EXPECT_TRUE(map.try_get_value(42, accessor));
-  EXPECT_EQ(accessor->v, 43);
+  typename hash_map::accessor acc;
+  EXPECT_TRUE(map.try_get_value(42, acc));
+  EXPECT_EQ(43, acc->v);
   EXPECT_TRUE(map.erase(42));
 
   auto n = new node(44);
   EXPECT_TRUE(map.emplace(42, n));
 
   auto it = map.begin();
-  EXPECT_EQ((*it).first, 42);
-  EXPECT_EQ((*it).second, n);
+  EXPECT_EQ(42, (*it).first);
+  EXPECT_EQ(n, (*it).second);
   it.reset();
   
   for (auto v : map) {
-    EXPECT_EQ(v.first, 42);
-    EXPECT_EQ(v.second, n);
+    EXPECT_EQ(42, v.first);
+    EXPECT_EQ(n, v.second);
   }
 
-  accessor.reset();
+  acc.reset();
   bool inserted;
-  std::tie(accessor, inserted) = map.get_or_emplace(42, nullptr);
+  std::tie(acc, inserted) = map.get_or_emplace(42, nullptr);
   EXPECT_FALSE(inserted);
-  EXPECT_EQ(accessor->v, 44);
+  EXPECT_EQ(44, acc->v);
 
-  EXPECT_TRUE(map.extract(42, accessor));
-  EXPECT_EQ(accessor->v, 44);
-  accessor.reclaim();
+  acc.reset();
+  EXPECT_TRUE(map.extract(42, acc));
+  EXPECT_EQ(44, acc->v);
+  acc.reclaim();
 }
 
 TYPED_TEST(VyukovHashMap, with_string_value)
@@ -176,31 +177,31 @@ TYPED_TEST(VyukovHashMap, with_string_value)
   hash_map map;
 
   EXPECT_TRUE(map.emplace(42, "foo"));
-  typename hash_map::accessor accessor;
-  EXPECT_TRUE(map.try_get_value(42, accessor));
-  EXPECT_EQ(*accessor, "foo");
+  typename hash_map::accessor acc;
+  EXPECT_TRUE(map.try_get_value(42, acc));
+  EXPECT_EQ("foo", *acc);
   EXPECT_TRUE(map.erase(42));
 
   EXPECT_TRUE(map.emplace(42, "bar"));
   auto it = map.begin();
-  EXPECT_EQ((*it).first, 42);
-  EXPECT_EQ((*it).second, "bar");
+  EXPECT_EQ(42, (*it).first);
+  EXPECT_EQ("bar", (*it).second);
 
   it.reset();
 
   for (auto v : map) {
-    EXPECT_EQ(v.first, 42);
-    EXPECT_EQ(v.second, "bar");
+    EXPECT_EQ(42, v.first);
+    EXPECT_EQ("bar", v.second);
   }
   
-  accessor.reset();
+  acc.reset();
   bool inserted;
-  std::tie(accessor, inserted) = map.get_or_emplace(42, "xyz");
+  std::tie(acc, inserted) = map.get_or_emplace(42, "xyz");
   EXPECT_FALSE(inserted);
-  EXPECT_EQ(*accessor, "bar");
+  EXPECT_EQ("bar", *acc);
 
-  EXPECT_TRUE(map.extract(42, accessor));
-  EXPECT_EQ(*accessor, "bar");
+  EXPECT_TRUE(map.extract(42, acc));
+  EXPECT_EQ("bar", *acc);
 }
 
 TYPED_TEST(VyukovHashMap, with_string_key)
@@ -209,32 +210,32 @@ TYPED_TEST(VyukovHashMap, with_string_key)
   hash_map map;
 
   EXPECT_TRUE(map.emplace("foo", 42));
-  typename hash_map::accessor accessor;
-  EXPECT_TRUE(map.try_get_value("foo", accessor));
-  EXPECT_EQ(*accessor, 42);
+  typename hash_map::accessor acc;
+  EXPECT_TRUE(map.try_get_value("foo", acc));
+  EXPECT_EQ(42, *acc);
   EXPECT_TRUE(map.erase("foo"));
 
   EXPECT_TRUE(map.emplace("foo", 43));
   auto it = map.begin();
-  EXPECT_EQ((*it).first, "foo");
-  EXPECT_EQ((*it).second, 43);
-  EXPECT_EQ(it->first, "foo");
-  EXPECT_EQ(it->second, 43);
+  EXPECT_EQ("foo", (*it).first);
+  EXPECT_EQ(43, (*it).second);
+  EXPECT_EQ("foo", it->first);
+  EXPECT_EQ(43, it->second);
   it.reset();
 
   for (auto& v : map) {
-    EXPECT_EQ(v.first, "foo");
-    EXPECT_EQ(v.second, 43);
+    EXPECT_EQ("foo", v.first);
+    EXPECT_EQ(43, v.second);
   }
 
-  accessor.reset();
+  acc.reset();
   bool inserted;
-  std::tie(accessor, inserted) = map.get_or_emplace("foo", 42);
+  std::tie(acc, inserted) = map.get_or_emplace("foo", 42);
   EXPECT_FALSE(inserted);
-  EXPECT_EQ(*accessor, 43);
+  EXPECT_EQ(43, *acc);
 
-  EXPECT_TRUE(map.extract("foo", accessor));
-  EXPECT_EQ(*accessor, 43);
+  EXPECT_TRUE(map.extract("foo", acc));
+  EXPECT_EQ(43, *acc);
 }
 
 TYPED_TEST(VyukovHashMap, correctly_handles_hash_collisions_of_nontrivial_keys)
@@ -249,14 +250,14 @@ TYPED_TEST(VyukovHashMap, correctly_handles_hash_collisions_of_nontrivial_keys)
 
   EXPECT_TRUE(map.emplace("foo", 42));
   EXPECT_TRUE(map.emplace("bar", 43));
-  typename hash_map::accessor accessor;
-  EXPECT_TRUE(map.try_get_value("foo", accessor));
-  EXPECT_EQ(*accessor, 42);
-  EXPECT_TRUE(map.try_get_value("bar", accessor));
-  EXPECT_EQ(*accessor, 43);
+  typename hash_map::accessor acc;
+  EXPECT_TRUE(map.try_get_value("foo", acc));
+  EXPECT_EQ(42, *acc);
+  EXPECT_TRUE(map.try_get_value("bar", acc));
+  EXPECT_EQ(43, *acc);
   
-  EXPECT_TRUE(map.extract("foo", accessor));
-  EXPECT_EQ(*accessor, 42);
+  EXPECT_TRUE(map.extract("foo", acc));
+  EXPECT_EQ(42, *acc);
 }
 
 TYPED_TEST(VyukovHashMap, begin_returns_end_iterator_for_empty_map)
@@ -353,9 +354,9 @@ TYPED_TEST(VyukovHashMap, parallel_usage)
           typename Reclaimer::region_guard critical_region{};
           EXPECT_TRUE(map.emplace(k, k));
           for (int x = 0; x < 10; ++x) {
-            int v = 0;
-            EXPECT_TRUE(map.try_get_value(k, v));
-            EXPECT_EQ(v, k);
+            typename hash_map::accessor acc;
+            EXPECT_TRUE(map.try_get_value(k, acc));
+            EXPECT_EQ(k, *acc);
           }
           if ((j + i) % 8 == 0) {
             for (auto v : map)
@@ -387,14 +388,14 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_nontrivial_types)
     threads.push_back(std::thread([i, &map]
     {
       for (int k = i * keys_per_thread; k < (i + 1) * keys_per_thread; ++k) {
-        for (int j = 0; j < MaxIterations / keys_per_thread; ++j) {
+        for (int j = 0; j < (MaxIterations / keys_per_thread) / 2; ++j) {
           std::string v = std::to_string(k);
           typename Reclaimer::region_guard critical_region{};
           EXPECT_TRUE(map.emplace(v, v));
           for (int x = 0; x < 10; ++x) {
-            typename hash_map::accessor a;
-            EXPECT_TRUE(map.try_get_value(v, a));
-            EXPECT_EQ(*a, v);
+            typename hash_map::accessor acc;
+            EXPECT_TRUE(map.try_get_value(v, acc));
+            EXPECT_EQ(v, *acc);
           }
           if ((j + i) % 8 == 0) {
             for (auto& v : map)
@@ -429,9 +430,9 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_same_values)
           int k = i;
           typename Reclaimer::region_guard critical_region{};
           map.emplace(k, i);
-          int v = 0;
-          if (map.try_get_value(k, v))
-            EXPECT_EQ(v, k);
+          typename hash_map::accessor acc;
+          if (map.try_get_value(k, acc))
+            EXPECT_EQ(k, *acc);
 
           if (j % 4 == 0) {
             for (auto v : map)
