@@ -89,12 +89,22 @@ namespace xenium { namespace impl {
     using iterator_value_type = std::pair<const Key, Value>;
     using iterator_reference = iterator_value_type;
 
-    using accessor = Value;
+    class accessor {
+    public:
+      accessor() = default;
+      value_type operator*() const noexcept { return v; }
+    private:
+      accessor(storage_value_type& v, std::memory_order order):
+        v(v.load(order))
+      {}
+      value_type v;
+      friend struct vyukov_hash_map_traits;
+    };
 
     static void reset(accessor&& acc) {}
-    static accessor acquire(storage_value_type& v, std::memory_order order) { return v.load(order); }
+    static accessor acquire(storage_value_type& v, std::memory_order order) { return accessor(v, order); }
 
-    static accessor access(storage_value_type& v) { return v.load(std::memory_order_relaxed); }
+    static accessor access(storage_value_type& v) { return accessor(v, std::memory_order_relaxed); }
 
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
       std::size_t hash, Key k, Value v, std::memory_order order)
@@ -108,7 +118,7 @@ namespace xenium { namespace impl {
     {
       if (key_cell.load(std::memory_order_relaxed) != key)
         return false;
-      acc = value_cell.load(std::memory_order_relaxed);
+      acc.v = value_cell.load(std::memory_order_relaxed);
       return true;
     }
 

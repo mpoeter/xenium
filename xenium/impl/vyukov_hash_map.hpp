@@ -172,7 +172,7 @@ bool vyukov_hash_map<Key, Value, Policies...>::emplace(key_type key, value_type 
   return do_get_or_emplace(
     std::move(key),
     [v = std::move(value)]{ return std::move(v); },
-    [](auto&& acc, auto&, bool ) { traits::reset(std::move(acc)); });
+    [](auto&& acc, auto&, bool ) {});
 }
 
 template <class Key, class Value, class... Policies>
@@ -491,7 +491,7 @@ retry:
       // in remove() to ensure that if we see the changed value here we also see the
       // changed state in the subsequent reload of state
       // (TODO)
-      accessor v = traits::acquire(bucket.value[i], std::memory_order_acquire);
+      accessor acc = traits::acquire(bucket.value[i], std::memory_order_acquire);
 
       // ensure that we can use the value we just read
       const auto state2 = bucket.state.load(std::memory_order_relaxed);
@@ -515,10 +515,10 @@ retry:
         continue;
       }
 
-      if (!traits::compare_nontrivial_key(v, key))
+      if (!traits::compare_nontrivial_key(acc, key))
         continue;
 
-      value = std::move(v);
+      value = std::move(acc);
       return true;
     }
   }
@@ -528,7 +528,7 @@ retry:
   while (extension) {
     if (traits::compare_trivial_key(extension->key, key, h)) {
       // (TODO)
-      accessor v = traits::acquire(extension->value, std::memory_order_acquire);
+      accessor acc = traits::acquire(extension->value, std::memory_order_acquire);
 
       auto state2 = bucket.state.load(std::memory_order_relaxed);
       if (state.version() != state2.version()) {
@@ -537,10 +537,10 @@ retry:
         goto retry;
       }
 
-      if (!traits::compare_nontrivial_key(v, key))
+      if (!traits::compare_nontrivial_key(acc, key))
         continue;
 
-      value = std::move(v);
+      value = std::move(acc);
       return true;
     }
 
