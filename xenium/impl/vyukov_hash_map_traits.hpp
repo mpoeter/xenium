@@ -89,12 +89,14 @@ namespace xenium { namespace impl {
         acc.guard = typename storage_value_type::guard_ptr(v);
     }
 
-    static bool compare_key_and_get_accessor(storage_key_type& key_cell, storage_value_type& value_cell, const Key& key,
+    template <bool AcquireAccessor>
+    static bool compare_key(storage_key_type& key_cell, storage_value_type& value_cell, const Key& key,
       std::size_t hash, accessor& acc)
     {
       if (key_cell.load(std::memory_order_relaxed) != key)
         return false;
-      acc.guard = typename storage_value_type::guard_ptr(value_cell.load(std::memory_order_relaxed));
+      if (AcquireAccessor)
+        acc.guard = typename storage_value_type::guard_ptr(value_cell.load(std::memory_order_relaxed));
       return true;
     }
 
@@ -167,14 +169,16 @@ namespace xenium { namespace impl {
       }
     }
 
-    static bool compare_key_and_get_accessor(storage_key_type& key_cell, storage_value_type& value_cell,
+    template <bool AcquireAccessor>    
+    static bool compare_key(storage_key_type& key_cell, storage_value_type& value_cell,
       const Key& key, std::size_t hash, accessor& acc)
     {
       if (key_cell.load(std::memory_order_relaxed) != hash)
         return false;
       acc.node_guard = typename storage_value_type::guard_ptr(value_cell.load(std::memory_order_relaxed));
       if (acc.node_guard->key == key) {
-        acc.value_guard = typename VReclaimer::template concurrent_ptr<Value>::guard_ptr(acc.node_guard->value.load(std::memory_order_relaxed));
+        if (AcquireAccessor)
+          acc.value_guard = typename VReclaimer::template concurrent_ptr<Value>::guard_ptr(acc.node_guard->value.load(std::memory_order_relaxed));
         return true;
       }
       return false;
@@ -236,12 +240,14 @@ namespace xenium { namespace impl {
         acc.v = v;
     }
 
-    static bool compare_key_and_get_accessor(storage_key_type& key_cell, storage_value_type& value_cell,
+    template <bool AcquireAccessor>    
+    static bool compare_key(storage_key_type& key_cell, storage_value_type& value_cell,
       const Key& key, std::size_t hash, accessor& acc)
     {
       if (key_cell.load(std::memory_order_relaxed) != key)
         return false;
-      acc.v = value_cell.load(std::memory_order_relaxed);
+      if (AcquireAccessor)
+        acc.v = value_cell.load(std::memory_order_relaxed);
       return true;
     }
 
@@ -288,12 +294,14 @@ namespace xenium { namespace impl {
       return accessor(v, order);
     }
 
-    static bool compare_key_and_get_accessor(storage_key_type& key_cell, storage_value_type& value_cell,
+    template <bool AcquireAccessor>    
+    static bool compare_key(storage_key_type& key_cell, storage_value_type& value_cell,
       const Key& key, std::size_t hash, accessor& acc)
     {
       if (key_cell.load(std::memory_order_relaxed) != key)
         return false;
-      acc.guard = typename storage_value_type::guard_ptr(value_cell.load(std::memory_order_relaxed));
+      if (AcquireAccessor)
+        acc.guard = typename storage_value_type::guard_ptr(value_cell.load(std::memory_order_relaxed));
       return true;
     }
 
@@ -374,7 +382,8 @@ namespace xenium { namespace impl {
         acc.guard = typename storage_value_type::guard_ptr(n);
     }
 
-    static bool compare_key_and_get_accessor(storage_key_type& key_cell, storage_value_type& value_cell,
+    template <bool AcquireAccessor>    
+    static bool compare_key(storage_key_type& key_cell, storage_value_type& value_cell,
       const Key& key, std::size_t hash, accessor& acc)
     {
       if (key_cell.load(std::memory_order_relaxed) != hash)

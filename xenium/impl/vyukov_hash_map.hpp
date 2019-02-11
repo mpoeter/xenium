@@ -219,7 +219,7 @@ retry:
   std::uint32_t item_count = state.item_count();
 
   for (std::uint32_t i = 0; i != item_count; ++i)
-    if (traits::compare_key_and_get_accessor(bucket.key[i], bucket.value[i], key, h, acc)) {
+    if (traits::template compare_key<AcquireAccessor>(bucket.key[i], bucket.value[i], key, h, acc)) {
       callback(std::move(acc), bucket.value[i]);
       bucket.state.store(state, std::memory_order_relaxed);
       return false;
@@ -239,7 +239,7 @@ retry:
   for (extension_item* extension = bucket.head.load(std::memory_order_relaxed);
        extension != nullptr;
        extension = extension->next.load(std::memory_order_relaxed)) {
-    if (traits::compare_key_and_get_accessor(extension->key, extension->value, key, h, acc)) {
+    if (traits::template compare_key<AcquireAccessor>(extension->key, extension->value, key, h, acc)) {
       callback(std::move(acc), extension->value);
       // release the lock
       bucket.state.store(state, std::memory_order_relaxed);
@@ -316,7 +316,7 @@ restart:
   // we have the lock - now look for the key
 
   for (std::uint32_t i = 0; i != item_count; ++i) {
-    if (traits::compare_key_and_get_accessor(bucket.key[i], bucket.value[i], key, h, result)) {
+    if (traits::template compare_key<true>(bucket.key[i], bucket.value[i], key, h, result)) {
       extension_item* extension = bucket.head.load(std::memory_order_relaxed);
       if (extension) {
         // signal which item we are deleting
@@ -366,7 +366,7 @@ restart:
   auto extension_prev = &bucket.head;
   extension_item* extension = extension_prev->load(std::memory_order_relaxed);
   while (extension) {
-    if (traits::compare_key_and_get_accessor(extension->key, extension->value, key, h, result)) {
+    if (traits::template compare_key<true>(extension->key, extension->value, key, h, result)) {
       extension_item* extension_next = extension->next.load(std::memory_order_relaxed);
       extension_prev->store(extension_next, std::memory_order_relaxed);
 
