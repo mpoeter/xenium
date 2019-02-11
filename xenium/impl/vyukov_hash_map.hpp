@@ -169,10 +169,10 @@ vyukov_hash_map<Key, Value, Policies...>::~vyukov_hash_map() {
 
 template <class Key, class Value, class... Policies>
 bool vyukov_hash_map<Key, Value, Policies...>::emplace(key_type key, value_type value) {
-  return do_get_or_emplace(
+  return do_get_or_emplace<false>(
     std::move(key),
     [v = std::move(value)]{ return std::move(v); },
-    [](auto&& acc, auto&, bool ) {});
+    [](accessor&&, auto&) {});
 }
 
 template <class Key, class Value, class... Policies>
@@ -181,16 +181,11 @@ auto vyukov_hash_map<Key, Value, Policies...>::get_or_emplace(key_type key, Args
   -> std::pair<accessor, bool>
 {
   std::pair<accessor, bool> result;
-  result.second = do_get_or_emplace(
+  result.second = do_get_or_emplace<true>(
     std::move(key),
     [&]{ return value_type(std::forward<Args>(args)...); },
-    [&result](accessor&& acc, auto& cell, bool acquired) {
-      if (acquired)
-        result.first = std::move(acc);
-      else {
-        traits::reset(std::move(acc));
-        result.first = traits::access(cell);
-      }
+    [&result](accessor&& acc, auto& cell) {
+      result.first = std::move(acc);
     });
   return result;
 }
@@ -201,22 +196,17 @@ auto vyukov_hash_map<Key, Value, Policies...>::get_or_emplace_lazy(key_type key,
   -> std::pair<accessor, bool>
 {
   std::pair<accessor, bool> result;
-  result.second = do_get_or_emplace(
+  result.second = do_get_or_emplace<true>(
     std::move(key),
     std::forward<Factory>(factory),
-    [&result](accessor&& acc, auto& cell, bool acquired) {
-      if (acquired)
-        result.first = std::move(acc);
-      else {
-        traits::reset(std::move(acc));
-        result.first = traits::access(cell);
-      }
+    [&result](accessor&& acc, auto& cell) {
+      result.first = std::move(acc);
     });
   return result;
 }
 
 template <class Key, class Value, class... Policies>
-template <class Factory, class Callback>
+template <bool AcquireAccessor, class Factory, class Callback>
 bool vyukov_hash_map<Key, Value, Policies...>::do_get_or_emplace(Key&& key, Factory&& factory, Callback&& callback) {
   const hash_t h = hash{}(key);
 
@@ -230,15 +220,15 @@ retry:
 
   for (std::uint32_t i = 0; i != item_count; ++i)
     if (traits::compare_key_and_get_accessor(bucket.key[i], bucket.value[i], key, h, acc)) {
-      callback(std::move(acc), bucket.value[i], true);
+      callback(std::move(acc), bucket.value[i]);
       bucket.state.store(state, std::memory_order_relaxed);
       return false;
     }
 
   if (item_count < bucket_item_count) {
-    traits::store_item(bucket.key[item_count], bucket.value[item_count], h,
-      std::move(key), factory(), std::memory_order_relaxed);
-    callback(std::move(acc), bucket.value[item_count], false);
+    traits::template store_item<AcquireAccessor>(bucket.key[item_count], bucket.value[item_count], h,
+      std::move(key), factory(), std::memory_order_relaxed, acc);
+    callback(std::move(acc), bucket.value[item_count]);
     // release the bucket lock and increment the item count
     // (TODO)
     bucket.state.store(state.inc_item_count(), std::memory_order_release);
@@ -250,7 +240,7 @@ retry:
        extension != nullptr;
        extension = extension->next.load(std::memory_order_relaxed)) {
     if (traits::compare_key_and_get_accessor(extension->key, extension->value, key, h, acc)) {
-      callback(std::move(acc), extension->value, true);
+      callback(std::move(acc), extension->value);
       // release the lock
       bucket.state.store(state, std::memory_order_relaxed);
       return false;
@@ -262,9 +252,9 @@ retry:
     grow(bucket, state);
     goto retry;
   }
-  traits::store_item(extension->key, extension->value, h,
-    std::move(key), factory(), std::memory_order_relaxed);
-  callback(std::move(acc), extension->value, false);
+  traits::template store_item<AcquireAccessor>(extension->key, extension->value, h,
+    std::move(key), factory(), std::memory_order_relaxed, acc);
+  callback(std::move(acc), extension->value);
   // use release semantic here to ensure that a thread in get() that sees the
   // new pointer also sees the new key/value pair
   auto old_head = bucket.head.load(std::memory_order_relaxed);
@@ -322,6 +312,7 @@ restart:
     goto restart;
   }
 
+  // TODO - unlock in case of exception! (may be thrown by guard_ptr constructor)
   // we have the lock - now look for the key
 
   for (std::uint32_t i = 0; i != item_count; ++i) {
@@ -619,7 +610,7 @@ void vyukov_hash_map<Key, Value, Policies...>::grow(bucket& bucket, bucket_state
     const std::uint32_t item_count = bucket.state.load(std::memory_order_relaxed).item_count();
     for (std::uint32_t i = 0; i != item_count; ++i) {
       auto k = bucket.key[i].load(std::memory_order_relaxed);
-      hash_t h = traits::rehash(k);
+      hash_t h = traits::template rehash<hash>(k);
       auto& new_bucket = new_buckets[h & new_block->mask];
       auto state = new_bucket.state.load(std::memory_order_relaxed);
       auto new_bucket_count = state.item_count();
@@ -635,7 +626,7 @@ void vyukov_hash_map<Key, Value, Policies...>::grow(bucket& bucket, bucket_state
         extension = extension->next.load(std::memory_order_relaxed))
     {
       auto k = extension->key.load(std::memory_order_relaxed);
-      hash_t h = traits::rehash(k);
+      hash_t h = traits::template rehash<hash>(k);
       auto& new_bucket = new_buckets[h & new_block->mask];
       auto state = new_bucket.state.load(std::memory_order_relaxed);
       auto new_bucket_count = state.item_count();

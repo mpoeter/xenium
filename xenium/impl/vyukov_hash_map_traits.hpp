@@ -8,12 +8,52 @@
 #endif
 
 namespace xenium { namespace impl {
-  template <class Key, class Value, class VReclaimer, class ValueReclaimer, class Reclaimer, class Hash>
-  struct vyukov_hash_map_traits<Key, managed_ptr<Value, VReclaimer>, ValueReclaimer, Reclaimer, Hash, true, true> {
+  namespace bits {
+    template <class Key>
+    struct vyukov_hash_map_common {
+      using key_type = Key;
+
+      template <class Accessor>
+      static void reset(Accessor&& acc) { acc.reset(); }
+    };
+
+    template <class Key>
+    struct vyukov_hash_map_trivial_key : vyukov_hash_map_common<Key> {
+      template <class Cell>
+      static bool compare_trivial_key(Cell& key_cell, const Key& key, std::size_t hash) {
+        return key_cell.load(std::memory_order_relaxed) == key;
+      }
+
+      template <class Accessor>
+      static bool compare_nontrivial_key(const Accessor& acc, const Key& key) { return true; }
+
+      template <class Hash>
+      static std::size_t rehash(const Key& k) { return Hash{}(k); }
+    };
+
+    template <class Key>
+    struct vyukov_hash_map_nontrivial_key : vyukov_hash_map_common<Key> {
+      template <class Cell>
+      static bool compare_trivial_key(Cell& key_cell, const Key& key, std::size_t hash) {
+        return key_cell.load(std::memory_order_relaxed) == hash;
+      }
+
+      template <class Accessor>
+      static bool compare_nontrivial_key(const Accessor& acc, const Key& key) {
+        return acc.key() == key;
+      }
+      
+      template <class Hash>
+      static std::size_t rehash(std::size_t h) { return h; }
+    };
+  }
+  template <class Key, class Value, class VReclaimer, class ValueReclaimer, class Reclaimer>
+  struct vyukov_hash_map_traits<Key, managed_ptr<Value, VReclaimer>, ValueReclaimer, Reclaimer, true, true> :
+    bits::vyukov_hash_map_trivial_key<Key>
+  {
     static_assert(!parameter::is_set<ValueReclaimer>::value,
       "value_reclaimer policy can only be used with non-trivial key/value types");
     
-    using key_type = Key;
     using value_type = Value*;
     using storage_key_type = std::atomic<Key>;
     using storage_value_type = typename VReclaimer::template concurrent_ptr<Value>;
@@ -31,25 +71,22 @@ namespace xenium { namespace impl {
       accessor(storage_value_type& v, std::memory_order order):
         guard(acquire_guard(v, order))
       {}
-      accessor(typename storage_value_type::marked_ptr v) : guard(v) {}
       typename storage_value_type::guard_ptr guard;
       friend struct vyukov_hash_map_traits;
     };
 
-    static void reset(accessor&& acc) { acc.reset(); }
     static accessor acquire(storage_value_type& v, std::memory_order order) {
       return accessor(v, order);
     }
 
-    static accessor access(storage_value_type& v) {
-      return accessor(v.load(std::memory_order_relaxed));
-    }
-
+    template <bool AcquireAccessor>
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
-      std::size_t hash, Key k, Value* v, std::memory_order order)
+      std::size_t hash, Key k, Value* v, std::memory_order order, accessor& acc)
     {
       key_cell.store(k, std::memory_order_relaxed);
       value_cell.store(v, order);
+      if (AcquireAccessor)
+        acc.guard = typename storage_value_type::guard_ptr(v);
     }
 
     static bool compare_key_and_get_accessor(storage_key_type& key_cell, storage_value_type& value_cell, const Key& key,
@@ -61,28 +98,113 @@ namespace xenium { namespace impl {
       return true;
     }
 
-    static bool compare_trivial_key(storage_key_type& key_cell, const Key& key, std::size_t hash) {
-      return key_cell.load(std::memory_order_relaxed) == key;
-    }
-
-    static bool compare_nontrivial_key(const accessor& acc, const Key& key) { return true; }
-
     static iterator_reference deref_iterator(storage_key_type& k, storage_value_type& v) {
       return {k.load(std::memory_order_relaxed), v.load(std::memory_order_relaxed).get()};
     }
-
-    static std::size_t rehash(Key k) { return Hash{}(k); }
 
     static void reclaim(accessor& a) { a.guard.reclaim(); }
     static void reclaim_internal(accessor& a) {} // noop
   };
 
-  template <class Key, class Value, class ValueReclaimer, class Reclaimer, class Hash>
-  struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, Hash, true, true> {
+  template <class Key, class Value, class VReclaimer, class ValueReclaimer, class Reclaimer>
+  struct vyukov_hash_map_traits<Key, managed_ptr<Value, VReclaimer>, ValueReclaimer, Reclaimer, false, true> :
+    bits::vyukov_hash_map_nontrivial_key<Key>
+  {
+    using reclaimer = std::conditional_t<parameter::is_set<ValueReclaimer>::value, ValueReclaimer, Reclaimer>;
+
+    struct node : reclaimer::template enable_concurrent_ptr<node> {
+      node(Key&& key, Value* value):
+        key(std::move(key)),
+        value(std::move(value))
+      {}
+
+      Key key;
+      typename VReclaimer::template concurrent_ptr<Value> value;
+    };
+
+    using value_type = Value*;
+    using storage_key_type = std::atomic<size_t>;
+    using storage_value_type = typename reclaimer::template concurrent_ptr<node>;
+    using iterator_value_type = std::pair<const Key&, value_type>;
+    using iterator_reference = iterator_value_type;
+
+    class accessor {
+    public:
+      accessor() = default;
+      Value* operator->() const noexcept { return value_guard.get(); }
+      Value& operator*() const noexcept { return *value_guard.get(); }
+      void reset() {
+        value_guard.reset();
+        node_guard.reset();
+      }
+    private:
+      accessor(storage_value_type& v, std::memory_order order):
+        node_guard(acquire_guard(v, order)),
+        value_guard(acquire_guard(node_guard->value, order))
+      {}
+      const Key& key() const { return node_guard->key; }
+      //accessor(typename storage_value_type::marked_ptr v) : guard(v) {}
+      typename storage_value_type::guard_ptr node_guard;
+      typename VReclaimer::template concurrent_ptr<Value>::guard_ptr value_guard;
+      friend struct vyukov_hash_map_traits;
+      friend struct bits::vyukov_hash_map_nontrivial_key<Key>;
+    };
+
+    static accessor acquire(storage_value_type& v, std::memory_order order) {
+      return accessor(v, order);
+    }
+
+    template <bool AcquireAccessor>
+    static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
+      std::size_t hash, Key&& k, Value* v, std::memory_order order, accessor& acc)
+    {
+      key_cell.store(hash, std::memory_order_relaxed);
+      auto n = new node(std::move(k), v);
+      value_cell.store(n, order);
+      if (AcquireAccessor) {
+        acc.node_guard = typename storage_value_type::guard_ptr(n); // TODO - is this necessary?
+        acc.value_guard = typename VReclaimer::template concurrent_ptr<Value>::guard_ptr(v);
+      }
+    }
+
+    static bool compare_key_and_get_accessor(storage_key_type& key_cell, storage_value_type& value_cell,
+      const Key& key, std::size_t hash, accessor& acc)
+    {
+      if (key_cell.load(std::memory_order_relaxed) != hash)
+        return false;
+      acc.node_guard = typename storage_value_type::guard_ptr(value_cell.load(std::memory_order_relaxed));
+      if (acc.node_guard->key == key) {
+        acc.value_guard = typename VReclaimer::template concurrent_ptr<Value>::guard_ptr(acc.node_guard->value.load(std::memory_order_relaxed));
+        return true;
+      }
+      return false;
+    }
+
+    static iterator_reference deref_iterator(storage_key_type& k, storage_value_type& v) {
+      auto node = v.load(std::memory_order_relaxed);
+      return {node->key, node->value.load(std::memory_order_relaxed).get() };
+    }
+
+    static void reclaim(accessor& a) {
+      a.value_guard.reclaim();
+      a.node_guard.reclaim();
+    }
+    static void reclaim_internal(accessor& a) {
+      // copy guard to avoid resetting the accessor's guard_ptr.
+      // TODO - this could be simplified by avoiding reset of
+      // guard_ptrs in reclaim().
+      auto g = a.node_guard;
+      g.reclaim();
+    }
+  };
+
+  template <class Key, class Value, class ValueReclaimer, class Reclaimer>
+  struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, true, true> :
+    bits::vyukov_hash_map_trivial_key<Key>
+  {
     static_assert(!parameter::is_set<ValueReclaimer>::value,
       "value_reclaimer policy can only be used with non-trivial key/value types");
 
-    using key_type = Key;
     using value_type = Value;
     using storage_key_type = std::atomic<Key>;
     using storage_value_type = std::atomic<Value>;
@@ -92,7 +214,7 @@ namespace xenium { namespace impl {
     class accessor {
     public:
       accessor() = default;
-      value_type operator*() const noexcept { return v; }
+      const value_type& operator*() const noexcept { return v; }
     private:
       accessor(storage_value_type& v, std::memory_order order):
         v(v.load(order))
@@ -104,13 +226,14 @@ namespace xenium { namespace impl {
     static void reset(accessor&& acc) {}
     static accessor acquire(storage_value_type& v, std::memory_order order) { return accessor(v, order); }
 
-    static accessor access(storage_value_type& v) { return accessor(v, std::memory_order_relaxed); }
-
+    template <bool AcquireAccessor>
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
-      std::size_t hash, Key k, Value v, std::memory_order order)
+      std::size_t hash, Key k, Value v, std::memory_order order, accessor& acc)
     {
       key_cell.store(k, std::memory_order_relaxed);
       value_cell.store(v, order);
+      if (AcquireAccessor)
+        acc.v = v;
     }
 
     static bool compare_key_and_get_accessor(storage_key_type& key_cell, storage_value_type& value_cell,
@@ -122,33 +245,25 @@ namespace xenium { namespace impl {
       return true;
     }
 
-    static bool compare_trivial_key(storage_key_type& key_cell, const Key& key, std::size_t hash) {
-      return key_cell.load(std::memory_order_relaxed) == key;
-    }
-
-    static bool compare_nontrivial_key(const accessor& acc, const Key& key) { return true; }
-
     static iterator_reference deref_iterator(storage_key_type& k, storage_value_type& v) {
       return {k.load(std::memory_order_relaxed), v.load(std::memory_order_relaxed)};
     }
-
-    static std::size_t rehash(Key k) { return Hash{}(k); }
 
     static void reclaim(accessor& a) {} // noop
     static void reclaim_internal(accessor& a) {} // noop
   };
 
-  template <class Key, class Value, class ValueReclaimer, class Reclaimer, class Hash>
-  struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, Hash, true, false> {
-    using reclaimer = std::conditional_t<
-      std::is_same<ValueReclaimer, parameter::nil>::value, Reclaimer, ValueReclaimer>;
+  template <class Key, class Value, class ValueReclaimer, class Reclaimer>
+  struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, true, false> :
+    bits::vyukov_hash_map_trivial_key<Key>
+  {
+    using reclaimer = std::conditional_t<parameter::is_set<ValueReclaimer>::value, ValueReclaimer, Reclaimer>;
 
     struct node : reclaimer::template enable_concurrent_ptr<node> {
       node(Value&& value): value(std::move(value)) {}
       Value value;
     };
 
-    using key_type = Key;
     using value_type = Value;
     using storage_key_type = std::atomic<Key>;
     using storage_value_type = typename reclaimer::template concurrent_ptr<node>;
@@ -165,18 +280,12 @@ namespace xenium { namespace impl {
       accessor(storage_value_type& v, std::memory_order order):
         guard(acquire_guard(v, order))
       {}
-      accessor(typename storage_value_type::marked_ptr v) : guard(v) {}
       typename storage_value_type::guard_ptr guard;
       friend struct vyukov_hash_map_traits;
     };
 
-    static void reset(accessor&& acc) { acc.reset(); }
     static accessor acquire(storage_value_type& v, std::memory_order order) {
       return accessor(v, order);
-    }
-
-    static accessor access(storage_value_type& v) {
-      return accessor(v.load(std::memory_order_relaxed));
     }
 
     static bool compare_key_and_get_accessor(storage_key_type& key_cell, storage_value_type& value_cell,
@@ -188,25 +297,21 @@ namespace xenium { namespace impl {
       return true;
     }
 
-    static bool compare_trivial_key(storage_key_type& key_cell, const Key& key, std::size_t hash) {
-      return key_cell.load(std::memory_order_relaxed) == key;
-    }
-
-    static bool compare_nontrivial_key(const accessor& acc, const Key& key) { return true; }
-
+    template <bool AcquireAccessor>
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
-      std::size_t hash, Key&& k, Value&& v, std::memory_order order)
+      std::size_t hash, Key&& k, Value&& v, std::memory_order order, accessor& acc)
     {
       key_cell.store(k, std::memory_order_relaxed);
-      value_cell.store(new node(std::move(v)), order);
+      auto n = new node(std::move(v));
+      value_cell.store(n, order);
+      if (AcquireAccessor)
+        acc.guard = typename storage_value_type::guard_ptr(n);
     }
 
     static iterator_reference deref_iterator(storage_key_type& k, storage_value_type& v) {
       auto node = v.load(std::memory_order_relaxed);
       return {k.load(std::memory_order_relaxed), node->value};
     }
-
-    static std::size_t rehash(Key k) { return Hash{}(k); }
 
     static void reclaim(accessor& a) { a.guard.reclaim(); }
     static void reclaim_internal(accessor& a) {
@@ -218,10 +323,11 @@ namespace xenium { namespace impl {
     }
   };
 
-  template <class Key, class Value, class ValueReclaimer, class Reclaimer, class Hash, bool TrivialValue>
-  struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, Hash, false, TrivialValue> {
-    using reclaimer = std::conditional_t<
-      std::is_same<ValueReclaimer, parameter::nil>::value, Reclaimer, ValueReclaimer>;
+  template <class Key, class Value, class ValueReclaimer, class Reclaimer, bool TrivialValue>
+  struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, false, TrivialValue> :
+    bits::vyukov_hash_map_nontrivial_key<Key>
+  {
+    using reclaimer = std::conditional_t<parameter::is_set<ValueReclaimer>::value, ValueReclaimer, Reclaimer>;
 
     struct node : reclaimer::template enable_concurrent_ptr<node> {
       node(Key&& key, Value&& value):
@@ -231,7 +337,6 @@ namespace xenium { namespace impl {
       std::pair<const Key, Value> data;
     };
 
-    using key_type = Key;
     using value_type = Value;
     using storage_key_type = std::atomic<std::size_t>;
     using storage_value_type = typename reclaimer::template concurrent_ptr<node>;
@@ -248,25 +353,25 @@ namespace xenium { namespace impl {
       accessor(storage_value_type& v, std::memory_order order):
         guard(acquire_guard(v, order))
       {}
-      accessor(typename storage_value_type::marked_ptr v) : guard(v) {}
+      const Key& key() const { return guard->data.first; }
       typename storage_value_type::guard_ptr guard;
       friend struct vyukov_hash_map_traits;
+      friend struct bits::vyukov_hash_map_nontrivial_key<Key>;
     };
 
-    static void reset(accessor&& acc) { acc.reset(); }
     static accessor acquire(storage_value_type& v, std::memory_order order) {
       return accessor(v, order);
     }
 
-    static accessor access(storage_value_type& v) {
-      return accessor(v.load(std::memory_order_relaxed));
-    }
-
+    template <bool AcquireAccessor>
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
-      std::size_t hash, Key&& k, Value&& v, std::memory_order order)
+      std::size_t hash, Key&& k, Value&& v, std::memory_order order, accessor& acc)
     {
       key_cell.store(hash, std::memory_order_relaxed);
-      value_cell.store(new node(std::move(k), std::move(v)), order);
+      auto n = new node(std::move(k), std::move(v));
+      value_cell.store(n, order);
+      if (AcquireAccessor)
+        acc.guard = typename storage_value_type::guard_ptr(n);
     }
 
     static bool compare_key_and_get_accessor(storage_key_type& key_cell, storage_value_type& value_cell,
@@ -278,20 +383,10 @@ namespace xenium { namespace impl {
       return acc.guard->data.first == key;
     }
 
-    static bool compare_trivial_key(storage_key_type& key_cell, const Key& key, std::size_t hash) {
-      return key_cell.load(std::memory_order_relaxed) == hash;
-    }
-
-    static bool compare_nontrivial_key(const accessor& acc, const Key& key) {
-       return acc.guard->data.first == key;
-    }
-
     static iterator_reference deref_iterator(storage_key_type& k, storage_value_type& v) {
       auto node = v.load(std::memory_order_relaxed);
       return node->data;
     }
-
-    static std::size_t rehash(std::size_t h) { return h; }
 
     static void reclaim(accessor& a) { a.guard.reclaim(); }
     static void reclaim_internal(accessor& a) {
