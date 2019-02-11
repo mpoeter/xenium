@@ -238,6 +238,52 @@ TYPED_TEST(VyukovHashMap, with_string_key)
   EXPECT_EQ(43, *acc);
 }
 
+TYPED_TEST(VyukovHashMap, with_string_key_and_managed_ptr_value)
+{
+  struct node : TypeParam::template enable_concurrent_ptr<node> {
+    node(int v): v(v) {}
+    int v;
+  };
+
+  using hash_map = xenium::vyukov_hash_map<std::string, xenium::managed_ptr<node, TypeParam>,
+    xenium::policy::reclaimer<TypeParam>>;
+
+  hash_map map;
+
+  EXPECT_TRUE(map.emplace("foo", new node(42)));
+  typename hash_map::accessor acc;
+  EXPECT_TRUE(map.try_get_value("foo", acc));
+  EXPECT_EQ(42, acc->v);
+  acc.reset();
+  EXPECT_TRUE(map.erase("foo"));
+
+  EXPECT_TRUE(map.emplace("foo", new node(43)));
+  auto it = map.begin();
+  EXPECT_EQ("foo", (*it).first);
+  EXPECT_EQ(43, (*it).second->v);
+  it.reset();
+
+  for (auto v : map) {
+    EXPECT_EQ("foo", v.first);
+    EXPECT_EQ(43, v.second->v);
+  }
+
+  bool inserted;
+  std::tie(acc, inserted) = map.get_or_emplace("foo", nullptr);
+  EXPECT_FALSE(inserted);
+  EXPECT_EQ(43, acc->v);
+  acc.reset();
+
+  EXPECT_TRUE(map.extract("foo", acc));
+  EXPECT_EQ(43, acc->v);
+  auto n = &*acc;
+  acc.reset();
+
+  std::tie(acc, inserted) = map.get_or_emplace("foo", n);
+  EXPECT_TRUE(inserted);
+  EXPECT_EQ(43, acc->v);
+}
+
 TYPED_TEST(VyukovHashMap, correctly_handles_hash_collisions_of_nontrivial_keys)
 {
   struct dummy_hash {

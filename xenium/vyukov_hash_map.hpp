@@ -36,7 +36,6 @@ namespace impl {
     class Value,
     class ValueReclaimer,
     class Reclaimer,
-    class Hash,
     bool TrivialKey,
     bool TrivialValue>
   struct vyukov_hash_map_traits;
@@ -96,14 +95,22 @@ namespace detail {
  * Based on these possibilities the class behaves as follows:
  *   * trivial key, trivial value:
  *     * key/value are stored in separate atomics
- *     * `accessor` is simply an alias for `Value`
+ *     * `accessor` is a thin wrapper around a `Value` copy.
+ *        Since the accessor contains a copy of the value it is limited to read-only access.
  *     * `iterator` dereferentiation returns a temporary `std::pair<const Key, Value>` object;
  *        the `operator->` is therefore not supported.
  *   * trivial key, managed_ptr with type `T` and reclaimer `R`:
  *     * `T` has to derive from `R::enable_concurrent_ptr<T>`
  *     * key is stored in an atomic, value is storend in a `concurrent_ptr<T>`
- *     * `accessor` is a thin wrapper around a `guard_ptr<T>`
+ *     * `accessor` is a thin wrapper around a `guard_ptr<T>`.
  *     * `iterator` dereferentiation returns a temporary `std::pair<const Key, T*>` object;
+ *        the `operator->` is therefore not supported.
+ *   * non-trivial key, managed_ptr with type `T` and reclaimer `R`:
+ *     * `T` has to derive from `R::enable_concurrent_ptr<T>`
+ *     * key and value are is stored in an internally allocated node
+ *     * `accessor` is a thin wrapper containing a `guard_ptr` to the internal node, as
+ *       well as a `guard_ptr<T>`.
+ *     * `iterator` dereferentiation returns a temporary `std::pair<const Key&, T*>` object;
  *        the `operator->` is therefore not supported.
  *   * trivial key, non-trivial value
  *     * key is stored in an atomic, values are stored in internally allocated nodes.
@@ -144,7 +151,7 @@ struct vyukov_hash_map {
   static_assert(parameter::is_set<reclaimer>::value, "reclaimer policy must be specified");
 
 private:
-  using traits = typename impl::vyukov_hash_map_traits<Key, Value, value_reclaimer, reclaimer, hash,
+  using traits = typename impl::vyukov_hash_map_traits<Key, Value, value_reclaimer, reclaimer,
     detail::vyukov_supported_type<Key>::value, detail::vyukov_supported_type<Value>::value>;
 
 public:
@@ -255,7 +262,7 @@ private:
   bucket& lock_bucket(hash_t hash, guarded_block& block, bucket_state& state);
   void grow(bucket& bucket, bucket_state state);
 
-  template <class Factory, class Callback>
+  template <bool AcquireAccessor, class Factory, class Callback>
   bool do_get_or_emplace(Key&& key, Factory&& factory, Callback&& callback);
   
   bool do_extract(const key_type& key, accessor& value);
