@@ -13,6 +13,23 @@
 #include <vector>
 #include <thread>
 
+// Simple solution to simulate exception beeing thrown in "compare_key". Such
+// exceptions can be caused by the construction of guard_ptr instances (e.g.,
+// when using hazard_pointer reclaimer).
+struct throwing_key {
+  throwing_key() noexcept {}
+  throwing_key(int v) noexcept : v(v) {}
+  int v;
+  bool operator==(const throwing_key& r) const {
+    throw std::runtime_error("test exception");
+  }
+};
+
+template <>
+struct std::hash<throwing_key> {
+  std::size_t operator()(const throwing_key& v) const { return v.v; }
+};
+
 namespace {
 
 template <typename Reclaimer>
@@ -282,6 +299,28 @@ TYPED_TEST(VyukovHashMap, with_string_key_and_managed_ptr_value)
   std::tie(acc, inserted) = map.get_or_emplace("foo", n);
   EXPECT_TRUE(inserted);
   EXPECT_EQ(43, acc->v);
+}
+
+TYPED_TEST(VyukovHashMap, emplace_unlocks_bucket_in_case_of_exception)
+{
+  this->map.emplace(42, 42);
+  EXPECT_THROW(
+    this->map.get_or_emplace_lazy(43, []() -> int { throw std::runtime_error("test exception"); }),
+    std::runtime_error
+  );
+  typename VyukovHashMap<TypeParam>::hash_map::accessor acc;
+  EXPECT_TRUE(this->map.erase(42));
+}
+
+TYPED_TEST(VyukovHashMap, erase_unlocks_bucket_in_case_of_exception)
+{
+  using hash_map = xenium::vyukov_hash_map<throwing_key, int, xenium::policy::reclaimer<TypeParam>>;
+  hash_map map;
+  
+  map.emplace(throwing_key{42}, 42);
+  EXPECT_THROW(map.erase(throwing_key{42}), std::runtime_error);
+  auto it = map.begin();
+  EXPECT_EQ(42, (*it).first.v);
 }
 
 TYPED_TEST(VyukovHashMap, correctly_handles_hash_collisions_of_nontrivial_keys)

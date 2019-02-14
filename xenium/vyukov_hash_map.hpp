@@ -232,6 +232,8 @@ public:
 private:
   using hash_t = std::size_t;
 
+  struct unlocker;
+  
   struct bucket_state;
   struct bucket;
   struct extension_item;

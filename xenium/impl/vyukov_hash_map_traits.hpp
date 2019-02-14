@@ -160,13 +160,13 @@ namespace xenium { namespace impl {
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
       std::size_t hash, Key&& k, Value* v, std::memory_order order, accessor& acc)
     {
-      key_cell.store(hash, std::memory_order_relaxed);
       auto n = new node(std::move(k), v);
-      value_cell.store(n, order);
       if (AcquireAccessor) {
         acc.node_guard = typename storage_value_type::guard_ptr(n); // TODO - is this necessary?
         acc.value_guard = typename VReclaimer::template concurrent_ptr<Value>::guard_ptr(v);
       }
+      key_cell.store(hash, std::memory_order_relaxed);
+      value_cell.store(n, order);
     }
 
     template <bool AcquireAccessor>    
@@ -309,11 +309,11 @@ namespace xenium { namespace impl {
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
       std::size_t hash, Key&& k, Value&& v, std::memory_order order, accessor& acc)
     {
-      key_cell.store(k, std::memory_order_relaxed);
       auto n = new node(std::move(v));
-      value_cell.store(n, order);
       if (AcquireAccessor)
         acc.guard = typename storage_value_type::guard_ptr(n);
+      key_cell.store(k, std::memory_order_relaxed);
+      value_cell.store(n, order);
     }
 
     static iterator_reference deref_iterator(storage_key_type& k, storage_value_type& v) {
@@ -375,11 +375,11 @@ namespace xenium { namespace impl {
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
       std::size_t hash, Key&& k, Value&& v, std::memory_order order, accessor& acc)
     {
-      key_cell.store(hash, std::memory_order_relaxed);
       auto n = new node(std::move(k), std::move(v));
-      value_cell.store(n, order);
       if (AcquireAccessor)
         acc.guard = typename storage_value_type::guard_ptr(n);
+      key_cell.store(hash, std::memory_order_relaxed);
+      value_cell.store(n, order);
     }
 
     template <bool AcquireAccessor>    
