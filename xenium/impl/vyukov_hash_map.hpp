@@ -21,14 +21,14 @@ namespace xenium {
 
 template <class Key, class Value, class... Policies>
 struct vyukov_hash_map<Key, Value, Policies...>::bucket_state {
-  bucket_state() : value() {}
+  bucket_state() noexcept : value() {}
 
-  bucket_state locked() const { return value | lock; }
+  bucket_state locked() const noexcept { return value | lock; }
   bucket_state clear_lock() const {
     assert(value & lock);
     return value ^ lock;
   }
-  bucket_state new_version() const { return value + version_inc; }
+  bucket_state new_version() const noexcept { return value + version_inc; }
   bucket_state inc_item_count() const {
     assert(item_count() < bucket_item_count);
     bucket_state result(value + item_count_inc);
@@ -48,16 +48,16 @@ struct vyukov_hash_map<Key, Value, Policies...>::bucket_state {
     return result;
   }
 
-  bool operator==(bucket_state r) const { return this->value == r.value; }
-  bool operator!=(bucket_state r) const { return this->value != r.value; }
+  bool operator==(bucket_state r) const noexcept { return this->value == r.value; }
+  bool operator!=(bucket_state r) const noexcept { return this->value != r.value; }
 
-  std::uint32_t item_count() const { return (value >> 1) & item_count_mask; }
-  std::uint32_t delete_marker() const { return (value >> delete_marker_shift) & item_count_mask; }
-  std::uint32_t version() const { return value >> version_shift; }
-  bool is_locked() const { return (value & lock) != 0; }
+  std::uint32_t item_count() const noexcept { return (value >> 1) & item_count_mask; }
+  std::uint32_t delete_marker() const noexcept { return (value >> delete_marker_shift) & item_count_mask; }
+  std::uint32_t version() const noexcept { return value >> version_shift; }
+  bool is_locked() const noexcept { return (value & lock) != 0; }
 
 private:
-  bucket_state(std::uint32_t value) : value(value) {}
+  bucket_state(std::uint32_t value) noexcept : value(value) {}
 
   std::uint32_t value;
 
@@ -146,6 +146,26 @@ struct alignas(64) vyukov_hash_map<Key, Value, Policies...>::block :
 };
 
 template <class Key, class Value, class... Policies>
+struct vyukov_hash_map<Key, Value, Policies...>::unlocker {
+  unlocker(bucket& locked_bucket, bucket_state state) : locked_bucket(locked_bucket), state(state) {}
+  ~unlocker() {
+    if (!unlocked) {
+      assert(locked_bucket.state.load().is_locked() == true);
+      locked_bucket.state.store(state, std::memory_order_relaxed);
+    }
+  }
+  void unlock(bucket_state state, std::memory_order order) {
+    assert(locked_bucket.state.load().is_locked() == true);
+    locked_bucket.state.store(state, order);
+    unlocked = true;
+  }
+private:
+  bool unlocked = false;
+  bucket_state state;
+  bucket& locked_bucket;
+};
+
+template <class Key, class Value, class... Policies>
 vyukov_hash_map<Key, Value, Policies...>::vyukov_hash_map(std::size_t initial_capacity) :
   resize_lock(0)
 {
@@ -215,13 +235,15 @@ retry:
   guarded_block b;
   bucket_state state;
   bucket& bucket = lock_bucket(h, b, state);
-  // TODO - unlock bucket in case of exception!
+  
+  unlocker unlocker(bucket, state);
+  
   std::uint32_t item_count = state.item_count();
 
   for (std::uint32_t i = 0; i != item_count; ++i)
     if (traits::template compare_key<AcquireAccessor>(bucket.key[i], bucket.value[i], key, h, acc)) {
       callback(std::move(acc), bucket.value[i]);
-      bucket.state.store(state, std::memory_order_relaxed);
+      unlocker.unlock(state, std::memory_order_relaxed);
       return false;
     }
 
@@ -231,7 +253,7 @@ retry:
     callback(std::move(acc), bucket.value[item_count]);
     // release the bucket lock and increment the item count
     // (TODO)
-    bucket.state.store(state.inc_item_count(), std::memory_order_release);
+    unlocker.unlock(state.inc_item_count(), std::memory_order_release);
     return true;
   }
 
@@ -241,22 +263,20 @@ retry:
        extension = extension->next.load(std::memory_order_relaxed)) {
     if (traits::template compare_key<AcquireAccessor>(extension->key, extension->value, key, h, acc)) {
       callback(std::move(acc), extension->value);
-      // release the lock
-      bucket.state.store(state, std::memory_order_relaxed);
+      unlocker.unlock(state, std::memory_order_relaxed);
       return false;
     }
   }
 
   extension_item* extension = allocate_extension_item(b.get(), h);
   if (extension == nullptr) {
+    unlocker.unlock(state, std::memory_order_relaxed);
     grow(bucket, state);
     goto retry;
   }
   traits::template store_item<AcquireAccessor>(extension->key, extension->value, h,
     std::move(key), factory(), std::memory_order_relaxed, acc);
   callback(std::move(acc), extension->value);
-  // use release semantic here to ensure that a thread in get() that sees the
-  // new pointer also sees the new key/value pair
   auto old_head = bucket.head.load(std::memory_order_relaxed);
   // (TODO) - need release here? probably not.
   extension->next.store(old_head, std::memory_order_release);
@@ -264,7 +284,7 @@ retry:
   bucket.head.store(extension, std::memory_order_release);
   // release the bucket lock
   // (TODO)
-  bucket.state.store(state, std::memory_order_release);
+  unlocker.unlock(state, std::memory_order_release);
 
   return true;
 }
@@ -312,7 +332,8 @@ restart:
     goto restart;
   }
 
-  // TODO - unlock in case of exception! (may be thrown by guard_ptr constructor)
+  unlocker unlocker(bucket, state);
+
   // we have the lock - now look for the key
 
   for (std::uint32_t i = 0; i != item_count; ++i) {
@@ -339,7 +360,7 @@ restart:
 
         // release the bucket lock and increase the version
         // (TODO)
-        bucket.state.store(locked_state.new_version().clear_lock(), std::memory_order_release);
+        unlocker.unlock(locked_state.new_version().clear_lock(), std::memory_order_release);
 
         free_extension_item(extension);
       } else {
@@ -357,7 +378,7 @@ restart:
         // release the bucket lock, reset the delete marker (if it is set), increase the version
         // and decrement the item counter.
         // (TODO)
-        bucket.state.store(state.new_version().dec_item_count(), std::memory_order_release);
+        unlocker.unlock(state.new_version().dec_item_count(), std::memory_order_release);
       }
       return true;
     }
@@ -372,7 +393,7 @@ restart:
 
       // release the bucket lock and increase the version
       // (TODO)
-      bucket.state.store(state.new_version(), std::memory_order_release);
+      unlocker.unlock(state.new_version(), std::memory_order_release);
 
       free_extension_item(extension);
       return true;
@@ -384,7 +405,7 @@ restart:
   // key not found
 
   // release the bucket lock
-  bucket.state.store(state, std::memory_order_relaxed);
+  unlocker.unlock(state, std::memory_order_relaxed);
 
   return false;
 }
@@ -562,8 +583,6 @@ void vyukov_hash_map<Key, Value, Policies...>::grow(bucket& bucket, bucket_state
   // try to acquire the resizeLock
   const int already_resizing = resize_lock.exchange(1, std::memory_order_relaxed);
 
-  // release the bucket lock
-  bucket.state.store(state, std::memory_order_relaxed);
   if (already_resizing) {
     backoff backoff;
     // another thread is already resizing -> wait for it to finish
