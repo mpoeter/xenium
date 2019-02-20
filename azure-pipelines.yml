@@ -13,7 +13,7 @@ jobs:
     steps:
     - script: |
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-        sudo apt-get g++-7
+        sudo apt-get install -y g++-7
       displayName: Install GCC 7
     - script: |
         wget https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.tar.gz
