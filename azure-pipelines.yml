@@ -22,11 +22,12 @@ jobs:
         cmake .. -DCMAKE_CXX_COMPILER=g++ -DBOOST_ROOT=./boost_1_68_0
       displayName: Prepare build
     - script: |
+        cd build
         make -j 2
-        displayName: build
+      displayName: build
     - script: |
-        ./gtest
-        displayName: test
+        ./build/gtest
+      displayName: test
 
   - job: documentation
     displayName: "build + deploy documentation"
@@ -35,8 +36,8 @@ jobs:
     steps:
     - script: |
         sudo apt-get install -y doxygen graphviz
-        displayName: Apt install dependencies
+      displayName: Apt install dependencies
     - script: |
         cd doc
         doxygen
-        displayName: build doxygen
+      displayName: build doxygen
