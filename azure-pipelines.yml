@@ -43,6 +43,7 @@ jobs:
       vmImage: 'Ubuntu-16.04'
     steps:
     - script: |
+        echo $(test)
         sudo apt-get install -y doxygen graphviz
       displayName: Apt install dependencies
     - script: |
