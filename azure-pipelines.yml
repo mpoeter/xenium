@@ -56,5 +56,5 @@ jobs:
         git checkout --orphan gh-pages
         git add .
         git -c user.name='Azure' -c user.email='Azure' commit -m "Deploy xenium documentation to gh-pages"
-        git push -f -q https://mpoeter:$(token)@github.com/mpoeter/xenium.git gh-pages
+        git push -f -q https://mpoeter:$(github_token)@github.com/mpoeter/xenium.git gh-pages
       displayName: publish GitHub pages
