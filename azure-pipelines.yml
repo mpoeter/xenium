@@ -50,11 +50,9 @@ jobs:
     - script: |
         cd doc/html
         git init
-        echo "variable: $env:GITHUB_TOKEN"
+        echo "variable: $(test)"
         git checkout --orphan gh-pages
         git add .
         git -c user.name='Azure' -c user.email='Azure' commit -m "Deploy xenium documentation to gh-pages"
-        git push -f -q https://mpoeter:$env:GITHUB_TOKEN@github.com/mpoeter/xenium.git gh-pages
-      env:
-        GITHUB_TOKEN: $(test)
+        git push -f -q https://mpoeter:$(test)@github.com/mpoeter/xenium.git gh-pages
       displayName: publish GitHub pages
