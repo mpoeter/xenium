@@ -16,6 +16,7 @@ jobs:
         tar xzf boost_1_68_0.tar.gz
       displayName: Get boost
     - script: |
+        git submodule update --init --recursive
         mkdir build
         cd build
         g++ --version
