@@ -25,7 +25,7 @@ jobs:
         mkdir build
         cd build
         g++ --version
-        cmake .. -DCMAKE_CXX_COMPILER=g++7 -DBOOST_ROOT=./boost_1_68_0
+        cmake .. -DCMAKE_CXX_COMPILER=g++-7 -DBOOST_ROOT=./boost_1_68_0
       displayName: Prepare build
     - script: |
         cd build
