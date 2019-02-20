@@ -1,0 +1,41 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+#pool:
+  #vmImage: 'Ubuntu-16.04', 'vs2017-win2016', 'macOS-10.13'
+
+jobs:
+  - job: build
+    pool:
+      vmImage: 'Ubuntu-16.04'
+    steps:
+    - script: |
+        wget https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.tar.gz
+        tar xzf boost_1_68_0.tar.gz
+      displayName: Get boost
+    - script: |
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_CXX_COMPILER=g++-7 -DBOOST_ROOT=./boost_1_68_0
+      displayName: Prepare build
+    - script: |
+        make -j 2
+        displayName: build
+    - script: |
+        ./gtest
+        displayName: test
+
+  - job: documentation
+    displayName: "build + deploy documentation"
+    pool:
+      vmImage: 'Ubuntu-16.04'
+    steps:
+    - script: |
+        sudo apt-get install -y doxygen graphviz
+        displayName: Apt install dependencies
+    - script: |
+        cd doc
+        doxygen
+        displayName: build doxygen
