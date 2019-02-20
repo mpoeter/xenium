@@ -12,6 +12,10 @@ jobs:
       vmImage: 'Ubuntu-16.04'
     steps:
     - script: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+        sudo apt-get g++-7
+      displayName: Install GCC 7
+    - script: |
         wget https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.tar.gz
         tar xzf boost_1_68_0.tar.gz
       displayName: Get boost
@@ -20,7 +24,7 @@ jobs:
         mkdir build
         cd build
         g++ --version
-        cmake .. -DCMAKE_CXX_COMPILER=g++ -DBOOST_ROOT=./boost_1_68_0
+        cmake .. -DCMAKE_CXX_COMPILER=g++7 -DBOOST_ROOT=./boost_1_68_0
       displayName: Prepare build
     - script: |
         cd build
