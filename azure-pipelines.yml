@@ -52,7 +52,7 @@ jobs:
     - script: |
         cd doc/html
         git init
-        echo "test variable: $(test)"
+        echo "token: $(github_token)"
         git checkout --orphan gh-pages
         git add .
         git -c user.name='Azure' -c user.email='Azure' commit -m "Deploy xenium documentation to gh-pages"
