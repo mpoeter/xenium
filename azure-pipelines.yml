@@ -43,7 +43,6 @@ jobs:
       vmImage: 'Ubuntu-16.04'
     steps:
     - script: |
-        echo "test variable: $(test)"
         sudo apt-get install -y doxygen graphviz
       displayName: Apt install dependencies
     - script: |
@@ -53,6 +52,7 @@ jobs:
     - script: |
         cd doc/html
         git init
+        echo "test variable: $(test)"
         git checkout --orphan gh-pages
         git add .
         git -c user.name='Azure' -c user.email='Azure' commit -m "Deploy xenium documentation to gh-pages"
