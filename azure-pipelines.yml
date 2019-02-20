@@ -37,8 +37,6 @@ jobs:
 
   - job: documentation
     displayName: "build + deploy documentation"
-    variables:
-      - group: gh-pages
     pool:
       vmImage: 'Ubuntu-16.04'
     steps:
