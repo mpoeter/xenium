@@ -275,9 +275,13 @@ retry:
     grow(bucket, state);
     goto retry;
   }
-  traits::template store_item<AcquireAccessor>(extension->key, extension->value, h,
-    std::move(key), factory(), std::memory_order_relaxed, acc);
-  // TODO - return extension_item if store_item throws an exception
+  try {
+    traits::template store_item<AcquireAccessor>(extension->key, extension->value, h,
+      std::move(key), factory(), std::memory_order_relaxed, acc);
+  } catch(...) {
+    free_extension_item(extension);
+    throw;
+  }
   callback(std::move(acc), extension->value);
   auto old_head = bucket.head.load(std::memory_order_relaxed);
   extension->next.store(old_head, std::memory_order_relaxed);
