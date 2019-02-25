@@ -26,8 +26,8 @@ struct throwing_key {
 };
 
 template <>
-struct std::hash<throwing_key> {
-  std::size_t operator()(const throwing_key& v) const { return v.v; }
+struct xenium::hash<throwing_key> {
+  hash_t operator()(const throwing_key& v) const { return v.v; }
 };
 
 namespace {

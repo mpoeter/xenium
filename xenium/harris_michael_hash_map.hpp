@@ -8,12 +8,12 @@
 
 #include <xenium/acquire_guard.hpp>
 #include <xenium/backoff.hpp>
+#include <xenium/hash.hpp>
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
 #include <xenium/utils.hpp>
 
 #include <atomic>
-#include <functional>
 
 namespace xenium {
 
@@ -66,7 +66,7 @@ namespace policy {
  *  * `xenium::policy::reclaimer`<br>
  *    Defines the reclamation scheme to be used for internal nodes. (**required**)
  *  * `xenium::policy::hash`<br>
- *    Defines the hash function. (*optional*; defaults to `std::hash<Key>`)
+ *    Defines the hash function. (*optional*; defaults to `xenium::hash<Key>`)
  *  * `xenium::policy::map_to_bucket`<br>
  *    Defines the function that is used to map the calculated hash to a bucket.
  *    (*optional*; defaults to `xenium::utils::modulo<std::size_t>`)
@@ -88,7 +88,7 @@ class harris_michael_hash_map
 public:
   using value_type = std::pair<const Key, Value>;
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
-  using hash = parameter::type_param_t<policy::hash, std::hash<Key>, Policies...>;
+  using hash = parameter::type_param_t<policy::hash, xenium::hash<Key>, Policies...>;
   using map_to_bucket = parameter::type_param_t<policy::map_to_bucket, utils::modulo<std::size_t>, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
   static constexpr std::size_t num_buckets = parameter::value_param_t<std::size_t, policy::buckets, 512, Policies...>::value;

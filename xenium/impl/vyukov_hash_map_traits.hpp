@@ -20,7 +20,7 @@ namespace xenium { namespace impl {
     template <class Key>
     struct vyukov_hash_map_trivial_key : vyukov_hash_map_common<Key> {
       template <class Cell>
-      static bool compare_trivial_key(Cell& key_cell, const Key& key, std::size_t hash) {
+      static bool compare_trivial_key(Cell& key_cell, const Key& key, hash_t hash) {
         return key_cell.load(std::memory_order_relaxed) == key;
       }
 
@@ -28,13 +28,13 @@ namespace xenium { namespace impl {
       static bool compare_nontrivial_key(const Accessor& acc, const Key& key) { return true; }
 
       template <class Hash>
-      static std::size_t rehash(const Key& k) { return Hash{}(k); }
+      static hash_t rehash(const Key& k) { return Hash{}(k); }
     };
 
     template <class Key>
     struct vyukov_hash_map_nontrivial_key : vyukov_hash_map_common<Key> {
       template <class Cell>
-      static bool compare_trivial_key(Cell& key_cell, const Key& key, std::size_t hash) {
+      static bool compare_trivial_key(Cell& key_cell, const Key& key, hash_t hash) {
         return key_cell.load(std::memory_order_relaxed) == hash;
       }
 
@@ -44,7 +44,7 @@ namespace xenium { namespace impl {
       }
       
       template <class Hash>
-      static std::size_t rehash(std::size_t h) { return h; }
+      static hash_t rehash(hash_t h) { return h; }
     };
   }
   template <class Key, class Value, class VReclaimer, class ValueReclaimer, class Reclaimer>
@@ -81,7 +81,7 @@ namespace xenium { namespace impl {
 
     template <bool AcquireAccessor>
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
-      std::size_t hash, Key k, Value* v, std::memory_order order, accessor& acc)
+      hash_t hash, Key k, Value* v, std::memory_order order, accessor& acc)
     {
       key_cell.store(k, std::memory_order_relaxed);
       value_cell.store(v, order);
@@ -91,7 +91,7 @@ namespace xenium { namespace impl {
 
     template <bool AcquireAccessor>
     static bool compare_key(storage_key_type& key_cell, storage_value_type& value_cell, const Key& key,
-      std::size_t hash, accessor& acc)
+      hash_t hash, accessor& acc)
     {
       if (key_cell.load(std::memory_order_relaxed) != key)
         return false;
@@ -158,7 +158,7 @@ namespace xenium { namespace impl {
 
     template <bool AcquireAccessor>
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
-      std::size_t hash, Key&& k, Value* v, std::memory_order order, accessor& acc)
+      hash_t hash, Key&& k, Value* v, std::memory_order order, accessor& acc)
     {
       auto n = new node(std::move(k), v);
       if (AcquireAccessor) {
@@ -171,7 +171,7 @@ namespace xenium { namespace impl {
 
     template <bool AcquireAccessor>    
     static bool compare_key(storage_key_type& key_cell, storage_value_type& value_cell,
-      const Key& key, std::size_t hash, accessor& acc)
+      const Key& key, hash_t hash, accessor& acc)
     {
       if (key_cell.load(std::memory_order_relaxed) != hash)
         return false;
@@ -232,7 +232,7 @@ namespace xenium { namespace impl {
 
     template <bool AcquireAccessor>
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
-      std::size_t hash, Key k, Value v, std::memory_order order, accessor& acc)
+      hash_t hash, Key k, Value v, std::memory_order order, accessor& acc)
     {
       key_cell.store(k, std::memory_order_relaxed);
       value_cell.store(v, order);
@@ -242,7 +242,7 @@ namespace xenium { namespace impl {
 
     template <bool AcquireAccessor>    
     static bool compare_key(storage_key_type& key_cell, storage_value_type& value_cell,
-      const Key& key, std::size_t hash, accessor& acc)
+      const Key& key, hash_t hash, accessor& acc)
     {
       if (key_cell.load(std::memory_order_relaxed) != key)
         return false;
@@ -296,7 +296,7 @@ namespace xenium { namespace impl {
 
     template <bool AcquireAccessor>    
     static bool compare_key(storage_key_type& key_cell, storage_value_type& value_cell,
-      const Key& key, std::size_t hash, accessor& acc)
+      const Key& key, hash_t hash, accessor& acc)
     {
       if (key_cell.load(std::memory_order_relaxed) != key)
         return false;
@@ -307,7 +307,7 @@ namespace xenium { namespace impl {
 
     template <bool AcquireAccessor>
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
-      std::size_t hash, Key&& k, Value&& v, std::memory_order order, accessor& acc)
+      hash_t hash, Key&& k, Value&& v, std::memory_order order, accessor& acc)
     {
       auto n = new node(std::move(v));
       if (AcquireAccessor)
@@ -346,7 +346,7 @@ namespace xenium { namespace impl {
     };
 
     using value_type = Value;
-    using storage_key_type = std::atomic<std::size_t>;
+    using storage_key_type = std::atomic<hash_t>;
     using storage_value_type = typename reclaimer::template concurrent_ptr<node>;
     using iterator_value_type = std::pair<const Key, Value>;
     using iterator_reference = iterator_value_type&;
@@ -373,7 +373,7 @@ namespace xenium { namespace impl {
 
     template <bool AcquireAccessor>
     static void store_item(storage_key_type& key_cell, storage_value_type& value_cell,
-      std::size_t hash, Key&& k, Value&& v, std::memory_order order, accessor& acc)
+      hash_t hash, Key&& k, Value&& v, std::memory_order order, accessor& acc)
     {
       auto n = new node(std::move(k), std::move(v));
       if (AcquireAccessor)
@@ -384,7 +384,7 @@ namespace xenium { namespace impl {
 
     template <bool AcquireAccessor>    
     static bool compare_key(storage_key_type& key_cell, storage_value_type& value_cell,
-      const Key& key, std::size_t hash, accessor& acc)
+      const Key& key, hash_t hash, accessor& acc)
     {
       if (key_cell.load(std::memory_order_relaxed) != hash)
         return false;

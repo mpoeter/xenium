@@ -8,6 +8,7 @@
 
 #include <xenium/acquire_guard.hpp>
 #include <xenium/backoff.hpp>
+#include <xenium/hash.hpp>
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
 #include <xenium/utils.hpp>
@@ -130,7 +131,7 @@ namespace detail {
  *  * `xenium::policy::reclaimer`<br>
  *    Defines the reclamation scheme to be used for internal allocations. (**required**)
  *  * `xenium::policy::hash`<br>
- *    Defines the hash function. (*optional*; defaults to `std::hash<Key>`)
+ *    Defines the hash function. (*optional*; defaults to `xenium::hash<Key>`)
  *  * `xenium::policy::backoff`<br>
  *    Defines the backoff strategy. (*optional*; defaults to `xenium::no_backoff`)
  *
@@ -142,7 +143,7 @@ template <class Key, class Value, class... Policies>
 struct vyukov_hash_map {
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
   using value_reclaimer = parameter::type_param_t<policy::value_reclaimer, parameter::nil, Policies...>;
-  using hash = parameter::type_param_t<policy::hash, std::hash<Key>, Policies...>;
+  using hash = parameter::type_param_t<policy::hash, xenium::hash<Key>, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
 
   template <class... NewPolicies>
@@ -303,8 +304,6 @@ public:
    */
   iterator end() { return iterator(); }
 private:
-  using hash_t = std::size_t;
-
   struct unlocker;
   
   struct bucket_state;
