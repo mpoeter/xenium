@@ -119,6 +119,29 @@ TYPED_TEST(VyukovHashMap, try_get_value_returns_true_and_sets_result_if_matching
   EXPECT_EQ(43, *acc);
 }
 
+TYPED_TEST(VyukovHashMap, find_returns_iterator_to_existing_element)
+{
+  // We use a for loop to ensure that we cover cases where entries are
+  // stored in normal buckets as well as extension buckets.
+  for (int i = 0; i < 200; ++i) {
+    this->map.emplace(i, i);
+    auto it = this->map.find(i);
+    ASSERT_NE(this->map.end(), it);
+    EXPECT_EQ(i, (*it).first);
+    EXPECT_EQ(i, (*it).second);
+  }
+}
+
+TYPED_TEST(VyukovHashMap, find_returns_end_iterator_for_non_existing_element)
+{
+  for (int i = 0; i < 200; ++i) {
+    if (i != 42)
+      this->map.emplace(i, i);
+  }
+  EXPECT_EQ(this->map.end(), this->map.find(42));
+}
+
+
 TYPED_TEST(VyukovHashMap, erase_nonexisting_element_returns_false)
 {
   EXPECT_FALSE(this->map.erase(42));

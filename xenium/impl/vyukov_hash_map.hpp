@@ -731,6 +731,35 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_block(std::uint32_t buck
 }
 
 template <class Key, class Value, class... Policies>
+auto vyukov_hash_map<Key, Value, Policies...>::find(const key_type& key) -> iterator {
+  const auto h = hash{}(key);
+  iterator result;
+  
+  result.current_bucket = &lock_bucket(h, result.block, result.current_bucket_state);
+  auto& bucket = *result.current_bucket;
+
+  accessor acc;
+  auto item_count = result.current_bucket_state.item_count();
+  for (std::uint32_t i = 0; i != item_count; ++i) {
+    if (traits::template compare_key<false>(bucket.key[i], bucket.value[i], key, h, acc)) {
+      result.index = i;
+      return result;
+    }
+  }
+
+  auto extension = bucket.head.load(std::memory_order_relaxed);
+  while (extension) {
+    if (traits::template compare_key<false>(extension->key, extension->value, key, h, acc)) {
+      result.extension = extension;
+      return result;
+    }
+    extension = extension->next.load(std::memory_order_relaxed);
+  }
+
+  return end();
+}
+
+template <class Key, class Value, class... Policies>
 auto vyukov_hash_map<Key, Value, Policies...>::begin() -> iterator {
   iterator result;
   result.current_bucket = &lock_bucket(0, result.block, result.current_bucket_state);

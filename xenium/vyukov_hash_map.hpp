@@ -164,6 +164,19 @@ public:
   using key_type = typename traits::key_type;
   using value_type = typename traits::value_type;
 
+  /**
+   * @brief Inserts a new element into the container if the container doesn't already contain an
+   * element with an equivalent key.
+   *
+   * The element is only constructed if no element with the key exists in the container.
+   * No iterators or accessors are invalidated.
+   *
+   * Progress guarantees: blocking
+   * 
+   * @param key the key of element to be inserted.
+   * @param value the value of the element to be inserted
+   * @return `true` if an element was inserted, otherwise `false`
+   */
   bool emplace(key_type key, value_type value);
 
   /**
@@ -173,6 +186,8 @@ public:
    * The element is only constructed if no element with the key exists in the container.
    * No iterators or accessors are invalidated.
    *
+   * Progress guarantees: blocking
+   * 
    * @param key the key of element to be inserted.
    * @param args arguments to forward to the constructor of the element
    * @return a pair consisting of an accessor to the inserted element, or the already-existing element
@@ -190,6 +205,8 @@ public:
    * The element is only constructed if no element with the key exists in the container.
    * No iterators or accessors are invalidated.
    *
+   * Progress guarantees: blocking
+   * 
    * @tparam Func
    * @param key the key of element to be inserted.
    * @param factory a functor that is used to create the `Value` instance when constructing
@@ -201,13 +218,27 @@ public:
   template <class Factory>
   std::pair<accessor, bool> get_or_emplace_lazy(key_type key, Factory&& factory);
 
+  /**
+   * @brief Removes the element with the key equivalent to key (if one exists), and provides an
+   * accessor to the removed value.
+   *
+   * No iterators or accessors are invalidated.
+   *
+   * Progress guarantees: blocking
+   *  
+   * @param key key of the element to remove
+   * @param accessor reference to an accessor to be set in case an element is removed.
+   * @return `true` if an element was removed, otherwise `false`
+   */
   bool extract(const key_type& key, accessor& value);
 
   /**
    * @brief Removes the element with the key equivalent to key (if one exists).
    *
    * No iterators or accessors are invalidated.
-   * 
+   *
+   * Progress guarantees: blocking
+   *  
    * @param key key of the element to remove
    * @return `true` if an element was removed, otherwise `false`
    */
@@ -217,17 +248,59 @@ public:
    * @brief Removes the specified element from the container.
    *
    * No iterators or accessors are invalidated.
+   *
+   * Progress guarantees: blocking
    * 
    * @param pos the iterator identifying the element to remove;
    * pos is implicitly updated to refer to the next element.
    */
   void erase(iterator& pos);
 
+  /**
+   * @brief Provides an accessor to the value associated with the specified key,
+   * if such an element exists in the map.
+   *
+   * No iterators or accessors are invalidated.
+   *
+   * Progress guarantees: lock-free
+   * 
+   * @param key key of the element to search for
+   * @param result reference to an accessor to be set if a matching element is found
+   * @return `true` if an element was found, otherwise `false`
+   */
   bool try_get_value(const key_type& key, accessor& result) const;
   
-  bool contains(const key_type& key) const;
+  // TODO
+  //bool contains(const key_type& key) const;
 
+  /**
+   * @brief Finds an element with key equivalent to key.
+   * 
+   * Progress guarantees: blocking
+   * 
+   * @param key key of the element to search for
+   * @return iterator to an element with key equivalent to key if such element is found,
+   * otherwise past-the-end iterator
+   */
+  iterator find(const key_type& key);
+  
+  /**
+   * @brief Returns an iterator to the first element of the container. 
+   * 
+   * Progress guarantees: blocking
+   * 
+   * @return iterator to the first element 
+   */
   iterator begin();
+
+  /**
+   * @brief Returns an iterator to the element following the last element of the container.
+   * 
+   * This element acts as a placeholder; attempting to access it results in undefined behavior. 
+   * Progress guarantees: wait-free
+   * 
+   * @return iterator to the element following the last element.
+   */
   iterator end() { return iterator(); }
 private:
   using hash_t = std::size_t;
