@@ -274,7 +274,7 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
       unsigned cnt = 0;
       ramalhete_queue::backoff backoff;
       while (h->entries[idx].value.load(std::memory_order_relaxed) == nullptr && ++cnt <= pop_retries)
-        backoff; // TODO - use a backoff tpye that can be configured separately
+        backoff(); // TODO - use a backoff tpye that can be configured separately
     }
 
     // (12) - this acquire-exchange synchronizes-with the release-CAS (8)
