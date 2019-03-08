@@ -28,6 +28,8 @@ upon the original proposal by Harris \[[Har01](#ref-harris-2001)\].
 Chase and Lev \[[CL05](#ref-chase-2005)\].
 * `vyukov_hash_map` - a concurrent hash-map that uses fine grained locking for update operations.
 This implementation is heavily inspired by the version proposed by Vyukov \[[Vyu08](#ref-vyukov-2008)\].
+* `left_right` - a generic implementation of the LeftRight algorithm proposed by Ramalhete and Correia
+\[[RC15](#ref-ramalhete-2015)\].
 
 ### Reclamation Schemes
 
@@ -135,6 +137,13 @@ The following reclamation schemes are implemented:
     <a href=http://concurrencyfreaks.blogspot.com/2016/11/faaarrayqueue-mpmc-lock-free-queue-part.html>
     FAAArrayQueue - MPMC lock-free queue (part 4 of 4)</a>.
     Blog, November 2016.</td>
+</tr>
+<tr>
+    <td valign="top"><a name="ref-ramalhete-2015"></a>[RC15]</td>
+    <td>Pedro Ramalhete and Andreia Correia.
+    <a href=https://github.com/pramalhe/ConcurrencyFreaks/blob/master/papers/left-right-2014.pdf>
+    Left-Right - A Concurrency Control Technique with Wait-Free Population Oblivious Reads</a>.
+    October 2015</td>
 </tr>
 <tr>
     <td valign="top"><a name="ref-ramalhete-2017"></a>[RC17]</td>
