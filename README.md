@@ -19,6 +19,7 @@ the near future.
 Michael and Scott \[[MS96](#ref-michael-1996)\].
 * `ramalhete_queue` - a fast unbounded lock-free multi-producer/multi-consumer queue proposed by
 Ramalhete \[[Ram16](#ref-ramalhete-2016)\].
+* `vyukov_bounded_queue` - a bounded multi-producer/multi-consumer FIFO queue based on the version proposed by Vyukov \[[Vyu10 ](#ref-vyukov-2010)\].
 * `harris_michael_list_based_set` - a lock-free container that contains a sorted set of unique objects.
 This data structure is based on the solution proposed by Michael \[[Mic02](#ref-michael-2002)\] which builds
 upon the original proposal by Harris \[[Har01](#ref-harris-2001)\].
@@ -170,6 +171,12 @@ The following reclamation schemes are implemented:
     <td>Dmitry Vyukov.
     <a href=https://groups.google.com/forum/#!topic/lock-free/qCYGGkrwbcA>
     Scalable hash map</a>. Google Groups posting, 2008.</td>
+</tr>
+<tr>
+    <td valign="top"><a name="ref-vyukov-2010"></a>[Vyu10]</td>
+    <td>Dmitry Vyukov.
+    <a href=https://groups.google.com/forum/#!topic/lock-free/-bqYlfbQmH0>
+    Simple and efficient bounded mpmc queue</a>. Google Groups posting, 2010.</td>
 </tr>
 </table>
 
