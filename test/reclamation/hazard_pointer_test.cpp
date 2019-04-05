@@ -158,6 +158,26 @@ TYPED_TEST(HazardPointer, reclaim_releases_ownership_and_deletes_object_because_
   EXPECT_EQ(nullptr, gp.get());
 }
 
+TYPED_TEST(HazardPointer, supports_custom_deleters)
+{
+  struct WithCustomDeleter;
+  struct DummyDeleter {
+    bool* called;
+    WithCustomDeleter* reference;
+    void operator()(WithCustomDeleter* obj) const {
+      *called = true;
+      EXPECT_EQ(reference, obj);
+      delete obj;
+    }
+  };
+  struct WithCustomDeleter : TestFixture::HP::template enable_concurrent_ptr<WithCustomDeleter, 2, DummyDeleter> {};
+
+  bool called = false;
+  typename TestFixture::HP::template concurrent_ptr<WithCustomDeleter>::guard_ptr gp(new WithCustomDeleter());
+  gp.reclaim(DummyDeleter{&called, gp.get()});
+  EXPECT_TRUE(called);
+}
+
 TYPED_TEST(HazardPointer, object_cannot_be_reclaimed_as_long_as_another_guard_protects_it)
 {
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;

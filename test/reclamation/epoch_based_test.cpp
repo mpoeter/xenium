@@ -76,6 +76,26 @@ TEST_F(EpochBased, reclaim_releases_ownership_and_the_object_gets_deleted_when_a
   EXPECT_EQ(nullptr, gp.get());
 }
 
+
+struct WithCustomDeleter;
+struct DummyDeleter {
+  WithCustomDeleter* reference;
+  void operator()(WithCustomDeleter* obj) const;
+};
+struct WithCustomDeleter : Reclaimer::enable_concurrent_ptr<WithCustomDeleter, 2, DummyDeleter> {};
+
+void DummyDeleter::operator()(WithCustomDeleter* obj) const {
+  EXPECT_EQ(reference, obj);
+  delete obj;
+}
+
+TEST_F(EpochBased, supports_custom_deleters)
+{
+  concurrent_ptr<WithCustomDeleter>::guard_ptr gp(new WithCustomDeleter());
+  gp.reclaim(DummyDeleter{gp.get()});
+  wrap_around_epochs();
+}
+
 TEST_F(EpochBased, object_cannot_be_reclaimed_as_long_as_another_guard_protects_it)
 {
   concurrent_ptr<Foo>::guard_ptr gp(mp);

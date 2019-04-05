@@ -34,7 +34,6 @@ namespace xenium { namespace reclamation { namespace detail {
   struct deletable_object_with_non_empty_deleter : Base
   {
     using Deleter = DeleterT;
-    static_assert(std::is_base_of<deletable_object, Base>::value, "Base must derive from deletable_object");
     virtual void delete_self() override
     {
       Deleter& my_deleter = reinterpret_cast<Deleter&>(deleter_buffer);
@@ -46,11 +45,12 @@ namespace xenium { namespace reclamation { namespace detail {
 
     void set_deleter(Deleter deleter)
     {
-      reinterpret_cast<Deleter&>(deleter_buffer) = std::move(deleter);
+      new (&deleter_buffer) Deleter(std::move(deleter));
     }
 
   private:
-    char deleter_buffer[sizeof(Deleter)];
+    using buffer = typename std::aligned_storage<sizeof(Deleter), alignof(Deleter)>::type;
+    buffer deleter_buffer;
   };
 
   template <class Derived, class DeleterT, class Base>

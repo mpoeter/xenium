@@ -59,6 +59,28 @@ TEST_F(StampIt, reclaim_releases_ownership_and_the_object_gets_deleted)
   EXPECT_EQ(nullptr, gp.get());
 }
 
+struct WithCustomDeleter;
+struct DummyDeleter {
+  bool* called;
+  WithCustomDeleter* reference;
+  void operator()(WithCustomDeleter* obj) const;
+};
+struct WithCustomDeleter : Reclaimer::enable_concurrent_ptr<WithCustomDeleter, 2, DummyDeleter> {};
+
+void DummyDeleter::operator()(WithCustomDeleter* obj) const {
+  *called = true;
+  EXPECT_EQ(reference, obj);
+  delete obj;
+}
+
+TEST_F(StampIt, supports_custom_deleters)
+{
+  bool called = false;
+  concurrent_ptr<WithCustomDeleter>::guard_ptr gp(new WithCustomDeleter());
+  gp.reclaim(DummyDeleter{&called, gp.get()});
+  EXPECT_TRUE(called);
+}
+
 TEST_F(StampIt, object_cannot_be_reclaimed_as_long_as_another_guard_protects_it)
 {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
