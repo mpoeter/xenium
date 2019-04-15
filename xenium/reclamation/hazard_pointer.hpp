@@ -56,15 +56,27 @@ namespace xenium { namespace reclamation {
   template <class Policy>
   struct dynamic_hp_thread_control_block;
 
+  /**
+   * @brief Hazard pointer policy for a static number of hazard pointers per thread.
+   */
   template <size_t K = 2, size_t A = 2, size_t B = 100>
-  using static_hazard_pointer_policy = generic_hazard_pointer_policy<K, A, B, static_hp_thread_control_block>;
-
-  template <size_t K = 2, size_t A = 2, size_t B = 100>
-  using dynamic_hazard_pointer_policy = generic_hazard_pointer_policy<K, A, B, dynamic_hp_thread_control_block>;
+  struct static_hazard_pointer_policy : generic_hazard_pointer_policy<K, A, B, static_hp_thread_control_block> {};
 
   /**
-   * @brief Hazard pointers
+   * @brief Hazard pointer policy for a dynamic number of hazard pointers per thread.
+   */
+  template <size_t K = 2, size_t A = 2, size_t B = 100>
+  struct dynamic_hazard_pointer_policy : generic_hazard_pointer_policy<K, A, B, dynamic_hp_thread_control_block> {};
+
+  /**
+   * @brief An implementation of the Hazard pointers reclamation scheme.
    *
+   * For general information about the interface of the reclamation scheme see @ref reclamation_schemes.
+   * 
+   * The implementation takes a single template parameter `Policy` that controls how hazard pointers are
+   * allocated/deallocated and how the threshold for the local retire list is calculated. The two
+   * available policies are `static_hazard_pointer_policy` and `dynamic_hazard_pointer_policy`.
+   * 
    * @tparam Policy
    */
   template <typename Policy>

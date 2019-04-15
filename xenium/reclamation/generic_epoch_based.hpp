@@ -17,8 +17,9 @@
 
 #include <algorithm>
 
-namespace xenium { namespace reclamation {
+namespace xenium {
 
+namespace reclamation {
   /**
    * @brief This namespace contains various scan strategies to be used
    * in the `generic_epoch_based` reclamation scheme.
@@ -53,36 +54,115 @@ namespace xenium { namespace reclamation {
   }
 
   /**
-   * @brief Defines whether the size of a critical region can be extended using region_guards.
+   * @brief Defines whether the size of a critical region can be extended using `region_guard`s.
    */
   enum class region_extension {
     /**
-     * @brief Critical regions are never extended, i.e., region_guards are effectively
+     * @brief Critical regions are never extended, i.e., `region_guards` are effectively
      * no-ops.
      */
     none,
 
     /**
-     * @brief The critical region is entered upon construction of the region_guard and
-     * left once the region_guard gets destroyed.
+     * @brief The critical region is entered upon construction of the `region_guard` and
+     * left once the `region_guard` gets destroyed.
      */
     eager,
 
     /**
-     * @brief A critical region is only entered when a guard_ptr is created. But if this
+     * @brief A critical region is only entered when a `guard_ptr` is created. But if this
      * is done inside the scope of a region_guard, the critical region is only left once
-     * the region_guard gets destroyed.
+     * the `region_guard` gets destroyed.
      */
     lazy
   };
+}
 
-  namespace policy {
-    template <std::size_t V> struct scan_frequency;
-    template <class T> struct scan;
-    template <class T> struct abandon;
-    template <region_extension V> struct region_extension;
-  }
+namespace policy {
+  /**
+   * @brief Policy to configure the scan frequency for `generic_epoch_based` reclamation.
+   * 
+   * This policy is used to define how often a thread should scan the epochs of the other
+   * threads in an attempt to update the global epoch. The value is based on the number of
+   * _critical region entries_; a scan is performed on every n'th critical region entry,
+   * since the thread last observed a new epoch, i.e., a higher number means scans are
+   * performed less frequently.
+   * A critical region entry corresponds to the creation of a stand-alone non-empty `guard_ptr`.
+   * Creation of other `guard_ptr`s while the thread is inside a critical region (i.e., some
+   * other non-empty `guard_ptr` already exists), do not count as critical region entries.
+   * 
+   * @tparam Value
+   */
+  template <std::size_t Value> struct scan_frequency;
 
+  /**
+   * @brief Policy to configure the scan strategy for `generic_epoch_based` reclamation.
+   * 
+   * This policy is used to define how many threads should be scanned in an attempt to update
+   * the global epoch. Possible values are:
+   *   * `xenium::reclamation::scan::all_threads` - all threads are scanned each time.
+   *   * `xenium::reclamation::scan::one_thread` - only a single thread is scanned; 
+   *   * `xenium::reclamation::scan::n_threads` - scans _n_ threads, where _n_ is a constant
+   *     that can be define via a template parameter.
+   * 
+   * This policy is closely related to `xenium::policy::scan_frequency`; the `scan_frequency`
+   * defines how often the scan strategy shall be applied. If only some threads are scanned
+   * (i.e., `one_thread` or `n_threads` is used), scans should happen more frequently, so a
+   * smaller `scan_frequency` should be chosen than when using `all_threads`.
+   * 
+   * @tparam T
+   */
+  
+  template <class T> struct scan;
+
+  /**
+   * @brief Policy to configure the abandon strategy for `generic_epoch_based` reclamation.
+   * 
+   * This policy defines if/when a thread should abandon its local retired nodes when leaving the
+   * critical region. Every thread gathers its retired nodes in thread-local lists and delays
+   * reclamation until a later time when it is guaranteed that no thread holds a `guard_ptr` to any
+   * of them. A thread may abandon its retired nodes by moving them to a global list. Any thread
+   * that performs reclamation of local retired nodes tries to adopt the list of abandoned retired
+   * nodes and reclaim those for which it is safe.
+   * 
+   * Possible values are:
+   *   * `xenium::reclamation::abandon::never` - never abandon local retired nodes (except when
+   *     the thread terminates).
+   *   * `xenium::reclamation::abandon::always` - always abandon local retired nodes when leaving
+   *      the critical region. 
+   *   * `xenium::reclamation::abandon::when_exceeds_threshold` - abandon the local retired nodes
+   *     if the number of remaining nodes exceeds the defined threshold at the time the thread
+   *     leaves the critical region.
+   *  
+   * @tparam T
+   */
+  template <class T> struct abandon;
+
+  /**
+   * @brief Policy to configure the extension of critical regions in `generic_epoch_based` reclamation.
+   * 
+   * This policy defines the effect of a `region_guard` instance. By default, a thread enters a
+   * critical region upon acquiring a `guard_ptr` to some node. This involves a sequential consistent
+   * fence which is relatively expensive, so it might make sense to extend the size of the region and
+   * only pay the price of the fence once. This can be achieved by using `region_guard`s. The
+   * `region_extension` policy allows to define if/how a `region_guard` extends the size of a critical
+   * region. Possible values are:
+   *   * `xenium::reclamation::region_extension::none` - no region extension is applied; construction
+   *     and destruction of `region_guard` instances are no-ops.
+   *   * `xenium::reclamation::region_extension::eager` - the size of the critical region is extended
+   *     to the scope of the `region_guard` instance, i.e., the thread enters the critical region upon
+   *     creation of the `region_guard` instance, and leaves the critical region when the `region_guard`
+   *     gets destroyed.
+   *   * `xenium::reclamation::region_extension::lazy` - the region is only entered whe a `guard_ptr`
+   *     is acquired. However, once the the critical region has been entered it is only left once the
+   *     `region_guard` is destroyed.
+   * 
+   * @tparam Value
+   */
+  template <reclamation::region_extension Value> struct region_extension;
+}
+
+namespace reclamation {
   template <
     std::size_t ScanFrequency = 100,
     class ScanStrategy = scan::all_threads,
@@ -107,7 +187,49 @@ namespace xenium { namespace reclamation {
 
   /**
    * @brief A generalized implementation of epoch based reclamation.
-   *
+   * 
+   * For general information about the interface of the reclamation scheme see @ref reclamation_schemes.
+   * 
+   * This implementation is parameterized and can be configured in many ways. For example:
+   * * like the original proposal for epoch based reclamation (EBR) by Fraser
+   *   \[[Fra04](index.html#ref-fraser-2004)\]:
+   * ```cpp
+   * using ebr = generic_epoch_based<generic_epoch_based_traits<>::with<
+   *   policy::scan<scan::all_threads>,
+   *   policy::region_extension<region_extension::none>
+   * >>
+   * ```
+   * * like new epoch based reclamation (NEBR) as proposed by Hart et al.
+   *   \[[HMBW07](index.html#ref-hart-2007)\]:
+   * ```
+   * using nebr = generic_epoch_based<generic_epoch_based_traits<>::with<
+   *   policy::scan<scan::all_threads>,
+   *   policy::region_extension<region_extension::eager>
+   * >>
+   * ```
+   * * like DEBRA as proposed by Brown \[[Bro15](index.html#ref-brown-2015)\]:
+   * ```
+   * using debra = generic_epoch_based<generic_epoch_based_traits<>::with<
+   *   policy::scan<scan::one_thread>,
+   *   policy::region_extension<region_extension::none>
+   * >>
+   * ```
+   * 
+   * This class does not take a list of policies, but a `Traits` type that can be customized
+   * with a list of policies. The following policies are supported:
+   *  * `xenium::policy::scan_frequency`<br>
+   *    Defines how often a thread should scan the epochs of the other threads in an attempt
+   *    to update the global epoch. (defaults to 100)
+   *  * `xenium::policy::scan`<br>
+   *    Defines how many threads should be scanned. Possible values are `all_threads`,
+   *    `one_thread` and `n_threads`. (defaults to `all_threads`)
+   *  * `xenium::policy::abandon`<br>
+   *    Defines when local retired nodes should be abandoned, so they can be reclaimed by some 
+   *    other thread. Possible values are `never`, `always` and `when_exceeds_threshold`.
+   *    (defaults to `never`)
+   *  * `xenium::policy::region_extension`<br>
+   *    Defines the effect a `region_guard` should have. (defaults to `region_extension::eager`)
+   * 
    * @tparam Traits
    */
   template <class Traits = generic_epoch_based_traits<>>
