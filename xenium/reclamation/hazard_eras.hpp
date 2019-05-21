@@ -40,6 +40,8 @@ namespace xenium { namespace reclamation {
     using std::runtime_error::runtime_error;
   };
 
+  // TODO - move policies into policy namespace
+
   template <class Policy, class Derived>
   struct basic_he_thread_control_block;
 
@@ -79,7 +81,8 @@ namespace xenium { namespace reclamation {
   using dynamic_hazard_eras_policy = generic_hazard_eras_policy<K, A, B, dynamic_he_thread_control_block>;
 
   /**
-   * @brief Hazard eras
+   * @brief An implementation of the hazard eras scheme proposed by Ramalhete and Correia
+   * \[[RC17](index.html#ref-ramalhete-2017)\].
    *
    * @tparam Policy
    */

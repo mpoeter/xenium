@@ -15,11 +15,17 @@ namespace xenium {
 
 /**
  * @brief Generic implementation of the LeftRight algorithm proposed by Ramalhete
- * and Correia.
+ * and Correia \[[RC15](index.html#ref-ramalhete-2015)\].
  * 
- * The LeftRight algorithm allows wait-free (population oblivious) reads, i.e.,
- * writers never block readers. This is comes at the cost of a duplication of the
- * underlying data structure.
+ * The LeftRight algorithm provides the following advantages when compared to a
+ * read-write-lock:
+ *   * writers never block readers, i.e., read operations are wait-free
+ *     (population oblivious)
+ *   * readers never block writers, i.e., the updated data is immediately
+ *     visible to new readers.
+ * 
+ * This is comes at the cost of a duplication of the underlying data structure,
+ * which also means that update operations have to be applied to both instances.
  * 
  * @tparam T
  */

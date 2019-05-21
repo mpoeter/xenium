@@ -70,7 +70,7 @@ namespace detail {
 /**
  * @brief A concurrent hash-map that uses fine-grained locking.
  *
- * **This is a preliminary version; the interface will be subject to change.**
+ * **This is a preliminary version; the interface might be subject to change.**
  *
  * This hash-map is heavily inspired by the hash-map presented by Vyukov
  * \[[Vyu08](index.html#ref-vyukov-2008)\].
@@ -271,7 +271,7 @@ public:
    */
   bool try_get_value(const key_type& key, accessor& result) const;
   
-  // TODO
+  // TODO - implement contains
   //bool contains(const key_type& key) const;
 
   /**

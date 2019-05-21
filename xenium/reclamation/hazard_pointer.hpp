@@ -24,6 +24,8 @@ namespace xenium { namespace reclamation {
     using std::runtime_error::runtime_error;
   };
 
+  // TODO - move policies into policy namespace
+  
   template <class Policy, class Derived>
   struct basic_hp_thread_control_block;
 
@@ -69,7 +71,8 @@ namespace xenium { namespace reclamation {
   struct dynamic_hazard_pointer_policy : generic_hazard_pointer_policy<K, A, B, dynamic_hp_thread_control_block> {};
 
   /**
-   * @brief An implementation of the Hazard pointers reclamation scheme.
+   * @brief An implementation of the hazard pointers reclamation scheme as proposed by Michael
+   * \[[Mic04](index.html#ref-michael-2004)\].
    *
    * For general information about the interface of the reclamation scheme see @ref reclamation_schemes.
    * 

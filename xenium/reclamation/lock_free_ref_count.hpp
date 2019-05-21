@@ -16,8 +16,15 @@
 
 namespace xenium { namespace reclamation {
 
+  // TODO - use policies for configuration
+  
   /**
-   * @brief Lock-free reference counting
+   * @brief An implementation of the lock-free reference counting (LFRC) schemea as proposed
+   * by Valois \[[Val95](index.html#ref-valois-1995), [MS95](index.html#ref-michael-1995)\].
+   *
+   * This scheme cannot handle types that define their own new/delete operators, and it
+   * does not allow the use of custom deleters.
+   *
    * @tparam InsertPadding
    * @tparam ThreadLocalFreeListSize
    */

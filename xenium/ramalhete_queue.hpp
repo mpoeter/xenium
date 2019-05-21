@@ -65,9 +65,9 @@ namespace policy {
  *    Defines the backoff strategy. (*optional*; defaults to `xenium::no_backoff`)
  *  * `xenium::policy::entries_per_node`<br>
  *    Defines the number of entries for each internal node. (*optional*; defaults to 512)
- *  * `xenium::policy::padding slots`<br>
- *    Defines the number of padding slots for each entry. (*optional*; defaults to 1)
- *  * `xenium::policy::pop_retries slots`<br>
+ *  * `xenium::policy::padding_bytes`<br>
+ *    Defines the number of padding bytes for each entry. (*optional*; defaults to `sizeof(T*)`)
+ *  * `xenium::policy::pop_retries`<br>
  *    Defines the number of iterations to spin on a queue entry while waiting for a pending
  *    push operation to finish. (*optional*; defaults to 10)
  *
