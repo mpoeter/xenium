@@ -1,0 +1,27 @@
+{
+  "benchmark": {
+    "type": "queue",
+    "ds": {
+      "type": "michael_scott_queue",
+      "reclaimer": {
+        "type": "epoch_based",
+        "update_threshold": 100
+
+      }
+    },
+    "rounds": 5,
+    "runtime": 500
+  },
+  "threads": [
+    {
+      "type": "push",
+      "count": 4,
+      "pop_ratio": 0.1
+    },
+    {
+      "type": "pop",
+      "count": 4,
+      "push_ratio": 0.1
+    }
+  ]
+}
