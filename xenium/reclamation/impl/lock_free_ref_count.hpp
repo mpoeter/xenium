@@ -294,7 +294,7 @@ namespace xenium { namespace reclamation {
     template<bool InsertPadding, size_t ThreadLocalFreeListSize>
     template<class T, class MarkedPtr>
     void lock_free_ref_count<InsertPadding, ThreadLocalFreeListSize>::
-    guard_ptr<T, MarkedPtr>::reclaim(Deleter d) noexcept {
+    guard_ptr<T, MarkedPtr>::reclaim(Deleter) noexcept {
       if (this->ptr.get() != nullptr) {
         assert(this->ptr->refs() > 1);
         // ref_count was initialized with "1", so we need an additional

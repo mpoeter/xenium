@@ -196,7 +196,7 @@ void ramalhete_queue<T, Policies...>::push(value_type value)
     // (3) - this acquire-load synchronizes-with the release-CAS (5, 7)
     t.acquire(tail, std::memory_order_acquire);
 
-    const int idx = t->push_idx.fetch_add(1, std::memory_order_relaxed);
+    const unsigned idx = t->push_idx.fetch_add(1, std::memory_order_relaxed);
     if (idx > entries_per_node - 1)
     {
       // This node is full
@@ -253,7 +253,7 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
         h->next.load(std::memory_order_relaxed) == nullptr)
       break;
 
-    const int idx = h->pop_idx.fetch_add(1, std::memory_order_relaxed);
+    const unsigned idx = h->pop_idx.fetch_add(1, std::memory_order_relaxed);
     if (idx > entries_per_node - 1)
     {
       // This node has been drained, check if there is another one

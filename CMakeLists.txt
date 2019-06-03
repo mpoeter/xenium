@@ -28,6 +28,12 @@ if(CMAKE_THREAD_LIBS_INIT)
     target_link_libraries(gtest "${CMAKE_THREAD_LIBS_INIT}")
 endif()
 
+if(MSVC)
+  target_compile_options(gtest PRIVATE /W4 /WX)
+else()
+  target_compile_options(gtest PRIVATE -Wall -Wextra -Werror)
+endif()
+
 if(CMAKE_BUILD_TYPE MATCHES Debug)
 	add_definitions(-DDEBUG)
 elseif(CMAKE_BUILD_TYPE MATCHES RelWithDebug)

@@ -108,7 +108,7 @@ namespace {
 
     std::atomic<bool> start{false};
 
-    for (int i = 0; i < num_threads; ++i)
+    for (unsigned i = 0; i < num_threads; ++i)
     {
       threads[i] = std::thread([i, &start, &queues]()
         {
@@ -126,11 +126,13 @@ namespace {
             } else {
               auto idx = rand() % num_threads;
               if (idx == i && queues[i].size() > 0) {
-                if (queues[idx].try_pop(n))
+                if (queues[idx].try_pop(n)) {
                   EXPECT_NE(nullptr, n);
+                }
               } else {
-                if (queues[idx].try_steal(n))
+                if (queues[idx].try_steal(n)) {
                   EXPECT_NE(nullptr, n);
+                }
               }
             }
           }

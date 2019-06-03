@@ -180,7 +180,7 @@ TYPED_TEST(HarrisMichaelListBasedSet, parallel_usage)
     {
       for (int j = 0; j < MaxIterations; ++j)
       {
-        typename Reclaimer::region_guard critical_region{};
+        typename Reclaimer::region_guard{};
         EXPECT_EQ(list.end(), list.find(i));
         EXPECT_TRUE(list.emplace(i));
         auto it = list.find(i);
@@ -216,7 +216,7 @@ TYPED_TEST(HarrisMichaelListBasedSet, parallel_usage_with_same_values)
       for (int j = 0; j < MaxIterations / 10; ++j)
         for (int i = 0; i < 10; ++i)
         {
-          typename Reclaimer::region_guard critical_region{};
+          typename Reclaimer::region_guard{};
           list.contains(i);
           list.emplace(i);
           auto it = list.find(i);

@@ -23,8 +23,8 @@ public:
   struct entry
   {
     entry() :
-      state(entry_state::active),
-      next_entry(nullptr)
+      next_entry(nullptr),
+      state(entry_state::active)
     {}
 
     // Normally this load operation can use relaxed semantic, as all reclamation schemes

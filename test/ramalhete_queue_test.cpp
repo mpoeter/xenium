@@ -72,7 +72,7 @@ TYPED_TEST(RamalheteQueue, parallel_usage)
     #endif
       for (int j = 0; j < MaxIterations; ++j)
       {
-        typename Reclaimer::region_guard critical_region{};
+        typename Reclaimer::region_guard{};
         queue.push(new int(i));
         int* elem;
         EXPECT_TRUE(queue.try_pop(elem));

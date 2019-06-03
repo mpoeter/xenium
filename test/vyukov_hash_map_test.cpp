@@ -20,7 +20,7 @@ struct throwing_key {
   throwing_key() noexcept {}
   throwing_key(int v) noexcept : v(v) {}
   int v;
-  bool operator==(const throwing_key& r) const {
+  bool operator==(const throwing_key&) const {
     throw std::runtime_error("test exception");
   }
 };
@@ -459,7 +459,7 @@ TYPED_TEST(VyukovHashMap, parallel_usage)
     {
       for (int k = i * keys_per_thread; k < (i + 1) * keys_per_thread; ++k) {
         for (int j = 0; j < MaxIterations / keys_per_thread; ++j) {
-          typename Reclaimer::region_guard critical_region{};
+          typename Reclaimer::region_guard{};
           EXPECT_TRUE(map.emplace(k, k));
           for (int x = 0; x < 10; ++x) {
             typename hash_map::accessor acc;
@@ -498,7 +498,7 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_nontrivial_types)
       for (int k = i * keys_per_thread; k < (i + 1) * keys_per_thread; ++k) {
         for (int j = 0; j < (MaxIterations / keys_per_thread) / 2; ++j) {
           std::string v = std::to_string(k);
-          typename Reclaimer::region_guard critical_region{};
+          typename Reclaimer::region_guard{};
           EXPECT_TRUE(map.emplace(v, v));
           for (int x = 0; x < 10; ++x) {
             typename hash_map::accessor acc;
@@ -536,15 +536,16 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_same_values)
         for (int i = 0; i < 10; ++i)
         {
           int k = i;
-          typename Reclaimer::region_guard critical_region{};
+          typename Reclaimer::region_guard{};
           map.emplace(k, i);
           typename hash_map::accessor acc;
-          if (map.try_get_value(k, acc))
+          if (map.try_get_value(k, acc)) {
             EXPECT_EQ(k, *acc);
+          }
 
           if (j % 4 == 0) {
             for (auto v : map)
-              ;
+              (void)v;
           }
           map.erase(k);
         }

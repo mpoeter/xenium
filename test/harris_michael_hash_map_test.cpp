@@ -274,7 +274,7 @@ TYPED_TEST(HarrisMichaelHashMap, parallel_usage)
       for (int j = 0; j < MaxIterations; ++j)
       {
         std::string k = std::to_string(i);
-        typename Reclaimer::region_guard critical_region{};
+        typename Reclaimer::region_guard{};
         EXPECT_EQ(map.end(), map.find(k));
         EXPECT_TRUE(map.emplace(k, i));
         auto it = map.find(k);
@@ -291,7 +291,7 @@ TYPED_TEST(HarrisMichaelHashMap, parallel_usage)
         EXPECT_FALSE(map.contains(k));
 
         for (auto& v : map)
-          ;
+          (void)v;
       }
     }));
   }
@@ -318,7 +318,7 @@ TYPED_TEST(HarrisMichaelHashMap, parallel_usage_with_same_values)
         for (int i = 0; i < 10; ++i)
         {
           std::string k = std::to_string(i);
-          typename Reclaimer::region_guard critical_region{};
+          typename Reclaimer::region_guard{};
           map.contains(k);
           map.emplace(k, i);
           auto it = map.find(k);
@@ -332,7 +332,7 @@ TYPED_TEST(HarrisMichaelHashMap, parallel_usage_with_same_values)
           result.first.reset();
 
           for (auto& v : map)
-            ;
+            (void)v;
         }
     }));
   }

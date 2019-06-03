@@ -147,7 +147,7 @@ struct alignas(64) vyukov_hash_map<Key, Value, Policies...>::block :
 
 template <class Key, class Value, class... Policies>
 struct vyukov_hash_map<Key, Value, Policies...>::unlocker {
-  unlocker(bucket& locked_bucket, bucket_state state) : locked_bucket(locked_bucket), state(state) {}
+  unlocker(bucket& locked_bucket, bucket_state state) : state(state), locked_bucket(locked_bucket) {}
   ~unlocker() {
     if (enabled) {
       assert(locked_bucket.state.load().is_locked());
@@ -205,7 +205,7 @@ auto vyukov_hash_map<Key, Value, Policies...>::get_or_emplace(key_type key, Args
   result.second = do_get_or_emplace<true>(
     std::move(key),
     [&]{ return value_type(std::forward<Args>(args)...); },
-    [&result](accessor&& acc, auto& cell) {
+    [&result](accessor&& acc, auto&) {
       result.first = std::move(acc);
     });
   return result;
@@ -220,7 +220,7 @@ auto vyukov_hash_map<Key, Value, Policies...>::get_or_emplace_lazy(key_type key,
   result.second = do_get_or_emplace<true>(
     std::move(key),
     std::forward<Factory>(factory),
-    [&result](accessor&& acc, auto& cell) {
+    [&result](accessor&& acc, auto&) {
       result.first = std::move(acc);
     });
   return result;

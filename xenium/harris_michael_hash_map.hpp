@@ -313,9 +313,9 @@ private:
   struct find_info
   {
     concurrent_ptr* prev;
-    marked_ptr next;
-    guard_ptr cur;
-    guard_ptr save;
+    marked_ptr next{};
+    guard_ptr cur{};
+    guard_ptr save{};
   };
 
   bool find(hash_t hash, const Key& key, std::size_t bucket, find_info& info, backoff& backoff);

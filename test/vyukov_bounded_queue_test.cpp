@@ -116,8 +116,9 @@ TEST(VyukovBoundedQueue, parallel_usage_of_weak_operations)
       {
         queue.try_push_weak(i);
         int elem;
-        if (queue.try_pop_weak(elem))
+        if (queue.try_pop_weak(elem)) {
           EXPECT_TRUE(elem >= 0 && elem <= 4);
+        }
       }
     }));
   }

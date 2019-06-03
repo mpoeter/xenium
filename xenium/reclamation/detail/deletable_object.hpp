@@ -64,7 +64,7 @@ namespace xenium { namespace reclamation { namespace detail {
       deleter(static_cast<Derived*>(this));
     }
 
-    void set_deleter(Deleter deleter) {}
+    void set_deleter(Deleter /*deleter*/) {}
   };
 
   template <class Derived, class Deleter = std::default_delete<Derived>, class Base = deletable_object>
