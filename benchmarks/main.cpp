@@ -9,16 +9,13 @@ std::unordered_map<std::string, benchmark_builders> benchmarks;
 
 void print_config(const ptree& config, int indent = 0) {
   if (config.empty()) {
-    std::cout << config.get_value<std::string>();
+    std::cout << config.get_value<std::string>() << '\n';
   } else {
-    auto it = config.begin();
-    for (; it != config.end(); ++it) {
+    for (auto& it : config) {
       std::cout << std::string(2 * (indent + 1), ' ');
-      std::cout << it->first << ": ";
-      print_config(it->second, indent + 1);
-      std::cout << '\n';
+      std::cout << it.first << ": ";
+      print_config(it.second, indent + 1);
     }
-    std::cout << std::string(2 * indent, ' ');
   }
 }
 
@@ -28,8 +25,11 @@ bool config_matches(const ptree& config, const ptree& descriptor) {
     if (it == descriptor.not_found()) {
       return false;
     }
-
+    
     if (entry.second.empty()) {
+      if (it->second.get_value<std::string>() == DYNAMIC_PARAM)
+        continue;
+
       if (entry.second != it->second)
         return false;
     } else if (!config_matches(entry.second, it->second))
@@ -70,8 +70,10 @@ void runner::load_config() {
   _builder = find_matching_builder(it->second);
   if (!_builder) {
     std::cout << "Could not find a benchmark that matches the given configuration. Available configurations are:\n";
-    for (auto& var : it->second)
+    for (auto& var : it->second) {
       print_config(var->get_descriptor());
+      std::cout << '\n';
+    }
     throw std::runtime_error("Invalid config");
   }
 }

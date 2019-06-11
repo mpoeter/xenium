@@ -13,6 +13,8 @@
 #include <xenium/reclamation/quiescent_state_based.hpp>
 #endif
 
+#define DYNAMIC_PARAM "<dynamic>"
+
 template <class T>
 struct descriptor;
 

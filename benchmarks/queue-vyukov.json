@@ -1,0 +1,25 @@
+{
+  "benchmark": {
+    "type": "queue",
+    "ds": {
+      "type": "vyukov_bounded_queue",
+      "weak": false,
+      "size": 64
+    },
+    "prefill": 10,
+    "rounds": 5,
+    "runtime": 500
+  },
+  "threads": [
+    {
+      "type": "push",
+      "count": 4,
+      "pop_ratio": 0.1
+    },
+    {
+      "type": "pop",
+      "count": 4,
+      "push_ratio": 0.1
+    }
+  ]
+}

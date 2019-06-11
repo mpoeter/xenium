@@ -15,7 +15,24 @@
 #include <xenium/michael_scott_queue.hpp>
 #endif
 
+#ifdef WITH_VYUKOV_BOUNDED_QUEUE
+#include <xenium/vyukov_bounded_queue.hpp>
+#endif
+
 using boost::property_tree::ptree;
+
+template <class T>
+struct queue_builder {
+  static auto create(const boost::property_tree::ptree&) { return std::make_unique<T>(); }
+};
+
+template <class T>
+struct region_guard {
+  using type = typename T::reclaimer::region_guard;
+};
+
+template <class T>
+using region_guard_t = typename region_guard<T>::type;
 
 #ifdef WITH_RAMALHETE_QUEUE
 template <class T, class... Policies>
@@ -43,6 +60,39 @@ struct descriptor<xenium::michael_scott_queue<T, Policies...>> {
 };
 #endif
 
+#ifdef WITH_VYUKOV_BOUNDED_QUEUE
+template <class T, class... Policies>
+struct descriptor<xenium::vyukov_bounded_queue<T, Policies...>> {
+  static boost::property_tree::ptree generate() {
+    using queue = xenium::vyukov_bounded_queue<T, Policies...>;
+    boost::property_tree::ptree pt;
+    pt.put("type", "vyukov_bounded_queue");
+    // for some reason GCC does not like it `queue::default_to_weak` is passed directly...
+    constexpr bool weak = queue::default_to_weak;
+    pt.put("weak", weak);
+    pt.put("size", DYNAMIC_PARAM);
+    return pt;
+  }
+};
+
+template <class T, class... Policies>
+struct queue_builder<xenium::vyukov_bounded_queue<T, Policies...>> {
+  static auto create(const boost::property_tree::ptree& config) {
+    auto size = config.get<size_t>("size");
+    if (!xenium::utils::is_power_of_two(size))
+      throw std::runtime_error("vyukov_bounded_queue size must be a power of two");
+    return std::make_unique<xenium::vyukov_bounded_queue<T, Policies...>>(size);
+  }
+};
+
+template <class T, class... Policies>
+struct region_guard<xenium::vyukov_bounded_queue<T, Policies...>> {
+  // vyukov_bounded_queue does not have a reclaimer, so we define an
+  // empty dummy type as region_guard placeholder.
+  struct type{};
+};
+#endif
+
 template <class T>
 struct queue_benchmark;
 
@@ -52,7 +102,6 @@ struct benchmark_thread : execution_thread {
     execution_thread(id, exec),
     _benchmark(benchmark)
   {}
-  using Reclaimer = typename T::reclaimer;
   virtual void run() override;
   virtual std::string report() const {
     return "push: " + std::to_string(push_operations) + "; pop: " + std::to_string(pop_operations);
@@ -98,11 +147,7 @@ struct pop_thread : benchmark_thread<T> {
 
 template <class T>
 struct queue_benchmark : benchmark {
-  virtual void setup(const boost::property_tree::ptree& config) override {
-    auto prefill = config.get<std::uint32_t>("prefill", 10);
-    (void)prefill;
-    // TODO
-  }
+  virtual void setup(const boost::property_tree::ptree& config) override;
 
   virtual std::unique_ptr<execution_thread> create_thread(
     std::uint32_t id,
@@ -117,7 +162,7 @@ struct queue_benchmark : benchmark {
       throw std::runtime_error("Invalid thread type: " + type);
   }
 
-  T queue;
+  std::unique_ptr<T> queue;
   std::uint32_t number_of_elements = 100;
 };
 
@@ -153,12 +198,49 @@ namespace {
     return queue.try_pop(item);
   }
 #endif
+
+
+#ifdef WITH_VYUKOV_BOUNDED_QUEUE
+  template <class T, class... Policies>
+  bool try_push(xenium::vyukov_bounded_queue<T, Policies...>& queue, T item) {
+    return queue.try_push(std::move(item));
+  }
+
+  template <class T, class... Policies>
+  bool try_pop(xenium::vyukov_bounded_queue<T, Policies...>& queue, T& item) {
+    return queue.try_pop(item);
+  }
+#endif
 }
 
 template <class T>
-void benchmark_thread<T>::run()
-{
-  T& queue = _benchmark.queue;
+void queue_benchmark<T>::setup(const boost::property_tree::ptree& config) {
+  queue = queue_builder<T>::create(config.get_child("ds"));
+  auto prefill = config.get<std::uint32_t>("prefill", 10);
+  
+  bool failed = false;
+  // we are populating the queue in a separate thread to avoid having the main thread
+  // in the reclaimers' global threadlists.
+  // this is especially important in case of QSBR since the main thread never explicitly
+  // goes through a quiescent state.
+  std::thread initializer([this, prefill, &failed]() {
+    region_guard_t<T>{};
+    for (unsigned i = 0, j = 0; i < prefill; ++i, j += 2) {
+      if (!try_push(*queue, j)) {
+        failed = true;
+        return;
+      }
+    }
+  });
+  initializer.join();
+
+  if (failed)
+    throw std::runtime_error("Initialization of queue failed."); // TODO - more details?
+}
+
+template <class T>
+void benchmark_thread<T>::run() {
+  T& queue = *_benchmark.queue;
   
   const std::uint32_t n = 100;
   const std::uint32_t number_of_keys = std::max(1u, _benchmark.number_of_elements * 2);
@@ -166,13 +248,13 @@ void benchmark_thread<T>::run()
   unsigned push = 0;
   unsigned pop = 0;
 
-  typename T::reclaimer::region_guard{};
+  region_guard_t<T>{};
   for (std::uint32_t i = 0; i < n; ++i) {
     auto r = _randomizer();
     auto action = r & ((1 << ratio_bits) - 1);
     std::uint32_t key = (r >> ratio_bits) % number_of_keys;
 
-    if (action <= _pop_ratio) {
+    if (action < _pop_ratio) {
       unsigned value;
       if (try_pop(queue, value)) {
         ++pop;
@@ -207,6 +289,11 @@ namespace {
   #ifdef WITH_EPOCH_BASED
       make_benchmark_builder<michael_scott_queue<QUEUE_ITEM, policy::reclaimer<reclamation::epoch_based<100>>>>(),
   #endif
+#endif
+
+#ifdef WITH_VYUKOV_BOUNDED_QUEUE
+      make_benchmark_builder<vyukov_bounded_queue<QUEUE_ITEM, policy::default_to_weak<true>>>(),
+      make_benchmark_builder<vyukov_bounded_queue<QUEUE_ITEM, policy::default_to_weak<false>>>(),
 #endif
     };
   }

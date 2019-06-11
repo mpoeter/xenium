@@ -10,6 +10,7 @@
 // defines which data structures shall be included
 #define WITH_MICHAEL_SCOTT_QUEUE
 #define WITH_RAMALHETE_QUEUE
+#define WITH_VYUKOV_BOUNDED_QUEUE
 
 // defines which reclamation schemes shall be included
 #define WITH_EPOCH_BASED
