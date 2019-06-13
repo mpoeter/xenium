@@ -14,5 +14,6 @@
 
 // defines which reclamation schemes shall be included
 #define WITH_EPOCH_BASED
+#define WITH_NEW_EPOCH_BASED
 #define WITH_QUIESCENT_STATE_BASED
 #define WITH_DEBRA

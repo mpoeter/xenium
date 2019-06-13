@@ -45,6 +45,25 @@ struct descriptor<xenium::ramalhete_queue<T, Policies...>> {
     return pt;
   }
 };
+
+namespace {
+  template <class T, class... Policies>
+  bool try_push(xenium::ramalhete_queue<T*, Policies...>& queue, T item) {
+    queue.push(new T(item));
+    return true;
+  }
+
+  template <class T, class... Policies>
+  bool try_pop(xenium::ramalhete_queue<T*, Policies...>& queue, T& item) {
+    T* value;
+    auto result = queue.try_pop(value);
+    if (result) {
+      item = *value;
+      delete value;
+    }
+    return result;
+  }
+}
 #endif
 
 #ifdef WITH_MICHAEL_SCOTT_QUEUE
@@ -58,6 +77,19 @@ struct descriptor<xenium::michael_scott_queue<T, Policies...>> {
     return pt;
   }
 };
+
+namespace {
+  template <class T, class... Policies>
+  bool try_push(xenium::michael_scott_queue<T, Policies...>& queue, T item) {
+    queue.push(std::move(item));
+    return true;
+  }
+
+  template <class T, class... Policies>
+  bool try_pop(xenium::michael_scott_queue<T, Policies...>& queue, T& item) {
+    return queue.try_pop(item);
+  }
+}
 #endif
 
 #ifdef WITH_VYUKOV_BOUNDED_QUEUE
@@ -91,6 +123,18 @@ struct region_guard<xenium::vyukov_bounded_queue<T, Policies...>> {
   // empty dummy type as region_guard placeholder.
   struct type{};
 };
+
+namespace {
+  template <class T, class... Policies>
+  bool try_push(xenium::vyukov_bounded_queue<T, Policies...>& queue, T item) {
+    return queue.try_push(std::move(item));
+  }
+
+  template <class T, class... Policies>
+  bool try_pop(xenium::vyukov_bounded_queue<T, Policies...>& queue, T& item) {
+    return queue.try_pop(item);
+  }
+}
 #endif
 
 template <class T>
@@ -166,53 +210,6 @@ struct queue_benchmark : benchmark {
   std::uint32_t number_of_elements = 100;
 };
 
-namespace {
-#ifdef WITH_RAMALHETE_QUEUE
-  template <class T, class... Policies>
-  bool try_push(xenium::ramalhete_queue<T*, Policies...>& queue, T item) {
-    queue.push(new T(item));
-    return true;
-  }
-
-  template <class T, class... Policies>
-  bool try_pop(xenium::ramalhete_queue<T*, Policies...>& queue, T& item) {
-    T* value;
-    auto result = queue.try_pop(value);
-    if (result) {
-      item = *value;
-      delete value;
-    }
-    return result;
-  }
-#endif
-
-#ifdef WITH_MICHAEL_SCOTT_QUEUE
-  template <class T, class... Policies>
-  bool try_push(xenium::michael_scott_queue<T, Policies...>& queue, T item) {
-    queue.push(std::move(item));
-    return true;
-  }
-
-  template <class T, class... Policies>
-  bool try_pop(xenium::michael_scott_queue<T, Policies...>& queue, T& item) {
-    return queue.try_pop(item);
-  }
-#endif
-
-
-#ifdef WITH_VYUKOV_BOUNDED_QUEUE
-  template <class T, class... Policies>
-  bool try_push(xenium::vyukov_bounded_queue<T, Policies...>& queue, T item) {
-    return queue.try_push(std::move(item));
-  }
-
-  template <class T, class... Policies>
-  bool try_pop(xenium::vyukov_bounded_queue<T, Policies...>& queue, T& item) {
-    return queue.try_pop(item);
-  }
-#endif
-}
-
 template <class T>
 void queue_benchmark<T>::setup(const boost::property_tree::ptree& config) {
   queue = queue_builder<T>::create(config.get_child("ds"));
@@ -283,11 +280,29 @@ namespace {
   #ifdef WITH_EPOCH_BASED
       make_benchmark_builder<ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::epoch_based<100>>>>(),
   #endif
+  #ifdef WITH_NEW_EPOCH_BASED
+      make_benchmark_builder<ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::new_epoch_based<100>>>>(),
+  #endif
+  #ifdef WITH_QUIESCENT_STATE_BASED
+    make_benchmark_builder<ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::quiescent_state_based>>>(),
+  #endif
+  #ifdef WITH_DEBRA
+    make_benchmark_builder<ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::debra<100>>>>(),
+  #endif
 #endif
 
 #ifdef WITH_MICHAEL_SCOTT_QUEUE
   #ifdef WITH_EPOCH_BASED
       make_benchmark_builder<michael_scott_queue<QUEUE_ITEM, policy::reclaimer<reclamation::epoch_based<100>>>>(),
+  #endif
+  #ifdef WITH_NEW_EPOCH_BASED
+      make_benchmark_builder<michael_scott_queue<QUEUE_ITEM, policy::reclaimer<reclamation::new_epoch_based<100>>>>(),
+  #endif
+  #ifdef WITH_QUIESCENT_STATE_BASED
+    make_benchmark_builder<michael_scott_queue<QUEUE_ITEM, policy::reclaimer<reclamation::quiescent_state_based>>>(),
+  #endif
+  #ifdef WITH_DEBRA
+    make_benchmark_builder<michael_scott_queue<QUEUE_ITEM, policy::reclaimer<reclamation::debra<100>>>>(),
   #endif
 #endif
 
