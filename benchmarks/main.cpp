@@ -14,6 +14,8 @@ void print_config(const ptree& config, int indent = 0) {
     for (auto& it : config) {
       std::cout << std::string(2 * (indent + 1), ' ');
       std::cout << it.first << ": ";
+      if (!it.second.empty())
+        std::cout << '\n';
       print_config(it.second, indent + 1);
     }
   }
@@ -41,7 +43,7 @@ bool config_matches(const ptree& config, const ptree& descriptor) {
 class runner
 {
 public:
-  runner(char* configfile);
+  runner(char** argv, int argc);
   void run();
 
 private:
@@ -52,10 +54,19 @@ private:
   std::shared_ptr<benchmark_builder> _builder;
 };
 
-runner::runner(char* configfile) {
-  ptree config;
-  std::ifstream stream(configfile);
+runner::runner(char** argv, int argc) {
+  std::ifstream stream(argv[1]);
   boost::property_tree::json_parser::read_json(stream, _config);
+  for (int i = 2; i < argc; ++i) {
+    std::string arg = argv[i];
+    auto pos = arg.find("=");
+    if (pos == std::string::npos)
+      throw std::runtime_error("Invalid argument: " + arg);
+    auto key = arg.substr(0, pos);
+    auto val = arg.substr(pos + 1);
+    _config.put(key, val);
+  }
+  
   load_config();
 }
 
@@ -82,7 +93,7 @@ std::shared_ptr<benchmark_builder> runner::find_matching_builder(const benchmark
 {
   auto& ds_config = _config.get_child("benchmark.ds");
   std::cout << "Given config:\n";
-  print_config(ds_config);
+  print_config(_config);
   for(auto& var : benchmarks) {
     auto descriptor = var->get_descriptor();
     if (config_matches(ds_config, descriptor)) {
@@ -110,7 +121,7 @@ void runner::run() {
 }
 
 void print_usage() {
-  std::cout << "Usage: benchmark <config-file> | --help" << std::endl;
+  std::cout << "Usage: benchmark --help | <config-file> [<param>=<value> ...]" << std::endl;
 }
 
 void print_available_benchmarks() {
@@ -147,7 +158,7 @@ int main (int argc, char* argv[])
 
   try
   {
-    runner runner(argv[1]);
+    runner runner(argv, argc);
     runner.run();
     return 0;
   } catch (const std::exception& e) {

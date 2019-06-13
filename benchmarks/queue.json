@@ -4,24 +4,25 @@
     "ds": {
       "type": "michael_scott_queue",
       "reclaimer": {
-        "type": "epoch_based",
+        "type": "new_epoch_based",
         "update_threshold": 100
 
       }
     },
+    "prefill": 10,
     "rounds": 5,
     "runtime": 500
   },
-  "threads": [
-    {
+  "threads": {
+    "push" : {
       "type": "push",
       "count": 4,
       "pop_ratio": 0.1
     },
-    {
+    "pop": {
       "type": "pop",
       "count": 4,
       "push_ratio": 0.1
     }
-  ]
+  }
 }
