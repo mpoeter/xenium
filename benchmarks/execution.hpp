@@ -22,12 +22,16 @@ struct execution;
  
 struct execution_thread {
   execution_thread(std::uint32_t id, const execution& exec);
-  virtual void setup(const boost::property_tree::ptree&) {}
+  virtual void setup(const boost::property_tree::ptree& config) {
+    _workload = config.get<std::uint32_t>("workload", 0);
+  }
   virtual void run() = 0;
   virtual std::string report() const { return std::string(); }
 private:
   const execution& _execution;
+  std::uint32_t _workload;
 protected:
+  void simulate_workload();
   const std::uint32_t _id;
   std::atomic<bool> _is_running{false};
   std::mt19937 _randomizer;

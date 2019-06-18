@@ -169,6 +169,7 @@ struct push_thread : benchmark_thread<T> {
     benchmark_thread<T>(benchmark, id, exec)
   {}
   virtual void setup(const boost::property_tree::ptree& config) override {
+    benchmark_thread<T>::setup(config);
     auto ratio = config.get<double>("pop_ratio", 0.0);
     if (ratio > 1.0 || ratio < 0.0)
       throw std::runtime_error("Invalid pop_ratio value");
@@ -182,6 +183,7 @@ struct pop_thread : benchmark_thread<T> {
     benchmark_thread<T>(benchmark, id, exec)
   {}
   virtual void setup(const boost::property_tree::ptree& config) override {
+    benchmark_thread<T>::setup(config);
     auto ratio = config.get<double>("push_ratio", 0.0);
     if (ratio > 1.0 || ratio < 0.0)
       throw std::runtime_error("Invalid push_ratio value");
@@ -259,6 +261,7 @@ void benchmark_thread<T>::run() {
     } else if (try_push(queue, key)) {
         ++push;
     }
+    simulate_workload();
   }
 
   push_operations += push;

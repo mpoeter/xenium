@@ -92,8 +92,8 @@ void runner::load_config() {
 std::shared_ptr<benchmark_builder> runner::find_matching_builder(const benchmark_builders& benchmarks)
 {
   auto& ds_config = _config.get_child("benchmark.ds");
-  std::cout << "Given config:\n";
-  print_config(_config);
+  std::cout << "Given data structure config:\n";
+  print_config(ds_config);
   for(auto& var : benchmarks) {
     auto descriptor = var->get_descriptor();
     if (config_matches(ds_config, descriptor)) {

@@ -111,6 +111,14 @@ void execution_thread::thread_func() {
   _is_running.store(false);
 }
 
+void execution_thread::simulate_workload() {
+  for (std::uint32_t i = 0; i < _workload; ++i) {
+    if (i % 64) {
+      // TODO - pause
+    }
+  }
+}
+
 void execution_thread::wait_until_all_threads_are_started() {
   while (_execution.state(std::memory_order_acquire) == execution_state::initializing)
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
