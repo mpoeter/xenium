@@ -289,6 +289,14 @@ namespace {
   #ifdef WITH_DEBRA
     make_benchmark_builder<ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::debra<100>>>>(),
   #endif
+  #ifdef WITH_HAZARD_POINTER
+    make_benchmark_builder<
+      ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<
+        reclamation::hazard_pointer<reclamation::static_hazard_pointer_policy<3>>>>>(),
+    make_benchmark_builder<
+      ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<
+        reclamation::hazard_pointer<reclamation::dynamic_hazard_pointer_policy<3>>>>>(),
+  #endif
 #endif
 
 #ifdef WITH_MICHAEL_SCOTT_QUEUE
@@ -303,6 +311,15 @@ namespace {
   #endif
   #ifdef WITH_DEBRA
     make_benchmark_builder<michael_scott_queue<QUEUE_ITEM, policy::reclaimer<reclamation::debra<100>>>>(),
+  #endif
+
+  #ifdef WITH_HAZARD_POINTER
+    make_benchmark_builder<
+      michael_scott_queue<QUEUE_ITEM, policy::reclaimer<
+        reclamation::hazard_pointer<reclamation::static_hazard_pointer_policy<3>>>>>(),
+    make_benchmark_builder<
+      michael_scott_queue<QUEUE_ITEM, policy::reclaimer<
+        reclamation::hazard_pointer<reclamation::dynamic_hazard_pointer_policy<3>>>>>(),
   #endif
 #endif
 

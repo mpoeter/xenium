@@ -66,3 +66,41 @@ struct descriptor<xenium::reclamation::debra<UpdateThreshold>> {
   }
 };
 #endif
+
+#ifdef WITH_HAZARD_POINTER
+#include <xenium/reclamation/hazard_pointer.hpp>
+
+template <class Policy>
+struct descriptor<xenium::reclamation::hazard_pointer<Policy>> {
+  static boost::property_tree::ptree generate() {
+    boost::property_tree::ptree pt;
+    pt.put("type", "hazard_pointer");
+    pt.put_child("policy", descriptor<Policy>::generate());
+    return pt;
+  }
+};
+
+template <size_t K, size_t A, size_t B>
+struct descriptor<xenium::reclamation::dynamic_hazard_pointer_policy<K, A, B>> {
+  static boost::property_tree::ptree generate() {
+    boost::property_tree::ptree pt;
+    pt.put("type", "dynamic_hazard_pointer_policy");
+    pt.put("K", K);
+    pt.put("A", A);
+    pt.put("B", B);
+    return pt;
+  }
+};
+
+template <size_t K, size_t A, size_t B>
+struct descriptor<xenium::reclamation::static_hazard_pointer_policy<K, A, B>> {
+  static boost::property_tree::ptree generate() {
+    boost::property_tree::ptree pt;
+    pt.put("type", "static_hazard_pointer_policy");
+    pt.put("K", K);
+    pt.put("A", A);
+    pt.put("B", B);
+    return pt;
+  }
+};
+#endif

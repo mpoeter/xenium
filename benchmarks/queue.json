@@ -4,8 +4,13 @@
     "ds": {
       "type": "michael_scott_queue",
       "reclaimer": {
-        "type": "new_epoch_based",
-        "update_threshold": 100
+        "type": "hazard_pointer",
+        "policy": {
+          "type": "static_hazard_pointer_policy",
+          "K": 3,
+          "A": 2,
+          "B": 100
+        }
 
       }
     },
