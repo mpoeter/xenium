@@ -48,6 +48,8 @@ public:
 
 private:
   void load_config();
+  void warmup();
+  void run_benchmark();
   std::shared_ptr<benchmark_builder> find_matching_builder(const benchmark_builders& benchmarks);
 
   ptree _config;
@@ -107,15 +109,30 @@ std::shared_ptr<benchmark_builder> runner::find_matching_builder(const benchmark
 
 void runner::run() {
   assert(_builder != nullptr);
-  auto threads = _config.get_child("threads");
+  warmup();
+  run_benchmark();
+}
 
+void runner::warmup() {
+  auto rounds = _config.get<std::uint32_t>("benchmark.warmup.rounds", 0);
+  auto runtime = _config.get<std::uint32_t>("benchmark.warmup.runtime", 5000);
+  for (std::uint32_t i = 0; i < rounds; ++i) {
+    std::cout << "warmup round " << i << std::endl;
+    auto benchmark = _builder->build();
+    benchmark->setup(_config.get_child("benchmark"));
+    execution exec(_config, runtime, benchmark);
+    exec.run();
+  }
+}
+
+void runner::run_benchmark() {
   auto rounds = _config.get<std::uint32_t>("benchmark.rounds", 10);
-
+  auto runtime = _config.get<std::uint32_t>("benchmark.runtime", 10000);
   for (std::uint32_t i = 0; i < rounds; ++i) {
     std::cout << "round " << i << std::endl;
     auto benchmark = _builder->build();
     benchmark->setup(_config.get_child("benchmark"));
-    execution exec(_config, benchmark);
+    execution exec(_config, runtime, benchmark);
     exec.run();
   }
 }

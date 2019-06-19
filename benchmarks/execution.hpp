@@ -45,7 +45,7 @@ private:
 };
 
 struct execution {
-  execution(const boost::property_tree::ptree& config, std::shared_ptr<benchmark> benchmark);
+  execution(const boost::property_tree::ptree& config, std::uint32_t runtime, std::shared_ptr<benchmark> benchmark);
   ~execution();
   void run();
   execution_state state(std::memory_order order = std::memory_order_relaxed) const;

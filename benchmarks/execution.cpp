@@ -6,9 +6,9 @@
 
 using boost::property_tree::ptree;
 
-execution::execution(const ptree& config, std::shared_ptr<benchmark> benchmark) :
+execution::execution(const ptree& config, std::uint32_t runtime, std::shared_ptr<benchmark> benchmark) :
   _state(execution_state::initializing),
-  _runtime(config.get<std::uint32_t>("benchmark.runtime", 10000)),
+  _runtime(runtime),
   _benchmark(std::move(benchmark))
 {
   auto& threads = config.get_child("threads");
