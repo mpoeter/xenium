@@ -1,6 +1,7 @@
 #pragma once
 
 #include "benchmark.hpp"
+#include "report.hpp"
 
 #include <boost/property_tree/ptree_fwd.hpp>
 
@@ -26,7 +27,7 @@ struct execution_thread {
     _workload = config.get<std::uint32_t>("workload", 0);
   }
   virtual void run() = 0;
-  virtual std::string report() const { return std::string(); }
+  virtual thread_report report() const { return { boost::property_tree::ptree{}, 0 }; }
 private:
   const execution& _execution;
   std::uint32_t _workload;
@@ -46,8 +47,7 @@ private:
 
 struct execution {
   execution(const boost::property_tree::ptree& config, std::uint32_t runtime, std::shared_ptr<benchmark> benchmark);
-  ~execution();
-  void run();
+  round_report run();
   execution_state state(std::memory_order order = std::memory_order_relaxed) const;
 private:
   void create_threads(const boost::property_tree::ptree& config);
@@ -58,6 +58,8 @@ private:
   void wait_until_finished(const execution_thread& thread) const;
   void wait_until_running_state_is(const execution_thread& thread, bool state) const;
   
+  round_report build_report(double runtime);
+
   std::atomic<execution_state> _state;
   std::uint32_t _runtime;
   std::shared_ptr<benchmark> _benchmark;

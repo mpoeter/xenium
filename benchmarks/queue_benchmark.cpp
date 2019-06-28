@@ -147,8 +147,11 @@ struct benchmark_thread : execution_thread {
     _benchmark(benchmark)
   {}
   virtual void run() override;
-  virtual std::string report() const {
-    return "push: " + std::to_string(push_operations) + "; pop: " + std::to_string(pop_operations);
+  virtual thread_report report() const {
+    boost::property_tree::ptree data;
+    data.put("push", push_operations);
+    data.put("pop", pop_operations);
+    return { data, push_operations + pop_operations };
   }
 protected:
   void set_pop_ratio(double ratio) {

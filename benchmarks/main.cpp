@@ -7,6 +7,8 @@
 using boost::property_tree::ptree;
 std::unordered_map<std::string, benchmark_builders> benchmarks;
 
+namespace {
+
 void print_config(const ptree& config, int indent = 0) {
   if (config.empty()) {
     std::cout << config.get_value<std::string>() << '\n';
@@ -19,6 +21,18 @@ void print_config(const ptree& config, int indent = 0) {
       print_config(it.second, indent + 1);
     }
   }
+}
+
+void print_summary(const report& report) {
+  std::vector<double> throughput;
+  throughput.reserve(report.rounds.size());
+  for (const auto& round : report.rounds)
+    throughput.push_back(round.throughput());
+
+  std::cout << "Summary:\n" <<
+    "  min: " << *std::min_element(throughput.begin(), throughput.end()) << " ops/ms\n" <<
+    "  max: " << *std::max_element(throughput.begin(), throughput.end()) << " ops/ms\n" <<
+    "  avg: " << std::accumulate(throughput.begin(), throughput.end(), 0) / throughput.size() << " ops/ms" << std::endl;
 }
 
 bool config_matches(const ptree& config, const ptree& descriptor) {
@@ -49,7 +63,7 @@ public:
 private:
   void load_config();
   void warmup();
-  void run_benchmark();
+  report run_benchmark();
   std::shared_ptr<benchmark_builder> find_matching_builder(const benchmark_builders& benchmarks);
 
   ptree _config;
@@ -110,7 +124,9 @@ std::shared_ptr<benchmark_builder> runner::find_matching_builder(const benchmark
 void runner::run() {
   assert(_builder != nullptr);
   warmup();
-  run_benchmark();
+  auto report = run_benchmark();
+  print_summary(report);
+  // TODO - write report to file
 }
 
 void runner::warmup() {
@@ -125,16 +141,30 @@ void runner::warmup() {
   }
 }
 
-void runner::run_benchmark() {
+report runner::run_benchmark() {
   auto rounds = _config.get<std::uint32_t>("benchmark.rounds", 10);
   auto runtime = _config.get<std::uint32_t>("benchmark.runtime", 10000);
+  auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+    std::chrono::system_clock::now().time_since_epoch());
+
+  std::vector<round_report> round_reports;
+  round_reports.reserve(rounds);
   for (std::uint32_t i = 0; i < rounds; ++i) {
-    std::cout << "round " << i << std::endl;
+    std::cout << "round " << i << std::flush;
     auto benchmark = _builder->build();
     benchmark->setup(_config.get_child("benchmark"));
     execution exec(_config, runtime, benchmark);
-    exec.run();
+    auto report = exec.run();
+    std::cout << " - " << report.operations() / report.runtime << " ops/ms" << std::endl;
+    round_reports.push_back(std::move(report));
   }
+
+  return {
+    _config.get<std::string>("benchmark.name", _config.get<std::string>("benchmark.type")),
+    timestamp.count(),
+    _config,
+    round_reports
+  };
 }
 
 void print_usage() {
@@ -150,6 +180,8 @@ void print_available_benchmarks() {
     std::cout << std::endl;
   }
   // TODO - improve output
+}
+
 }
 
 int main (int argc, char* argv[])

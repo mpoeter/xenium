@@ -15,16 +15,6 @@ execution::execution(const ptree& config, std::uint32_t runtime, std::shared_ptr
   create_threads(threads);
 }
 
-execution::~execution() {
-  for (auto& thread : _threads) {
-    if (thread->_thread.joinable())
-      thread->_thread.join();
-  }
-
-  for (unsigned i = 0; i < _threads.size(); ++i) {
-    std::cout << "Thread " << i << ": " << _threads[i]->report() << std::endl;
-  }
-}
 void execution::create_threads(const ptree& config) {
   std::uint32_t count = 0;
   for (auto& it : config)
@@ -48,18 +38,35 @@ execution_state execution::state(std::memory_order order) const {
   return _state.load(order);
 }
 
-void execution::run() {
+round_report execution::run() {
   _state.store(execution_state::preparing);
 
   wait_until_all_threads_are_running();
 
   _state.store(execution_state::running);
 
+  auto start = std::chrono::high_resolution_clock::now();
+
   std::this_thread::sleep_for(std::chrono::milliseconds(_runtime));
 
   _state.store(execution_state::stopped);
 
   wait_until_all_threads_are_finished();
+
+  std::chrono::duration<double, std::milli> runtime = std::chrono::high_resolution_clock::now() - start;
+  return build_report(runtime.count());
+}
+
+round_report execution::build_report(double runtime) {
+  for (auto& thread : _threads)
+    thread->_thread.join();
+  
+  std::vector<thread_report> thread_reports;
+  thread_reports.reserve(_threads.size());
+  for (unsigned i = 0; i < _threads.size(); ++i) {
+    thread_reports.push_back(_threads[i]->report());
+  }
+  return { thread_reports, runtime };
 }
 
 void execution::wait_until_all_threads_are_running() {
