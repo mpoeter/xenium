@@ -33,17 +33,15 @@ The benchmark execution is based on a JSON configuration file like the following
   },
   "rounds": 5,
   "runtime": 500
-  "threads": [
-    {
-      "type": "push",
+  "threads": {
+    "producer": {
       "count": 4,
       "pop_ratio": 0.1
     },
-    {
-      "type": "pop",
+    "consumer": {
       "count": 4,
       "push_ratio": 0.1
     }
-  ]
+  }
 }
 ```

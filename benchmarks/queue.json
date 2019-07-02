@@ -14,13 +14,13 @@
   "rounds": 4,
   "runtime": 1000,
   "threads": {
-    "push": {
+    "producer": {
       "count": 4,
       "pop_ratio": 0.1,
       "workload": 100
     },
-    "mypop": {
-      "type": "pop",
+    "myconsumer": {
+      "type": "consumer",
       "count": 4,
       "push_ratio": 0.1,
       "workload": 100

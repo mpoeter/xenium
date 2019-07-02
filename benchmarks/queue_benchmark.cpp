@@ -203,9 +203,9 @@ struct queue_benchmark : benchmark {
     const execution& exec,
     const std::string& type) override
   {
-    if (type == "push")
+    if (type == "producer")
       return std::make_unique<push_thread<T>>(*this, id, exec);
-    else if (type == "pop")
+    else if (type == "consumer")
       return std::make_unique<pop_thread<T>>(*this, id, exec);
     else
       throw std::runtime_error("Invalid thread type: " + type);
@@ -244,6 +244,7 @@ template <class T>
 void benchmark_thread<T>::run() {
   T& queue = *_benchmark.queue;
   
+  // TODO - make n configurable
   const std::uint32_t n = 100;
   const std::uint32_t number_of_keys = std::max(1u, _benchmark.number_of_elements * 2);
 
