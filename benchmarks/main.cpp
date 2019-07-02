@@ -23,16 +23,31 @@ void print_config(const ptree& config, int indent = 0) {
   }
 }
 
+double sqr(double v) {
+  return v*v;
+}
+
 void print_summary(const report& report) {
   std::vector<double> throughput;
   throughput.reserve(report.rounds.size());
   for (const auto& round : report.rounds)
     throughput.push_back(round.throughput());
 
+  auto min = *std::min_element(throughput.begin(), throughput.end());
+  auto max = *std::max_element(throughput.begin(), throughput.end());
+  auto avg = std::accumulate(throughput.begin(), throughput.end(), 0.0) / throughput.size();
+  double var = 0;
+  for (auto v : throughput) {
+    var += sqr(v - avg);  
+  }
+  var /= throughput.size();
+  
+
   std::cout << "Summary:\n" <<
-    "  min: " << *std::min_element(throughput.begin(), throughput.end()) << " ops/ms\n" <<
-    "  max: " << *std::max_element(throughput.begin(), throughput.end()) << " ops/ms\n" <<
-    "  avg: " << std::accumulate(throughput.begin(), throughput.end(), 0) / throughput.size() << " ops/ms" << std::endl;
+    "  min: " << min << " ops/ms\n" <<
+    "  max: " << max << " ops/ms\n" <<
+    "  avg: " << avg << " ops/ms\n" <<
+    "  stddev: " << sqrt(var) << std::endl;
 }
 
 bool config_matches(const ptree& config, const ptree& descriptor) {
