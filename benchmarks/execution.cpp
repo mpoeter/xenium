@@ -26,7 +26,7 @@ void execution::create_threads(const ptree& config) {
     auto count = it.second.get<std::uint32_t>("count", 1);
     for (std::uint32_t i = 0; i < count; ++i) {
       // TODO - create different ids for each round
-      auto type = it.second.get<std::string>("type");
+      auto type = it.second.get<std::string>("type", it.first);
       auto thread = _benchmark->create_thread(i, *this, type);
       thread->setup(it.second);
       _threads.push_back(std::move(thread));

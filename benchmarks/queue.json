@@ -1,33 +1,29 @@
 {
-  "benchmark": {
-    "type": "queue",
-    "ds": {
-      "type": "michael_scott_queue",
-      "reclaimer": {
-        "type": "hazard_pointer",
-        "policy": {
-          "type": "static_hazard_pointer_policy",
-          "K": 3,
-          "A": 2,
-          "B": 100
-        }
-
-      }
-    },
-    "prefill": 10,
-    "rounds": 5,
-    "runtime": 500
+  "type": "queue",
+  "ds": {
+    "type": "michael_scott_queue",
+    "reclaimer": {
+      "type": "epoch_based"
+    }
   },
+  "prefill": 10,
+  "warmup": {
+    "rounds": 1,
+    "runtime": 200
+  },
+  "rounds": 4,
+  "runtime": 1000,
   "threads": {
-    "push" : {
-      "type": "push",
+    "push": {
       "count": 4,
-      "pop_ratio": 0.1
+      "pop_ratio": 0.1,
+      "workload": 100
     },
-    "pop": {
+    "mypop": {
       "type": "pop",
       "count": 4,
-      "push_ratio": 0.1
+      "push_ratio": 0.1,
+      "workload": 100
     }
   }
 }

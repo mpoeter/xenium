@@ -1,4 +1,5 @@
 #include <iostream>
+
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
@@ -102,9 +103,7 @@ runner::runner(char** argv, int argc) {
 }
 
 void runner::load_config() {
-  auto benchmark_config = _config.get_child("benchmark");
-
-  auto type = benchmark_config.get<std::string>("type");
+  auto type = _config.get<std::string>("type");
   auto it = benchmarks.find(type);
   if (it == benchmarks.end())
     throw std::runtime_error("Invalid benchmark type " + type);
@@ -122,7 +121,7 @@ void runner::load_config() {
 
 std::shared_ptr<benchmark_builder> runner::find_matching_builder(const benchmark_builders& benchmarks)
 {
-  auto& ds_config = _config.get_child("benchmark.ds");
+  auto& ds_config = _config.get_child("ds");
   std::cout << "Given data structure config:\n";
   print_config(ds_config);
   for(auto& var : benchmarks) {
@@ -145,20 +144,20 @@ void runner::run() {
 }
 
 void runner::warmup() {
-  auto rounds = _config.get<std::uint32_t>("benchmark.warmup.rounds", 0);
-  auto runtime = _config.get<std::uint32_t>("benchmark.warmup.runtime", 5000);
+  auto rounds = _config.get<std::uint32_t>("warmup.rounds", 0);
+  auto runtime = _config.get<std::uint32_t>("warmup.runtime", 5000);
   for (std::uint32_t i = 0; i < rounds; ++i) {
     std::cout << "warmup round " << i << std::endl;
     auto benchmark = _builder->build();
-    benchmark->setup(_config.get_child("benchmark"));
+    benchmark->setup(_config);
     execution exec(_config, runtime, benchmark);
     exec.run();
   }
 }
 
 report runner::run_benchmark() {
-  auto rounds = _config.get<std::uint32_t>("benchmark.rounds", 10);
-  auto runtime = _config.get<std::uint32_t>("benchmark.runtime", 10000);
+  auto rounds = _config.get<std::uint32_t>("rounds", 10);
+  auto runtime = _config.get<std::uint32_t>("runtime", 10000);
   auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
     std::chrono::system_clock::now().time_since_epoch());
 
@@ -167,7 +166,7 @@ report runner::run_benchmark() {
   for (std::uint32_t i = 0; i < rounds; ++i) {
     std::cout << "round " << i << std::flush;
     auto benchmark = _builder->build();
-    benchmark->setup(_config.get_child("benchmark"));
+    benchmark->setup(_config);
     execution exec(_config, runtime, benchmark);
     auto report = exec.run();
     std::cout << " - " << report.operations() / report.runtime << " ops/ms" << std::endl;
@@ -175,7 +174,7 @@ report runner::run_benchmark() {
   }
 
   return {
-    _config.get<std::string>("benchmark.name", _config.get<std::string>("benchmark.type")),
+    _config.get<std::string>("name", _config.get<std::string>("type")),
     timestamp.count(),
     _config,
     round_reports

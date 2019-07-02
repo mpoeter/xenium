@@ -22,19 +22,17 @@ of parameter combinations in an automated way (e.g., via a shell script).
 The benchmark execution is based on a JSON configuration file like the following:
 ```
 {
-  "benchmark": {
-    "type": "queue",
-    "ds": {
-      "type": "michael_scott_queue",
-      "reclaimer": {
-        "type": "epoch_based",
-        "update_threshold": 100
+  "type": "queue",
+  "ds": {
+    "type": "michael_scott_queue",
+    "reclaimer": {
+      "type": "epoch_based",
+      "update_threshold": 100
 
-      }
-    },
-    "rounds": 5,
-    "runtime": 500
+    }
   },
+  "rounds": 5,
+  "runtime": 500
   "threads": [
     {
       "type": "push",
