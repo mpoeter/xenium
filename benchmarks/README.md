@@ -20,7 +20,7 @@ of parameter combinations in an automated way (e.g., via a shell script).
 
 ## Configuration
 The benchmark execution is based on a JSON configuration file like the following:
-```
+```json
 {
   "type": "queue",
   "ds": {
@@ -45,3 +45,4 @@ The benchmark execution is based on a JSON configuration file like the following
   }
 }
 ```
+The [configuration documentation](config.md) contains more details.
