@@ -6,13 +6,17 @@
 
 using boost::property_tree::ptree;
 
-execution::execution(const ptree& config, std::uint32_t runtime, std::shared_ptr<benchmark> benchmark) :
+execution::execution(std::uint32_t runtime, std::shared_ptr<benchmark> benchmark) :
   _state(execution_state::initializing),
   _runtime(runtime),
   _benchmark(std::move(benchmark))
-{
-  auto& threads = config.get_child("threads");
-  create_threads(threads);
+{}
+
+execution::~execution() {
+  _state.store(execution_state::stopped);
+  for (auto& thread : _threads)
+    if (thread->_thread.joinable())
+      thread->_thread.join();
 }
 
 void execution::create_threads(const ptree& config) {
@@ -28,8 +32,8 @@ void execution::create_threads(const ptree& config) {
       // TODO - create different ids for each round
       auto type = it.second.get<std::string>("type", it.first);
       auto thread = _benchmark->create_thread(i, *this, type);
-      thread->setup(it.second);
       _threads.push_back(std::move(thread));
+      _threads.back()->setup(it.second);
     }
   }
 }
@@ -99,7 +103,11 @@ execution_thread::execution_thread(std::uint32_t id, const execution& exec) :
 {}
 
 void execution_thread::thread_func() {
+  // TODO - track runtime
   wait_until_all_threads_are_started();
+
+  if (_execution.state(std::memory_order_relaxed) == execution_state::stopped)
+    return;
 
   _is_running.store(true);
 
@@ -118,12 +126,18 @@ void execution_thread::thread_func() {
   _is_running.store(false);
 }
 
+void execution_thread::setup(const boost::property_tree::ptree& config) {
+  auto workload = config.find("workload");
+  if (workload == config.not_found())
+    return;
+  
+  workload_factory factory;
+  _workload = factory(workload->second);
+}
+
 void execution_thread::simulate_workload() {
-  for (std::uint32_t i = 0; i < _workload; ++i) {
-    if (i % 64) {
-      // TODO - pause
-    }
-  }
+  if (_workload)
+    _workload->simulate();
 }
 
 void execution_thread::wait_until_all_threads_are_started() {

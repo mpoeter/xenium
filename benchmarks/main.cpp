@@ -80,6 +80,7 @@ private:
   void load_config();
   void warmup();
   report run_benchmark();
+  round_report exec_round(std::uint32_t runtime);
   std::shared_ptr<benchmark_builder> find_matching_builder(const benchmark_builders& benchmarks);
 
   ptree _config;
@@ -148,10 +149,7 @@ void runner::warmup() {
   auto runtime = _config.get<std::uint32_t>("warmup.runtime", 5000);
   for (std::uint32_t i = 0; i < rounds; ++i) {
     std::cout << "warmup round " << i << std::endl;
-    auto benchmark = _builder->build();
-    benchmark->setup(_config);
-    execution exec(_config, runtime, benchmark);
-    exec.run();
+    exec_round(runtime);
   }
 }
 
@@ -165,10 +163,7 @@ report runner::run_benchmark() {
   round_reports.reserve(rounds);
   for (std::uint32_t i = 0; i < rounds; ++i) {
     std::cout << "round " << i << std::flush;
-    auto benchmark = _builder->build();
-    benchmark->setup(_config);
-    execution exec(_config, runtime, benchmark);
-    auto report = exec.run();
+    auto report = exec_round(runtime);
     std::cout << " - " << report.operations() / report.runtime << " ops/ms" << std::endl;
     round_reports.push_back(std::move(report));
   }
@@ -179,6 +174,15 @@ report runner::run_benchmark() {
     _config,
     round_reports
   };
+}
+
+round_report runner::exec_round(std::uint32_t runtime) {
+  auto benchmark = _builder->build();
+  benchmark->setup(_config);
+
+  execution exec(runtime, benchmark);
+  exec.create_threads(_config.get_child("threads"));
+  return exec.run();
 }
 
 void print_usage() {

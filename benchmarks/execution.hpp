@@ -2,6 +2,7 @@
 
 #include "benchmark.hpp"
 #include "report.hpp"
+#include "workload.hpp"
 
 #include <boost/property_tree/ptree_fwd.hpp>
 
@@ -23,14 +24,12 @@ struct execution;
  
 struct execution_thread {
   execution_thread(std::uint32_t id, const execution& exec);
-  virtual void setup(const boost::property_tree::ptree& config) {
-    _workload = config.get<std::uint32_t>("workload", 0);
-  }
+  virtual void setup(const boost::property_tree::ptree& config);
   virtual void run() = 0;
   virtual thread_report report() const { return { boost::property_tree::ptree{}, 0 }; }
 private:
   const execution& _execution;
-  std::uint32_t _workload;
+  std::shared_ptr<workload_simulator> _workload; // TODO - make it more flexible
 protected:
   void simulate_workload();
   const std::uint32_t _id;
@@ -46,11 +45,12 @@ private:
 };
 
 struct execution {
-  execution(const boost::property_tree::ptree& config, std::uint32_t runtime, std::shared_ptr<benchmark> benchmark);
+  execution(std::uint32_t runtime, std::shared_ptr<benchmark> benchmark);
+  ~execution();
+  void create_threads(const boost::property_tree::ptree& config);
   round_report run();
   execution_state state(std::memory_order order = std::memory_order_relaxed) const;
 private:
-  void create_threads(const boost::property_tree::ptree& config);
   void wait_until_all_threads_are_running();
   void wait_until_all_threads_are_finished();
 

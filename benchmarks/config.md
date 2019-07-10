@@ -43,7 +43,7 @@ configuration looks like this:
 {
   <name>: {
    "count": 4,
-   "type": [optional; defaults to <name>],
+   "type": string (optional; defaults to <name>),
    <type-specific-params>
   },
   <more threads...>
@@ -98,7 +98,7 @@ properties. For details about the various parameters please consult the
 require a reclaimer to be configured. For a list of available reclaimers and
 their configurations see section "Reclaimers".
 
-`vyukov_bounded_queue`
+**`vyukov_bounded_queue`**
 ```json
 {
   "type": "vyukov_bounded_queue",
@@ -107,7 +107,7 @@ their configurations see section "Reclaimers".
 }
 ```
 
-`ramalhete_queue`
+**`ramalhete_queue`**
 ```json
 {
   "type": "ramalhete_queue",
@@ -115,7 +115,7 @@ their configurations see section "Reclaimers".
 }
 ```
 
-`michael_scott_queue`
+**`michael_scott_queue`**
 ```json
 {
   "type": "michael_scott_queue",
@@ -125,27 +125,33 @@ their configurations see section "Reclaimers".
 
 ### Threads
 
-`producer` defines threads that _push_ values into the queue.
+**`producer`** defines threads that _push_ values into the queue.
 ```json
 {
   "count": integer,
   "pop_ratio": float (optional; defaults to 0.0),
-  "workload": integer (optional; defaults to 0)
+  "workload": <workload> | integer | (optional; defaults to `nothing`)
 }
 ```
 `pop_ratio` can be used to define how many pop operations the thread should
 perform.
 
-`consumer` defines threads that _pop_ values from the queue.
+**`consumer`** defines threads that _pop_ values from the queue.
 ```json
 {
   "count": integer,
   "push_ratio": float (optional; defaults to 0.0),
-  "workload": integer (optional; defaults to 0)
+  "workload": <workload> | integer | (optional; defaults to `nothing`)
 }
 ```
 `push_ratio` can be used to define how many push operations the thread should
 perform.
+
+
+`workload` defines a virtual workload that a thread has to perform between
+each push/pop operation. This value can be a simple integer, in which case
+it defines the number of iterations for the `dummy` workload. Otherwise this
+defines a workload object.
 
 # Reclaimers
 
