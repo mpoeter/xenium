@@ -36,7 +36,7 @@ protected:
   std::atomic<bool> _is_running{false};
   std::mt19937_64 _randomizer;
   std::thread _thread;
-  std::chrono::duration<double, std::nano> _runtime;
+  std::chrono::duration<double, std::milli> _runtime;
 private:
   friend struct execution;
   void thread_func();

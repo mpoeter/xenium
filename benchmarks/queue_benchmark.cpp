@@ -149,7 +149,7 @@ struct benchmark_thread : execution_thread {
   virtual void run() override;
   virtual thread_report report() const {
     boost::property_tree::ptree data;
-    data.put("runtime", _runtime);
+    data.put("runtime", _runtime.count());
     data.put("push", push_operations);
     data.put("pop", pop_operations);
     return { data, push_operations + pop_operations };
