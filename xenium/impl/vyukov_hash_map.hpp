@@ -109,7 +109,7 @@ struct vyukov_hash_map<Key, Value, Policies...>::extension_item {
 template <class Key, class Value, class... Policies>
 struct vyukov_hash_map<Key, Value, Policies...>::extension_bucket {
   std::atomic<std::uint32_t> lock;
-  extension_item* head;
+  std::atomic<extension_item*> head;
   extension_item items[extension_item_count];
 
   void acquire_lock() {
@@ -724,7 +724,7 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_block(std::uint32_t buck
       bucket.items[j].next.store(head, std::memory_order_relaxed);
       head = &bucket.items[j];
     }
-    bucket.head = head;
+    bucket.head.store(head, std::memory_order_relaxed);
   }
 
   return b;
@@ -803,13 +803,13 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_extension_item(block* b,
       const std::size_t extension_bucket_idx = (hash + idx) & mod_mask;
       extension_bucket& extension_bucket = b->extension_buckets[extension_bucket_idx];
 
-      if (extension_bucket.head == nullptr)
+      if (extension_bucket.head.load(std::memory_order_relaxed) == nullptr)
         continue;
 
       extension_bucket.acquire_lock();
-      auto item = extension_bucket.head;
+      auto item = extension_bucket.head.load(std::memory_order_relaxed);
       if (item) {
-        extension_bucket.head = item->next;
+        extension_bucket.head.store(item->next, std::memory_order_relaxed);
         extension_bucket.release_lock();
         return item;
       }
@@ -825,12 +825,12 @@ void vyukov_hash_map<Key, Value, Policies...>::free_extension_item(extension_ite
   auto bucket = reinterpret_cast<extension_bucket*>(item_addr - item_addr % sizeof(extension_bucket));
 
   bucket->acquire_lock();
-  auto head = bucket->head;
+  auto head = bucket->head.load(std::memory_order_relaxed);
   // (35) - this release-store synchronizes-with the acquire-load (27)
   item->next.store(head, std::memory_order_release);
   // we need to use release semantic here to ensure that threads in try_get_value
   // that see the value written by this store also see the updated bucket_state.
-  bucket->head = item;
+  bucket->head.store(item, std::memory_order_relaxed);
   bucket->release_lock();
 }
 
