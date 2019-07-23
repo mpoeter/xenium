@@ -103,7 +103,6 @@ execution_thread::execution_thread(std::uint32_t id, const execution& exec) :
 {}
 
 void execution_thread::thread_func() {
-  // TODO - track runtime
   wait_until_all_threads_are_started();
 
   if (_execution.state(std::memory_order_relaxed) == execution_state::stopped)
