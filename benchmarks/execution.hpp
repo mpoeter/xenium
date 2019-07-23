@@ -34,7 +34,7 @@ protected:
   void simulate_workload();
   const std::uint32_t _id;
   std::atomic<bool> _is_running{false};
-  std::mt19937 _randomizer;
+  std::mt19937_64 _randomizer;
   std::thread _thread;
   std::chrono::duration<double, std::nano> _runtime;
 private:

@@ -12,6 +12,9 @@
 #define WITH_RAMALHETE_QUEUE
 #define WITH_VYUKOV_BOUNDED_QUEUE
 
+#define WITH_VYUKOV_HASH_MAP
+#define WITH_HARRIS_MICHAEL_HASH_MAP
+
 // defines which reclamation schemes shall be included
 #define WITH_HAZARD_POINTER
 #define WITH_EPOCH_BASED

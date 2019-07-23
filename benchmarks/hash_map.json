@@ -1,0 +1,20 @@
+{
+  "type": "hash_map",
+  "ds": {
+    "type": "vyukov_hash_map",
+    "reclaimer": {
+      "type": "epoch_based"
+    }
+  },
+  "warmup": {
+    "rounds": 1,
+    "runtime": 200
+  },
+  "rounds": 4,
+  "runtime": 1000,
+  "threads": {
+    "mixed": {
+      "count": 4
+    }
+  }
+}

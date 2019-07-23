@@ -34,5 +34,4 @@ struct typed_benchmark_builder : benchmark_builder {
 };
 
 using benchmark_builders = std::vector<std::shared_ptr<benchmark_builder>>;
-
-extern std::unordered_map<std::string, benchmark_builders> benchmarks;
+using registered_benchmarks = std::unordered_map<std::string, benchmark_builders>;

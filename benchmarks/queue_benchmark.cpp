@@ -336,10 +336,8 @@ namespace {
 #endif
     };
   }
+}
 
-  struct register_benchmark{
-    register_benchmark() {
-      benchmarks.emplace("queue", benchmark_variations());
-    }
-  } register_benchmark;
+void register_queue_benchmark(registered_benchmarks& benchmarks) {
+  benchmarks.emplace("queue", benchmark_variations());
 }

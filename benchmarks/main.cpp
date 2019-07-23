@@ -6,9 +6,13 @@
 #include "execution.hpp"
 
 using boost::property_tree::ptree;
-std::unordered_map<std::string, benchmark_builders> benchmarks;
+
+extern void register_queue_benchmark(registered_benchmarks&);
+extern void register_hash_map_benchmark(registered_benchmarks&);
 
 namespace {
+
+registered_benchmarks benchmarks;
 
 void print_config(const ptree& config, int indent = 0) {
   if (config.empty()) {
@@ -204,6 +208,9 @@ void print_available_benchmarks() {
 
 int main (int argc, char* argv[])
 {
+  register_queue_benchmark(benchmarks);
+  register_hash_map_benchmark(benchmarks);
+  
 #if !defined(NDEBUG)
   std::cout
     << "==============================\n"
