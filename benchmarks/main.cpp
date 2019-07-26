@@ -12,6 +12,15 @@ extern void register_hash_map_benchmark(registered_benchmarks&);
 
 namespace {
 
+struct invalid_argument_exception : std::exception {
+  invalid_argument_exception(std::string arg): arg(std::move(arg)) {}
+  const char* what() const noexcept override {
+    return arg.c_str();
+  }
+private:
+  std::string arg;
+};
+
 registered_benchmarks benchmarks;
 
 void print_config(const ptree& config, int indent = 0) {
@@ -46,7 +55,6 @@ void print_summary(const report& report) {
     var += sqr(v - avg);  
   }
   var /= throughput.size();
-  
 
   std::cout << "Summary:\n" <<
     "  min: " << min << " ops/ms\n" <<
@@ -74,13 +82,32 @@ bool config_matches(const ptree& config, const ptree& descriptor) {
   return true;
 }
 
+struct options {
+  std::string configfile;
+  std::string report;
+  std::vector<std::string> params;
+};
+
+struct key_value {
+  std::string key;
+  std::string value;
+};
+
+key_value split_key_value(const std::string& s) {
+  auto pos = s.find("=");
+  if (pos == std::string::npos)
+    throw invalid_argument_exception(s);
+  return {s.substr(0, pos), s.substr(pos + 1)};
+}
+
 class runner
 {
 public:
-  runner(char** argv, int argc);
+  runner(const options& opts);
   void run();
 
 private:
+  void write_report(const report& report);
   void load_config();
   void warmup();
   report run_benchmark();
@@ -89,19 +116,17 @@ private:
 
   ptree _config;
   std::shared_ptr<benchmark_builder> _builder;
+  std::string _reportfile;
 };
 
-runner::runner(char** argv, int argc) {
-  std::ifstream stream(argv[1]);
+runner::runner(const options& opts) :
+  _reportfile(opts.report)
+{
+  std::ifstream stream(opts.configfile);
   boost::property_tree::json_parser::read_json(stream, _config);
-  for (int i = 2; i < argc; ++i) {
-    std::string arg = argv[i];
-    auto pos = arg.find("=");
-    if (pos == std::string::npos)
-      throw std::runtime_error("Invalid argument: " + arg);
-    auto key = arg.substr(0, pos);
-    auto val = arg.substr(pos + 1);
-    _config.put(key, val);
+  for (auto& param : opts.params) {
+    auto arg = split_key_value(param);
+    _config.put(arg.key, arg.value);
   }
   
   load_config();
@@ -145,7 +170,29 @@ void runner::run() {
   warmup();
   auto report = run_benchmark();
   print_summary(report);
-  // TODO - write report to file
+  write_report(report);
+}
+
+void runner::write_report(const report& report) {
+  if (_reportfile.empty())
+    return;
+
+  boost::property_tree::ptree ptree;
+  try {
+    std::ifstream stream(_reportfile);
+    if (stream) {
+      boost::property_tree::json_parser::read_json(stream, ptree);
+    }
+  } catch(const boost::property_tree::json_parser_error& e) {
+    std::cerr << "Failed to parse existing report file \"" << _reportfile << "\"" <<
+      " - skipping report generation!" << std::endl;
+  }
+  
+  auto reports = ptree.get_child("reports", {});
+  std::ofstream stream(_reportfile);
+  reports.push_back(std::make_pair("", report.as_ptree()));
+  ptree.put_child("reports", reports);
+  boost::property_tree::json_parser::write_json(stream, ptree);
 }
 
 void runner::warmup() {
@@ -190,7 +237,11 @@ round_report runner::exec_round(std::uint32_t runtime) {
 }
 
 void print_usage() {
-  std::cout << "Usage: benchmark --help | <config-file> [<param>=<value> ...]" << std::endl;
+  std::cout << "Usage: benchmark" <<
+    " --help | <config-file>" <<
+    " [--report=<report-file>]" <<
+    " [-- <param>=<value> ...]" <<
+    std::endl;
 }
 
 void print_available_benchmarks() {
@@ -202,6 +253,23 @@ void print_available_benchmarks() {
     std::cout << std::endl;
   }
   // TODO - improve output
+}
+
+void parse_args(int argc, char* argv[], options& opts) {
+  opts.configfile = argv[1];
+  for (int i = 2; i < argc; ++i) {
+    if (argv[i] == std::string("--")) {
+      for (int j = i + 1; j < argc; ++j)
+        opts.params.emplace_back(argv[j]);
+      return;
+    }
+
+    auto arg = split_key_value(argv[i]);
+    if (arg.key == "--report")
+      opts.report = arg.value;
+    else
+      throw invalid_argument_exception(argv[i]);
+  }
 }
 
 }
@@ -232,11 +300,18 @@ int main (int argc, char* argv[])
 
   try
   {
-    runner runner(argv, argc);
+    options opts;
+    parse_args(argc, argv, opts);
+
+    runner runner(opts);
     runner.run();
     return 0;
+  } catch (const invalid_argument_exception& e) {
+    std::cerr << "Invalid argumnent: " << e.what() << std::endl;
+    print_usage();
+    return 1;
   } catch (const std::exception& e) {
-    std::cout << "ERROR: " << e.what() << std::endl;
+    std::cerr << "ERROR: " << e.what() << std::endl;
     return 1;
   }
 }
