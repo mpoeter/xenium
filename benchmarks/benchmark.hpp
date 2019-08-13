@@ -11,6 +11,15 @@
 struct execution;
 struct execution_thread;
 
+namespace config {
+  struct prefill {
+    bool serial = false;
+    std::uint32_t count;
+    void setup(const boost::property_tree::ptree& config, std::uint32_t default_count);
+    std::uint32_t get_thread_quota(std::uint32_t thread_id, std::uint32_t num_threads);
+  };
+}
+
 struct benchmark
 {
   virtual ~benchmark() {}

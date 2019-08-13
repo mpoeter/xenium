@@ -6,8 +6,9 @@
 
 using boost::property_tree::ptree;
 
-execution::execution(std::uint32_t runtime, std::shared_ptr<benchmark> benchmark) :
-  _state(execution_state::initializing),
+execution::execution(std::uint32_t round, std::uint32_t runtime, std::shared_ptr<benchmark> benchmark) :
+  _state(execution_state::starting),
+  _round(round),
   _runtime(runtime),
   _benchmark(std::move(benchmark))
 {}
@@ -26,12 +27,13 @@ void execution::create_threads(const ptree& config) {
 
   _threads.reserve(count);
 
+  std::uint32_t cnt = 0;
   for (auto& it : config) {
     auto count = it.second.get<std::uint32_t>("count", 1);
-    for (std::uint32_t i = 0; i < count; ++i) {
-      // TODO - create different ids for each round
+    for (std::uint32_t i = 0; i < count; ++i, ++cnt) {
       auto type = it.second.get<std::string>("type", it.first);
-      auto thread = _benchmark->create_thread(i, *this, type);
+      auto id = (_round << thread_id_bits) | cnt;
+      auto thread = _benchmark->create_thread(id, *this, type);
       _threads.push_back(std::move(thread));
       _threads.back()->setup(it.second);
     }
@@ -45,7 +47,11 @@ execution_state execution::state(std::memory_order order) const {
 round_report execution::run() {
   _state.store(execution_state::preparing);
 
-  wait_until_all_threads_are_running();
+  wait_until_all_threads_are(thread_state::running);
+
+  _state.store(execution_state::initializing);
+
+  wait_until_all_threads_are(thread_state::ready);
 
   _state.store(execution_state::running);
 
@@ -55,7 +61,7 @@ round_report execution::run() {
 
   _state.store(execution_state::stopped);
 
-  wait_until_all_threads_are_finished();
+  wait_until_all_threads_are(thread_state::finished);
 
   std::chrono::duration<double, std::milli> runtime = std::chrono::high_resolution_clock::now() - start;
   return build_report(runtime.count());
@@ -73,27 +79,18 @@ round_report execution::build_report(double runtime) {
   return { thread_reports, runtime };
 }
 
-void execution::wait_until_all_threads_are_running() {
+void execution::wait_until_all_threads_are(thread_state state) {
   for (auto& thread : _threads)
-    wait_until_running(*thread);
+    wait_until_thread_state_is(*thread, state);
 }
 
-void execution::wait_until_all_threads_are_finished() {
-  for (auto& thread : _threads)
-    wait_until_finished(*thread);
-}
-
-void execution::wait_until_running(const execution_thread& thread) const {
-  wait_until_running_state_is(thread, true);
-}
-
-void execution::wait_until_finished(const execution_thread& thread) const {
-  wait_until_running_state_is(thread, false);
-}
-
-void execution::wait_until_running_state_is(const execution_thread& thread, bool state) const {
-  while (thread._is_running.load(std::memory_order_relaxed) != state)
-    ;
+void execution::wait_until_thread_state_is(const execution_thread& thread, thread_state expected) const {
+  auto state = thread._state.load(std::memory_order_relaxed);
+  while (state != expected) {
+    if (state == thread_state::finished)
+      throw std::runtime_error("worker thread finished prematurely");
+    state = thread._state.load(std::memory_order_relaxed);
+  }
 }
 
 execution_thread::execution_thread(std::uint32_t id, const execution& exec) :
@@ -104,25 +101,35 @@ execution_thread::execution_thread(std::uint32_t id, const execution& exec) :
 
 void execution_thread::thread_func() {
   wait_until_all_threads_are_started();
+  try {
+    do_run();
+  } catch (std::exception& e) {
+    std::cout << "Thread " << std::this_thread::get_id() << " failed: " << e.what() << std::endl;
+    // TODO - terminate whole round
+  }
+  _state.store(thread_state::finished);
+}
 
+void execution_thread::do_run() {
   if (_execution.state(std::memory_order_relaxed) == execution_state::stopped)
     return;
 
-  _is_running.store(true);
+  _state.store(thread_state::running);
 
-  try {
-    wait_until_benchmark_starts();
+  wait_until_initialization();
 
-    auto start = std::chrono::high_resolution_clock::now();
+  initialize(_execution.num_threads());
 
-    while (_execution.state() == execution_state::running)
-      run();
+  _state.store(thread_state::ready);
 
-    _runtime = std::chrono::high_resolution_clock::now() - start;
-  } catch (std::exception& e) {
-    std::cout << "Thread " << std::this_thread::get_id() << " failed: " << e.what() << std::endl;
-  }
-  _is_running.store(false);
+  wait_until_benchmark_starts();
+
+  auto start = std::chrono::high_resolution_clock::now();
+
+  while (_execution.state() == execution_state::running)
+    run();
+
+  _runtime = std::chrono::high_resolution_clock::now() - start;
 }
 
 void execution_thread::setup(const boost::property_tree::ptree& config) {
@@ -140,11 +147,16 @@ void execution_thread::simulate_workload() {
 }
 
 void execution_thread::wait_until_all_threads_are_started() {
-  while (_execution.state(std::memory_order_acquire) == execution_state::initializing)
+  while (_execution.state(std::memory_order_acquire) == execution_state::starting)
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
 }
 
-void execution_thread::wait_until_benchmark_starts() {
+void execution_thread::wait_until_initialization() {
   while (_execution.state() == execution_state::preparing)
+    ;
+}
+
+void execution_thread::wait_until_benchmark_starts() {
+  while (_execution.state() == execution_state::initializing)
     ;
 }

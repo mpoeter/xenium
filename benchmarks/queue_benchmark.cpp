@@ -146,6 +146,7 @@ struct benchmark_thread : execution_thread {
     execution_thread(id, exec),
     _benchmark(benchmark)
   {}
+  virtual void initialize(std::uint32_t num_threads) override;
   virtual void run() override;
   virtual thread_report report() const {
     boost::property_tree::ptree data;
@@ -214,31 +215,25 @@ struct queue_benchmark : benchmark {
 
   std::unique_ptr<T> queue;
   std::uint32_t number_of_elements = 100;
+  config::prefill prefill;
 };
 
 template <class T>
 void queue_benchmark<T>::setup(const boost::property_tree::ptree& config) {
   queue = queue_builder<T>::create(config.get_child("ds"));
-  auto prefill = config.get<std::uint32_t>("prefill", 10);
-  
-  bool failed = false;
-  // we are populating the queue in a separate thread to avoid having the main thread
-  // in the reclaimers' global threadlists.
-  // this is especially important in case of QSBR since the main thread never explicitly
-  // goes through a quiescent state.
-  std::thread initializer([this, prefill, &failed]() {
-    region_guard_t<T>{};
-    for (unsigned i = 0, j = 0; i < prefill; ++i, j += 2) {
-      if (!try_push(*queue, j)) {
-        failed = true;
-        return;
-      }
-    }
-  });
-  initializer.join();
+  prefill.setup(config, 100);
+}
 
-  if (failed)
-    throw std::runtime_error("Initialization of queue failed."); // TODO - more details?
+template <class T>
+void benchmark_thread<T>::initialize(std::uint32_t num_threads) {
+  auto id = this->id() & execution::thread_id_mask;
+  std::uint32_t cnt = _benchmark.prefill.get_thread_quota(id, num_threads);
+
+  region_guard_t<T>{};
+  for (unsigned i = 0, j = 0; i < cnt; ++i, j += 2) {
+    if (!try_push(*_benchmark.queue, j))
+      throw initialization_failure();
+  }
 }
 
 template <class T>

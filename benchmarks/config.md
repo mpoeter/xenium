@@ -89,6 +89,12 @@ This is a simple synthetic benchmark for the different queues:
 
 `prefill` defines the number of items the queue should be prefilled with before
 starting each round.
+```json
+{
+  "serial": boolean (optional; defaults to false),
+  "count": integer (optional; defaults to 100)
+}
+```
 
 ### Data structure
 
@@ -146,7 +152,6 @@ perform.
 ```
 `push_ratio` can be used to define how many push operations the thread should
 perform.
-
 
 `workload` defines a virtual workload that a thread has to perform between
 each push/pop operation. This value can be a simple integer, in which case

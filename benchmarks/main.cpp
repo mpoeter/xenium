@@ -117,6 +117,7 @@ private:
   ptree _config;
   std::shared_ptr<benchmark_builder> _builder;
   std::string _reportfile;
+  std::uint32_t _current_round = 0;
 };
 
 runner::runner(const options& opts) :
@@ -228,10 +229,11 @@ report runner::run_benchmark() {
 }
 
 round_report runner::exec_round(std::uint32_t runtime) {
+  ++_current_round;
   auto benchmark = _builder->build();
   benchmark->setup(_config);
 
-  execution exec(runtime, benchmark);
+  execution exec(_current_round, runtime, benchmark);
   exec.create_threads(_config.get_child("threads"));
   return exec.run();
 }

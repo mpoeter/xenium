@@ -121,6 +121,7 @@ struct benchmark_thread : execution_thread {
     _scale_insert = static_cast<std::uint64_t>(insert_ratio * rand_range);
     _scale_remove = static_cast<std::uint64_t>(update_ratio * rand_range);
   }
+  virtual void initialize(std::uint32_t num_threads) override;
   virtual void run() override;
   virtual thread_report report() const {
     boost::property_tree::ptree data;
@@ -159,34 +160,34 @@ struct hash_map_benchmark : benchmark {
 
   std::unique_ptr<T> hash_map;
   std::uint64_t key_range;
+  config::prefill prefill;
 };
 
 template <class T>
 void hash_map_benchmark<T>::setup(const boost::property_tree::ptree& config) {
   hash_map = hash_map_builder<T>::create(config.get_child("ds"));
   key_range = config.get<std::uint64_t>("key_range", 2048);
-  // by default we prefill 10% of the configured key-range
-  auto prefill = config.get<std::uint64_t>("prefill", key_range / 10);
   
-  bool failed = false;
-  // we are populating the queue in a separate thread to avoid having the main thread
-  // in the reclaimers' global threadlists.
-  // this is especially important in case of QSBR since the main thread never explicitly
-  // goes through a quiescent state.
-  std::thread initializer([this, prefill, &failed]() {
-    region_guard_t<T>{};
-    auto step_size = key_range / prefill;
-    for (std::uint64_t i = 0, key = 0; i < prefill; ++i, key += step_size) {
-      if (!try_emplace(*hash_map, key)) {
-        failed = true;
-        return;
-      }
-    }
-  });
-  initializer.join();
+  // by default we prefill 10% of the configured key-range
+  prefill.setup(config, key_range / 10);
+  if (this->prefill.count > key_range)
+    throw std::runtime_error("prefill.count must be less or equal key_range");
+}
 
-  if (failed)
-    throw std::runtime_error("Initialization of hash_map failed."); // TODO - more details?
+template <class T>
+void benchmark_thread<T>::initialize(std::uint32_t num_threads) {
+  auto id = this->id() & execution::thread_id_mask;
+  std::uint32_t cnt = _benchmark.prefill.get_thread_quota(id, num_threads);
+
+  region_guard_t<T>{};
+  auto step_size = _benchmark.key_range / _benchmark.prefill.count;
+  std::uint64_t key = id * step_size;
+  step_size *= num_threads;
+  for (std::uint64_t i = 0 ; i < cnt; ++i, key += step_size) {
+    if (!try_emplace(*_benchmark.hash_map, key)) {
+      throw initialization_failure();
+    }
+  }
 }
 
 template <class T>
