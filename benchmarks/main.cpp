@@ -141,11 +141,6 @@ void runner::load_config() {
   
   _builder = find_matching_builder(it->second);
   if (!_builder) {
-    std::cout << "Could not find a benchmark that matches the given configuration. Available configurations are:\n";
-    for (auto& var : it->second) {
-      print_config(var->get_descriptor());
-      std::cout << '\n';
-    }
     throw std::runtime_error("Invalid config");
   }
 }
@@ -155,13 +150,30 @@ std::shared_ptr<benchmark_builder> runner::find_matching_builder(const benchmark
   auto& ds_config = _config.get_child("ds");
   std::cout << "Given data structure config:\n";
   print_config(ds_config);
+  std::vector<std::shared_ptr<benchmark_builder>> matches;
   for(auto& var : benchmarks) {
     auto descriptor = var->get_descriptor();
     if (config_matches(ds_config, descriptor)) {
-      std::cout << "Found matching benchmark:\n";
-      print_config(descriptor);
-      return var;
+      matches.push_back(var);
     }
+  }
+
+  if (matches.size() == 1)
+    return matches[0];
+
+  if (matches.empty()) {
+    std::cout << "Could not find a benchmark that matches the given configuration. Available configurations are:\n";
+    for (auto& var : benchmarks) {
+      print_config(var->get_descriptor());
+      std::cout << '\n';
+    }
+    return nullptr;
+  }
+
+  std::cout << "Ambiguous config - found more than one matching benchmark:\n";
+  for (auto& var : matches) {
+    print_config(var->get_descriptor());
+    std::cout << '\n';
   }
   return nullptr;
 }
