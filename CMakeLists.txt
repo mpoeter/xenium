@@ -33,6 +33,12 @@ if(CMAKE_THREAD_LIBS_INIT)
 	target_link_libraries(benchmark "${CMAKE_THREAD_LIBS_INIT}")
 endif()
 
+if(WITH_LIBCDS)
+	find_package(LibCDS CONFIG REQUIRED)
+	target_link_libraries(benchmark LibCDS::cds)
+	target_compile_definitions(benchmark PRIVATE WITH_LIBCDS CDS_THREADING_CXX11)
+endif()
+
 if(MSVC)
 	target_compile_options(gtest PRIVATE /W4 /WX)
 	target_compile_options(benchmark PRIVATE /W4 /WX)

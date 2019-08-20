@@ -5,6 +5,12 @@
 
 #include "execution.hpp"
 
+#ifdef WITH_LIBCDS
+#include <cds/init.h>
+#include <cds/gc/hp.h>
+#include <cds/gc/dhp.h>
+#endif
+
 using boost::property_tree::ptree;
 
 extern void register_queue_benchmark(registered_benchmarks&);
@@ -317,8 +323,21 @@ int main (int argc, char* argv[])
     options opts;
     parse_args(argc, argv, opts);
 
+#ifdef WITH_LIBCDS
+    cds::Initialize();
+    cds::gc::HP hpGC;
+    cds::gc::DHP dhpGC;
+
+    cds::threading::Manager::attachThread();
+#endif
+
     runner runner(opts);
     runner.run();
+
+#ifdef WITH_LIBCDS
+    cds::Terminate();
+#endif
+
     return 0;
   } catch (const invalid_argument_exception& e) {
     std::cerr << "Invalid argumnent: " << e.what() << std::endl;

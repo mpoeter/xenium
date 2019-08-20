@@ -19,6 +19,24 @@
 #include <xenium/vyukov_bounded_queue.hpp>
 #endif
 
+#ifdef WITH_LIBCDS
+#include <cds/gc/hp.h>
+#include <cds/gc/dhp.h>
+#include <cds/gc/nogc.h>
+#endif
+
+#ifdef WITH_CDS_MSQUEUE
+#include <cds/container/msqueue.h>
+#endif
+
+#ifdef WITH_CDS_BASKET_QUEUE
+#include <cds/container/basket_queue.h>
+#endif
+
+#ifdef WITH_CDS_SEGMENTED_QUEUE
+#include <cds/container/segmented_queue.h>
+#endif
+
 using boost::property_tree::ptree;
 
 template <class T>
@@ -133,6 +151,121 @@ namespace {
   template <class T, class... Policies>
   bool try_pop(xenium::vyukov_bounded_queue<T, Policies...>& queue, T& item) {
     return queue.try_pop(item);
+  }
+}
+#endif
+
+#ifdef WITH_LIBCDS
+template<class GC> struct garbage_collector;
+template<> struct garbage_collector<cds::gc::HP> {
+  static constexpr const char* type() { return "HP"; }
+};
+template<> struct garbage_collector<cds::gc::DHP> {
+  static constexpr const char* type() { return "DHP"; }
+};
+template<> struct garbage_collector<cds::gc::nogc> {
+  static constexpr const char* type() { return "nogc"; }
+};
+#endif
+
+#ifdef WITH_CDS_MSQUEUE
+template <class GC, class T, class Traits>
+struct descriptor<cds::container::MSQueue<GC, T, Traits>> {
+  static boost::property_tree::ptree generate() {
+    boost::property_tree::ptree pt;
+    pt.put("type", "cds::MSQueue");
+    pt.put("gc", garbage_collector<GC>::type());
+    return pt;
+  }
+};
+
+// libcds does not have a reclaimer, so we define
+// empty dummy types as region_guard placeholder.
+  
+template <class GC, class T, class Traits>
+struct region_guard<cds::container::MSQueue<GC, T, Traits>> {
+  struct type{};
+};
+
+namespace {
+  template <class GC, class T, class Traits>
+  bool try_push(cds::container::MSQueue<GC, T, Traits>& queue, T item) {
+    queue.push(std::move(item));
+    return true;
+  }
+
+  template <class GC, class T, class Traits>
+  bool try_pop(cds::container::MSQueue<GC, T, Traits>& queue, T& item) {
+    return queue.pop(item);
+  }
+}
+#endif
+
+#ifdef WITH_CDS_BASKET_QUEUE
+template <class GC, class T, class Traits>
+struct descriptor<cds::container::BasketQueue<GC, T, Traits>> {
+  static boost::property_tree::ptree generate() {
+    boost::property_tree::ptree pt;
+    pt.put("type", "cds::BasketQueue");
+    pt.put("gc", garbage_collector<GC>::type());
+    return pt;
+  }
+};
+
+template <class GC, class T, class Traits>
+struct region_guard<cds::container::BasketQueue<GC, T, Traits>> {
+  struct type{};
+};
+
+namespace {
+  template <class GC, class T, class Traits>
+  bool try_push(cds::container::BasketQueue<GC, T, Traits>& queue, T item) {
+    queue.push(std::move(item));
+    return true;
+  }
+
+  template <class GC, class T, class Traits>
+  bool try_pop(cds::container::BasketQueue<GC, T, Traits>& queue, T& item) {
+    return queue.pop(item);
+  }
+}
+#endif
+
+#ifdef WITH_CDS_SEGMENTED_QUEUE
+template <class GC, class T, class Traits>
+struct queue_builder<cds::container::SegmentedQueue<GC, T, Traits>> {
+  static auto create(const boost::property_tree::ptree& config) {
+    auto nQuasiFactor = config.get<size_t>("nQuasiFactor");
+    return std::make_unique<cds::container::SegmentedQueue<GC, T, Traits>>(nQuasiFactor);
+  }
+};
+
+template <class GC, class T, class Traits>
+struct descriptor<cds::container::SegmentedQueue<GC, T, Traits>> {
+  static boost::property_tree::ptree generate() {
+    boost::property_tree::ptree pt;
+    pt.put("type", "cds::SegmentedQueue");
+    pt.put("gc", garbage_collector<GC>::type());
+    pt.put("nQuasiFactor", DYNAMIC_PARAM);
+    return pt;
+  }
+};
+
+template <class GC, class T, class Traits>
+struct region_guard<cds::container::SegmentedQueue<GC, T, Traits>> {
+  struct type{};
+};
+
+namespace {
+  template <class GC, class T, class Traits>
+  bool try_push(cds::container::SegmentedQueue<GC, T, Traits>& queue, T item) {
+    queue.push(std::move(item));
+    return true;
+  }
+
+  template <class GC, class T, class Traits>
+  bool try_pop(cds::container::SegmentedQueue<GC, T, Traits>& queue, T& item) {
+    return queue.pop(item);
   }
 }
 #endif
@@ -329,6 +462,18 @@ namespace {
 #ifdef WITH_VYUKOV_BOUNDED_QUEUE
       make_benchmark_builder<vyukov_bounded_queue<QUEUE_ITEM, policy::default_to_weak<true>>>(),
       make_benchmark_builder<vyukov_bounded_queue<QUEUE_ITEM, policy::default_to_weak<false>>>(),
+#endif
+
+#ifdef WITH_CDS_MSQUEUE
+      make_benchmark_builder<cds::container::MSQueue<cds::gc::HP, QUEUE_ITEM>>(),
+#endif
+
+#ifdef WITH_CDS_BASKET_QUEUE
+      make_benchmark_builder<cds::container::BasketQueue<cds::gc::HP, QUEUE_ITEM>>(),
+#endif
+
+#ifdef WITH_CDS_SEGMENTED_QUEUE
+      make_benchmark_builder<cds::container::SegmentedQueue<cds::gc::HP, QUEUE_ITEM>>(),
 #endif
     };
   }

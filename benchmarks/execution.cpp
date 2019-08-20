@@ -2,6 +2,10 @@
 
 #include <boost/property_tree/ptree.hpp>
 
+#ifdef WITH_LIBCDS
+#include <cds/gc/hp.h>
+#endif
+
 #include <iostream>
 
 using boost::property_tree::ptree;
@@ -100,6 +104,11 @@ execution_thread::execution_thread(std::uint32_t id, const execution& exec) :
 {}
 
 void execution_thread::thread_func() {
+
+#ifdef WITH_LIBCDS
+  cds::threading::Manager::attachThread();
+#endif
+
   wait_until_all_threads_are_started();
   try {
     do_run();
@@ -108,6 +117,10 @@ void execution_thread::thread_func() {
     // TODO - terminate whole round
   }
   _state.store(thread_state::finished);
+
+#ifdef WITH_LIBCDS
+  cds::threading::Manager::detachThread();
+#endif
 }
 
 void execution_thread::do_run() {
