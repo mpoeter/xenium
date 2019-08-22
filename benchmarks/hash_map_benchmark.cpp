@@ -52,8 +52,17 @@ struct descriptor<xenium::vyukov_hash_map<Key, Value, Policies...>> {
     using hash_map = xenium::vyukov_hash_map<Key, Value, Policies...>;
     boost::property_tree::ptree pt;
     pt.put("type", "vyukov_hash_map");
+    pt.put("initial_capacity", DYNAMIC_PARAM);
     pt.put_child("reclaimer", descriptor<typename hash_map::reclaimer>::generate());
     return pt;
+  }
+};
+
+template <class Key, class Value, class... Policies>
+struct hash_map_builder<xenium::vyukov_hash_map<Key, Value, Policies...>> {
+  static auto create(const boost::property_tree::ptree& config) {
+    auto initial_capacity = config.get<size_t>("initial_capacity", 128);
+    return std::make_unique<xenium::vyukov_hash_map<Key, Value, Policies...>>(initial_capacity);
   }
 };
 
@@ -83,6 +92,8 @@ struct descriptor<xenium::harris_michael_hash_map<Key, Value, Policies...>> {
     using hash_map = xenium::harris_michael_hash_map<Key, Value, Policies...>;
     boost::property_tree::ptree pt;
     pt.put("type", "harris_michael_hash_map");
+    auto buckets = hash_map::num_buckets;
+    pt.put("buckets", buckets);
     pt.put_child("reclaimer", descriptor<typename hash_map::reclaimer>::generate());
     return pt;
   }

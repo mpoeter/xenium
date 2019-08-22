@@ -139,8 +139,7 @@ their configurations see section "Reclaimers".
   "workload": <workload> | integer | (optional; defaults to `nothing`)
 }
 ```
-`pop_ratio` can be used to define how many pop operations the thread should
-perform.
+`pop_ratio` defines the ratio of pop operations the thread should perform.
 
 **`consumer`** defines threads that _pop_ values from the queue.
 ```json
@@ -150,13 +149,90 @@ perform.
   "workload": <workload> | integer | (optional; defaults to `nothing`)
 }
 ```
-`push_ratio` can be used to define how many push operations the thread should
-perform.
+`push_ratio` defines the ratio of push operations the thread should perform.
 
 `workload` defines a virtual workload that a thread has to perform between
 each push/pop operation. This value can be a simple integer, in which case
 it defines the number of iterations for the `dummy` workload. Otherwise this
 defines a workload object.
+
+## HashMap
+
+This is a simple synthetic benchmark for the different hash-maps:
+  * `harris_michael_hash_map`
+  * `vyukov_hash_map`
+
+
+### General
+
+`key_range` and `key_offset` define the interval from which keys are picked randomly,
+i.e., generated keys are `>= key_offset` and < `key_offset + key_range`.
+`key_range` defaults to 2048; `key_offset` defaults to 0.
+
+`prefill` defines the number of items the hash-map should be prefilled with before
+starting each round. `serial` defines whether the prefilling should be performed by
+all worker threads (work is distributed evenly among all workers), or single threaded.
+Note: the keys generated when prefilling are always based on the globally defined
+`key_range` and `key_offset`, regardless of any worker thread specific overrides.
+```json
+{
+  "serial": boolean (optional; defaults to false),
+  "count": integer (optional; defaults to 10% of `key_range`)
+}
+```
+
+### Data structure
+
+This is a list of the supported queue data structures with their respective
+properties. For details about the various parameters please consult the
+[documentation](https://mpoeter.github.io/xenium). Some of the data structures
+require a reclaimer to be configured. For a list of available reclaimers and
+their configurations see section "Reclaimers".
+
+**`harris_michael_hash_map`**
+```json
+{
+  "type": "harris_michael_hash_map",
+  "reclaimer": <reclaimer>,
+  "buckets": <integer> (optional; defaults to 512)
+}
+```
+
+**`vyukov_hash_map`**
+```json
+{
+  "type": "vyukov_hash_map",
+  "reclaimer": <reclaimer>,
+  "initial_capacity": integer (optional; defaults to 128; is a runtime parameter)
+}
+```
+
+### Threads
+
+**`mixed`** defines threads that performs inserts, removes and searches for items in the hash-map.
+```json
+{
+  "count": integer,
+  "key_range": integer (optional; defaults to the globally defined key_range),
+  "key_offset": integer (optional; defaults to the globally defined key_offset),
+  "remove_ratio": float (optional; defaults to 0.2),
+  "insert_ratio": float (optional; defaults to 0.2),
+  "workload": <workload> | integer (optional; defaults to `nothing`)
+}
+```
+
+`key_range` and `key_range` can be specfied to override the globally defined values.
+This way it is possible to define separate key ranges for different threads that do
+not overlap, or that overlap only partially.
+
+`remove_ratio` defines the ratio of remove operations the thread should perform.
+
+`insert_ratio` defines the ratio of insert operations the thread should perform.
+
+`workload` defines a virtual workload that a thread has to perform between
+each operation. This value can be a simple integer, in which case it defines the
+number of iterations for the `dummy` workload. Otherwise this defines a workload
+object.
 
 # Reclaimers
 
