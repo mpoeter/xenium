@@ -198,6 +198,7 @@ struct benchmark_thread : execution_thread {
     execution_thread::setup(config);
 
     _key_range = config.get<std::uint64_t>("key_range", _benchmark.key_range);
+    _key_offset = config.get<std::uint64_t>("key_offset", _benchmark.key_offset);
     
     auto remove_ratio = config.get<double>("remove_ratio", 0.2);
     if (remove_ratio < 0.0 || remove_ratio > 1.0)
@@ -233,6 +234,7 @@ private:
   hash_map_benchmark<T>& _benchmark;
   
   std::uint64_t _key_range;
+  std::uint64_t _key_offset;
   std::uint64_t _scale_remove;
   std::uint64_t _scale_insert;
 };
@@ -254,6 +256,7 @@ struct hash_map_benchmark : benchmark {
 
   std::unique_ptr<T> hash_map;
   std::uint64_t key_range;
+  std::uint64_t key_offset;
   config::prefill prefill;
 };
 
@@ -261,6 +264,7 @@ template <class T>
 void hash_map_benchmark<T>::setup(const boost::property_tree::ptree& config) {
   hash_map = hash_map_builder<T>::create(config.get_child("ds"));
   key_range = config.get<std::uint64_t>("key_range", 2048);
+  key_offset = config.get<std::uint64_t>("key_offset", 0);
   
   // by default we prefill 10% of the configured key-range
   prefill.setup(config, key_range / 10);
@@ -275,7 +279,7 @@ void benchmark_thread<T>::initialize(std::uint32_t num_threads) {
 
   region_guard_t<T>{};
   auto step_size = _benchmark.key_range / _benchmark.prefill.count;
-  std::uint64_t key = id * step_size;
+  std::uint64_t key = id * step_size + _benchmark.key_offset;
   step_size *= num_threads;
   for (std::uint64_t i = 0 ; i < cnt; ++i, key += step_size) {
     if (!try_emplace(*_benchmark.hash_map, key)) {
@@ -298,7 +302,7 @@ void benchmark_thread<T>::run() {
   region_guard_t<T>{};
   for (std::uint32_t i = 0; i < n; ++i) {
     auto r = _randomizer();
-    auto key = r % _key_range;
+    auto key = (r % _key_range) + _key_offset;
 
     if (r < _scale_insert) {
       if (try_emplace(hash_map, key))
