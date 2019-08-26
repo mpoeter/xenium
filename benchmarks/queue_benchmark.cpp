@@ -348,12 +348,14 @@ struct queue_benchmark : benchmark {
 
   std::unique_ptr<T> queue;
   std::uint32_t number_of_elements = 100;
+  std::uint32_t batch_size;
   config::prefill prefill;
 };
 
 template <class T>
 void queue_benchmark<T>::setup(const boost::property_tree::ptree& config) {
   queue = queue_builder<T>::create(config.get_child("ds"));
+  batch_size = config.get<std::uint32_t>("batch_size", 100);
   prefill.setup(config, 100);
 }
 
@@ -373,8 +375,7 @@ template <class T>
 void benchmark_thread<T>::run() {
   T& queue = *_benchmark.queue;
   
-  // TODO - make n configurable
-  const std::uint32_t n = 100;
+  const std::uint32_t n = _benchmark.batch_size;
   const std::uint32_t number_of_keys = std::max(1u, _benchmark.number_of_elements * 2);
 
   unsigned push = 0;

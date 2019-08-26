@@ -87,6 +87,11 @@ This is a simple synthetic benchmark for the different queues:
 
 ### General
 
+`batch_size` defines the number of operations in a single "batch". This is the
+granularity at which the worker threads execute and count operations on the data
+structure under test. Each batch is executed under its own `region_guard`. This
+parameter is optional; the default value is 100.
+
 `prefill` defines the number of items the queue should be prefilled with before
 starting each round.
 ```json
@@ -162,8 +167,12 @@ This is a simple synthetic benchmark for the different hash-maps:
   * `harris_michael_hash_map`
   * `vyukov_hash_map`
 
-
 ### General
+
+`batch_size` defines the number of operations in a single "batch". This is the
+granularity at which the worker threads execute and count operations on the data
+structure under test. Each batch is executed under its own `region_guard`. This
+parameter is optional; the default value is 100.
 
 `key_range` and `key_offset` define the interval from which keys are picked randomly,
 i.e., generated keys are `>= key_offset` and < `key_offset + key_range`.

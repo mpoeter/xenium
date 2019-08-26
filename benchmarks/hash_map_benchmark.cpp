@@ -266,6 +266,7 @@ struct hash_map_benchmark : benchmark {
   }
 
   std::unique_ptr<T> hash_map;
+  std::uint32_t batch_size;
   std::uint64_t key_range;
   std::uint64_t key_offset;
   config::prefill prefill;
@@ -274,6 +275,7 @@ struct hash_map_benchmark : benchmark {
 template <class T>
 void hash_map_benchmark<T>::setup(const boost::property_tree::ptree& config) {
   hash_map = hash_map_builder<T>::create(config.get_child("ds"));
+  batch_size = config.get<std::uint32_t>("batch_size", 100);
   key_range = config.get<std::uint64_t>("key_range", 2048);
   key_offset = config.get<std::uint64_t>("key_offset", 0);
   
@@ -303,8 +305,7 @@ template <class T>
 void benchmark_thread<T>::run() {
   T& hash_map = *_benchmark.hash_map;
   
-  // TODO - make n configurable
-  const std::uint32_t n = 100;
+  const std::uint32_t n = _benchmark.batch_size;
 
   std::uint32_t insert = 0;
   std::uint32_t remove = 0;
