@@ -42,5 +42,13 @@ struct typed_benchmark_builder : benchmark_builder {
   std::shared_ptr<benchmark> build() override { return std::make_shared<Benchmark<T>>(); }
 };
 
+template <class T>
+struct region_guard {
+  using type = typename T::reclaimer::region_guard;
+};
+
+template <class T>
+using region_guard_t = typename region_guard<T>::type;
+
 using benchmark_builders = std::vector<std::shared_ptr<benchmark_builder>>;
 using registered_benchmarks = std::unordered_map<std::string, benchmark_builders>;
