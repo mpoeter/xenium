@@ -29,7 +29,7 @@ private:
 
 registered_benchmarks benchmarks;
 
-void print_config(const ptree& config, int indent = 0) {
+void print_config(const ptree& config, int indent) {
   if (config.empty()) {
     std::cout << config.get_value<std::string>() << '\n';
   } else {
@@ -41,6 +41,11 @@ void print_config(const ptree& config, int indent = 0) {
       print_config(it.second, indent + 1);
     }
   }
+}
+
+void print_config(const ptree& config) {
+  print_config(config, 0);
+  std::cout << "-----\n";
 }
 
 double sqr(double v) {
@@ -272,7 +277,6 @@ void print_available_benchmarks() {
       print_config(config->get_descriptor());
     std::cout << std::endl;
   }
-  // TODO - improve output
 }
 
 void parse_args(int argc, char* argv[], options& opts) {

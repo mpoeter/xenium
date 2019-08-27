@@ -45,7 +45,7 @@ struct execution_thread {
   std::uint32_t id() const { return _id; }
 private:
   const execution& _execution;
-  std::shared_ptr<workload_simulator> _workload; // TODO - make it more flexible
+  std::shared_ptr<workload_simulator> _workload;
 protected:
   void simulate_workload();
   const std::uint32_t _id;

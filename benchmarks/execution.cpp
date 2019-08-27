@@ -114,7 +114,6 @@ void execution_thread::thread_func() {
     do_run();
   } catch (std::exception& e) {
     std::cout << "Thread " << std::this_thread::get_id() << " failed: " << e.what() << std::endl;
-    // TODO - terminate whole round
   }
   _state.store(thread_state::finished);
 
