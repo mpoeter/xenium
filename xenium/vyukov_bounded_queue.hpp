@@ -7,6 +7,7 @@
 #define XENIUM_VYUKOV_BOUNDED_QUEUE_HPP
 
 #include <xenium/utils.hpp>
+#include <xenium/parameter.hpp>
 
 #include <atomic>
 #include <cassert>
@@ -15,6 +16,16 @@
 
 namespace xenium {
 
+namespace policy {
+  /**
+   * @brief Policy to configure whether `try_push`/`try_pop` in `vyukov_bounded_queue`
+   * should default to `try_push_weak`/`try_pop_weak`.
+   * @tparam Value
+   */
+  template <bool Value>
+  struct default_to_weak;
+
+}
 /**
  * @brief A bounded generic multi-producer/multi-consumer FIFO queue.
  * 
@@ -39,9 +50,12 @@ namespace xenium {
  *
  * @tparam T type of the stored elements.
  */
-template<typename T>
+template<class T, class... Policies>
 struct vyukov_bounded_queue {
 public:
+  static constexpr bool default_to_weak =
+    parameter::value_param_t<bool, policy::default_to_weak, false, Policies...>::value;;
+
   /**
    * @brief Constructs a new instance with the specified maximum size.
    * @param size max number of elements in the queue; must be a power of two greater one.
@@ -66,6 +80,23 @@ public:
   /**
    * @brief Tries to push a new element to the queue.
    *
+   * If `policy::default_to_weak` has been specified to be true, this method
+   * forwards to `try_push_weak`, otherwise it forwards to `try_push_strong`.
+   *
+   * Progress guarantees: see `try_push_weak`/`try_push_strong`
+   *
+   * @tparam Args
+   * @param args
+   * @return `true` if the operation was successful, otherwise `false`
+   */
+  template <class... Args>
+  bool try_push(Args&&... args) {
+    return do_try_push<default_to_weak>(std::forward<Args>(args)...);
+  }
+
+  /**
+   * @brief Tries to push a new element to the queue.
+   *
    * Tries to reserve a cell for the new element as long as the number of elements does
    * not exceed the specified size.
    *
@@ -81,7 +112,7 @@ public:
    * @return `true` if the operation was successful, otherwise `false`
    */
   template <class... Args>
-  bool try_push(Args&&... args) {
+  bool try_push_strong(Args&&... args) {
     return do_try_push<false>(std::forward<Args>(args)...);
   }
 
@@ -108,6 +139,21 @@ public:
   }
 
   /**
+   * @brief Tries to pop an element from the queue.
+   *
+   * If `policy::default_to_weak` has been specified to be true, this method
+   * forwards to `try_pop_weak`, otherwise it forwards to `try_pop_strong`.
+   *
+   * Progress guarantees: see `try_pop_weak`/`try_pop_strong`
+   *
+   * @param result the value popped from the queue if the operation was successful
+   * @return `true` if the operation was successful, otherwise `false`
+   */
+  bool try_pop(T& result) {
+    return do_try_pop<default_to_weak>(result);
+  }
+
+  /**
    * @brief Tries to pop an element from the queue as long as the queue is not empty.
    *
    * In case a push operation is still pending `try_pop` keeps spinning until the
@@ -118,7 +164,7 @@ public:
    * @param result the value popped from the queue if the operation was successful
    * @return `true` if the operation was successful, otherwise `false`
    */
-  bool try_pop(T& result) {
+  bool try_pop_strong(T& result) {
     return do_try_pop<false>(result);
   }
 

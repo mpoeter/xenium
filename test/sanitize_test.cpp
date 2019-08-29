@@ -54,7 +54,6 @@ TYPED_TEST(Sanitize, guard_ptrs)
 
   for (int x = 0; x < 10; ++x) {
     using concurrent_ptr = typename TypeParam::template concurrent_ptr<node, 1>;
-    using marked_ptr = typename concurrent_ptr::marked_ptr;
     using guard_ptr = typename concurrent_ptr::guard_ptr;
 
     constexpr int NumPtrs = 10;

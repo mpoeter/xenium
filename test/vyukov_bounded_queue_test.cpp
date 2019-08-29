@@ -12,6 +12,7 @@ struct VyukovBoundedQueue : testing::Test {};
 TEST(VyukovBoundedQueue, push_try_pop_returns_pushed_element)
 {
   xenium::vyukov_bounded_queue<int> queue(2);
+  static_assert(xenium::vyukov_bounded_queue<int>::default_to_weak == false, "");
   EXPECT_TRUE(queue.try_push(42));
   int elem;
   EXPECT_TRUE(queue.try_pop(elem));
