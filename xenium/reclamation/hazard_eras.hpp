@@ -20,19 +20,7 @@
 namespace xenium { namespace reclamation {
 
   namespace detail {
-    struct deletable_object_with_eras
-    {
-      virtual void delete_self() = 0;
-      deletable_object_with_eras* next = nullptr;
-    protected:
-      virtual ~deletable_object_with_eras() = default;
-      using era_t = size_t;
-    public:
-      era_t construction_era;
-      era_t retirement_era;
-      template <class>
-      friend class hazard_eras;
-    };
+    struct deletable_object_with_eras;
   }
 
   class bad_hazard_era_alloc : public std::runtime_error
@@ -50,13 +38,11 @@ namespace xenium { namespace reclamation {
   {
     static constexpr size_t K = K_;
 
-    static size_t retired_nodes_threshold()
-    {
+    static size_t retired_nodes_threshold() {
       return A * number_of_active_hazard_eras() + B;
     }
 
-    static size_t number_of_active_hazard_eras()
-    {
+    static size_t number_of_active_hazard_eras() {
       return number_of_active_hes.load(std::memory_order_relaxed);
     }
 
@@ -179,6 +165,24 @@ namespace xenium { namespace reclamation {
 
     typename thread_control_block::hazard_era* he = nullptr;
   };
+
+  namespace detail {
+    struct deletable_object_with_eras
+    {
+      virtual void delete_self() = 0;
+      deletable_object_with_eras* next = nullptr;
+    protected:
+      virtual ~deletable_object_with_eras() = default;
+      using era_t = size_t;
+      era_t construction_era;
+      era_t retirement_era;
+      template <class>
+      friend class hazard_eras;
+
+      template <class T>
+      friend class hazard_eras<T>::thread_data;
+    };
+  }
 }}
 
 #define HAZARD_ERAS_IMPL

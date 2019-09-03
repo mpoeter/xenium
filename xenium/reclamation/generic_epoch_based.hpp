@@ -201,14 +201,14 @@ namespace reclamation {
    * ```
    * * like new epoch based reclamation (NEBR) as proposed by Hart et al.
    *   \[[HMBW07](index.html#ref-hart-2007)\]:
-   * ```
+   * ```cpp
    * using nebr = generic_epoch_based<generic_epoch_based_traits<>::with<
    *   policy::scan<scan::all_threads>,
    *   policy::region_extension<region_extension::eager>
    * >>
    * ```
    * * like DEBRA as proposed by Brown \[[Bro15](index.html#ref-brown-2015)\]:
-   * ```
+   * ```cpp
    * using debra = generic_epoch_based<generic_epoch_based_traits<>::with<
    *   policy::scan<scan::one_thread>,
    *   policy::region_extension<region_extension::none>
@@ -235,6 +235,9 @@ namespace reclamation {
   template <class Traits = generic_epoch_based_traits<>>
   class generic_epoch_based
   {
+    template <class... Policies>
+    using with = generic_epoch_based<typename Traits::template with<Policies...>>;
+
     template <class T, class MarkedPtr>
     class guard_ptr;
 
@@ -338,28 +341,28 @@ namespace reclamation {
 namespace xenium { namespace reclamation {
   // TODO - rename once old EBR/NEBR/DEBRA implementations have been removed
   template <class... Policies>
-  using epoch_based2 = generic_epoch_based<generic_epoch_based_traits<>::with<
+  using epoch_based2 = generic_epoch_based<>::with<
     policy::scan_frequency<100>,
     policy::scan<scan::all_threads>,
     policy::region_extension<region_extension::none>,
     Policies...
-  >>;
+  >;
 
   template <class... Policies>
-  using new_epoch_based2 = generic_epoch_based<generic_epoch_based_traits<>::with<
+  using new_epoch_based2 = generic_epoch_based<>::with<
     policy::scan_frequency<100>,
     policy::scan<scan::all_threads>,
     policy::region_extension<region_extension::eager>,
     Policies...
-  >>;
+  >;
 
   template <class... Policies>
-  using debra2 = generic_epoch_based<generic_epoch_based_traits<>::with<
+  using debra2 = generic_epoch_based<>::with<
     policy::scan_frequency<20>,
     policy::scan<scan::one_thread>,
     policy::region_extension<region_extension::none>,
     Policies...
-  >>;
+  >;
 }}
 
 #endif
