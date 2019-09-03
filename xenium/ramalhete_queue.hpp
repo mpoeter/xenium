@@ -12,6 +12,10 @@
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
 
+#define XENIUM_RAMALHETE_QUEUE_IMPL
+#include <xenium/impl/ramalhete_queue_traits.hpp>
+#undef XENIUM_RAMALHETE_QUEUE_IMPL
+
 #include <algorithm>
 #include <atomic>
 #include <stdexcept>
@@ -54,7 +58,8 @@ namespace policy {
  * This is an implementation of the `FAAArrayQueue` by Ramalhete and Correia \[[Ram16](index.html#ref-ramalhete-2016)\].
  *
  * It is faster and more efficient than the `michael_scott_queue`, but less generic as it can
- * only handle pointers (i.e., `T` must be a pointer type).
+ * only handle pointers (i.e., `T` must be a raw pointer or a `std::unique_ptr`).
+ * Note: `std::unique_ptr` are supported for convinience, but custom deleters are not yet supported.
  *
  * A generic version that does not have this limitation is planned for a future version.
  *
@@ -76,13 +81,15 @@ namespace policy {
  */
 template <class T, class... Policies>
 class ramalhete_queue {
+private:
+  using traits = impl::ramalhete_queue_traits<T, Policies...>;
+  using raw_value_type = typename traits::raw_type;
 public:
-  static_assert(std::is_pointer<T>::value, "T must be a pointer type");
   using value_type = T;
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
   static constexpr unsigned entries_per_node = parameter::value_param_t<unsigned, policy::entries_per_node, 512, Policies...>::value;
-  static constexpr unsigned padding_bytes = parameter::value_param_t<unsigned, policy::padding_bytes, sizeof(T*), Policies...>::value;
+  static constexpr unsigned padding_bytes = parameter::value_param_t<unsigned, policy::padding_bytes, sizeof(raw_value_type), Policies...>::value;
   static constexpr unsigned pop_retries = parameter::value_param_t<unsigned, policy::pop_retries, 10, Policies...>::value;;
 
   static_assert(entries_per_node > 0, "entries_per_node must be greater than zero");
@@ -117,7 +124,7 @@ private:
   using marked_ptr = typename concurrent_ptr::marked_ptr;
   using guard_ptr = typename concurrent_ptr::guard_ptr;
 
-  using marked_value = reclamation::detail::marked_ptr<std::remove_pointer_t<T>, 1>;
+  using marked_value = reclamation::detail::marked_ptr<std::remove_pointer_t<raw_value_type>, 1>;
 
   struct padded_entry {
     std::atomic<marked_value> value;
@@ -145,7 +152,7 @@ private:
     concurrent_ptr next;
 
     // Start with the first entry pre-filled
-    node(value_type item) :
+    node(raw_value_type item) :
       pop_idx{0},
       push_idx{1},
       next{nullptr}
@@ -153,6 +160,12 @@ private:
       entries[0].value.store(item, std::memory_order_relaxed);
       for (unsigned i = 1; i < entries_per_node; i++)
         entries[i].value.store(nullptr, std::memory_order_relaxed);
+    }
+
+    ~node() {
+      for (unsigned i = pop_idx; i < push_idx; ++i) {
+        traits::delete_value(entries[i].value.load(std::memory_order_relaxed).get());
+      }
     }
   };
 
@@ -191,6 +204,7 @@ void ramalhete_queue<T, Policies...>::push(value_type value)
 
   backoff backoff;
 
+  raw_value_type raw_val = traits::get_raw(value);
   guard_ptr t;
   for (;;) {
     // (3) - this acquire-load synchronizes-with the release-CAS (5, 7)
@@ -206,7 +220,9 @@ void ramalhete_queue<T, Policies...>::push(value_type value)
       auto next = t->next.load(std::memory_order_relaxed);
       if (next == nullptr)
       {
-        node* new_node = new node(value);
+        node* new_node = new node(raw_val);
+        traits::release(value);
+
         marked_ptr expected = nullptr;
         // (4) - this release-CAS synchronizes-with the acquire-load (2, 6, 10)
         if (t->next.compare_exchange_strong(expected, new_node,
@@ -232,8 +248,10 @@ void ramalhete_queue<T, Policies...>::push(value_type value)
 
     marked_value expected = nullptr;
     // (8) - this release-CAS synchronizes-with the acquire-exchange (12)
-    if (t->entries[idx].value.compare_exchange_strong(expected, value, std::memory_order_release, std::memory_order_relaxed))
+    if (t->entries[idx].value.compare_exchange_strong(expected, raw_val, std::memory_order_release, std::memory_order_relaxed)) {
+      traits::release(value);
       return;
+    }
 
     backoff();
   }
@@ -280,7 +298,7 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
     // (12) - this acquire-exchange synchronizes-with the release-CAS (8)
     auto value = h->entries[idx].value.exchange(marked_value(nullptr, 1), std::memory_order_acquire);
     if (value != nullptr) {
-      result = value.get();
+      traits::store(result, value.get());
       return true;
     }
 

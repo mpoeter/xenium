@@ -42,6 +42,30 @@ TYPED_TEST(RamalheteQueue, push_try_pop_returns_pushed_element)
   EXPECT_EQ(v1, elem);
 }
 
+TYPED_TEST(RamalheteQueue, supports_unique_ptr)
+{
+  xenium::ramalhete_queue<std::unique_ptr<int>, xenium::policy::reclaimer<TypeParam>> queue;
+  queue.push(std::make_unique<int>(42));
+  std::unique_ptr<int> elem;
+  EXPECT_TRUE(queue.try_pop(elem));
+  EXPECT_EQ(42, *elem);
+}
+
+TYPED_TEST(RamalheteQueue, deletes_remaining_unique_ptr_entries)
+{
+  unsigned delete_count = 0;
+  struct dummy {
+    unsigned& delete_count;
+    dummy(unsigned& delete_count) : delete_count(delete_count) {}
+    ~dummy() { ++delete_count; }
+  };
+  {
+    xenium::ramalhete_queue<std::unique_ptr<dummy>, xenium::policy::reclaimer<TypeParam>> queue;
+    queue.push(std::make_unique<dummy>(delete_count));
+  }
+  EXPECT_EQ(1, delete_count);
+}
+
 TYPED_TEST(RamalheteQueue, push_two_items_pop_them_in_FIFO_order)
 {
   xenium::ramalhete_queue<int*, xenium::policy::reclaimer<TypeParam>> queue;
