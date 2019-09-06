@@ -231,7 +231,7 @@ public:
    * @param accessor reference to an accessor to be set in case an element is removed.
    * @return `true` if an element was removed, otherwise `false`
    */
-  bool extract(const key_type& key, accessor& value);
+  bool extract(const key_type& key, accessor& accessor);
 
   /**
    * @brief Removes the element with the key equivalent to key (if one exists).

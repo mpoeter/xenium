@@ -194,25 +194,25 @@ namespace reclamation {
    * * like the original proposal for epoch based reclamation (EBR) by Fraser
    *   \[[Fra04](index.html#ref-fraser-2004)\]:
    * ```cpp
-   * using ebr = generic_epoch_based<generic_epoch_based_traits<>::with<
+   * using ebr = generic_epoch_based<>::with<
    *   policy::scan<scan::all_threads>,
    *   policy::region_extension<region_extension::none>
-   * >>
+   * >
    * ```
    * * like new epoch based reclamation (NEBR) as proposed by Hart et al.
    *   \[[HMBW07](index.html#ref-hart-2007)\]:
    * ```cpp
-   * using nebr = generic_epoch_based<generic_epoch_based_traits<>::with<
+   * using nebr = generic_epoch_based<>::with<
    *   policy::scan<scan::all_threads>,
    *   policy::region_extension<region_extension::eager>
-   * >>
+   * >
    * ```
    * * like DEBRA as proposed by Brown \[[Bro15](index.html#ref-brown-2015)\]:
    * ```cpp
-   * using debra = generic_epoch_based<generic_epoch_based_traits<>::with<
+   * using debra = generic_epoch_based<>::with<
    *   policy::scan<scan::one_thread>,
    *   policy::region_extension<region_extension::none>
-   * >>
+   * >
    * ```
    * 
    * This class does not take a list of policies, but a `Traits` type that can be customized
@@ -235,9 +235,6 @@ namespace reclamation {
   template <class Traits = generic_epoch_based_traits<>>
   class generic_epoch_based
   {
-    template <class... Policies>
-    using with = generic_epoch_based<typename Traits::template with<Policies...>>;
-
     template <class T, class MarkedPtr>
     class guard_ptr;
 
@@ -246,6 +243,8 @@ namespace reclamation {
     friend struct scan::all_threads;
 
   public:
+    template <class... Policies>
+    using with = generic_epoch_based<typename Traits::template with<Policies...>>;
 
     template <class T, std::size_t N = 0, class Deleter = std::default_delete<T>>
     class enable_concurrent_ptr;

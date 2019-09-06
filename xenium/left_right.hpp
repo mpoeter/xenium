@@ -36,7 +36,7 @@ struct left_right {
    *
    * The first instance is copy-constructed while the second one is move-constructed.
    *
-   * @param instance the source used to initialize the two underlying instances.
+   * @param source the source used to initialize the two underlying instances.
    */
   left_right(T source) :
     left(source),
