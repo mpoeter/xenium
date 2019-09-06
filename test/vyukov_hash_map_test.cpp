@@ -41,7 +41,8 @@ struct VyukovHashMap : ::testing::Test
 };
 
 using Reclaimers = ::testing::Types<
-    xenium::reclamation::hazard_pointer<xenium::reclamation::static_hazard_pointer_policy<3>>,
+    xenium::reclamation::hazard_pointer<>::with<
+      xenium::policy::allocation_strategy<xenium::reclamation::hp_allocation::static_strategy<3>>>,
     xenium::reclamation::hazard_eras<xenium::reclamation::static_hazard_eras_policy<3>>,
     xenium::reclamation::epoch_based<10>,
     xenium::reclamation::new_epoch_based<10>,

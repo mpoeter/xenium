@@ -13,62 +13,75 @@
 #include <xenium/reclamation/detail/allocation_tracker.hpp>
 
 #include <xenium/acquire_guard.hpp>
+#include <xenium/parameter.hpp>
+#include <xenium/policy.hpp>
 
 #include <memory>
 #include <stdexcept>
 
 namespace xenium { namespace reclamation {
 
-  class bad_hazard_pointer_alloc : public std::runtime_error
-  {
+  class bad_hazard_pointer_alloc : public std::runtime_error {
     using std::runtime_error::runtime_error;
   };
 
-  // TODO - move policies into policy namespace
+  namespace detail {
+    template <class Strategy, class Derived>
+    struct basic_hp_thread_control_block;
+
+    template <size_t K_, size_t A, size_t B, template <class> class ThreadControlBlock>
+    struct generic_hp_allocation_strategy
+    {
+      static constexpr size_t K = K_;
+      
+      static size_t retired_nodes_threshold() {
+        return A * number_of_active_hazard_pointers() + B;
+      }
+
+      static size_t number_of_active_hazard_pointers() {
+        return number_of_active_hps.load(std::memory_order_relaxed);
+      }
+
+      using thread_control_block = ThreadControlBlock<generic_hp_allocation_strategy>;
+    private:
+      friend thread_control_block;
+      friend basic_hp_thread_control_block<generic_hp_allocation_strategy, thread_control_block>;
+
+      static std::atomic<size_t> number_of_active_hps;
+    };
+
+    template <class Strategy>
+    struct static_hp_thread_control_block;
+
+    template <class Strategy>
+    struct dynamic_hp_thread_control_block;
+  }
+
+  namespace hp_allocation {
+    /**
+     * @brief Hazard pointer allocation strategy for a static number of hazard pointers per thread.
+     */
+    template <size_t K = 2, size_t A = 2, size_t B = 100>
+    struct static_strategy :
+      detail::generic_hp_allocation_strategy<K, A, B, detail::static_hp_thread_control_block> {};
+
+    /**
+     * @brief Hazard pointer allocation strategy for a dynamic number of hazard pointers per thread.
+     */
+    template <size_t K = 2, size_t A = 2, size_t B = 100>
+    struct dynamic_strategy :
+      detail::generic_hp_allocation_strategy<K, A, B, detail::dynamic_hp_thread_control_block> {};
+  }
   
-  template <class Policy, class Derived>
-  struct basic_hp_thread_control_block;
+  template <class AllocationStrategy = hp_allocation::static_strategy<3>>
+  struct hazard_pointer_traits {
+    using allocation_strategy = AllocationStrategy;
 
-  template <size_t K_, size_t A, size_t B, template <class> class ThreadControlBlock>
-  struct generic_hazard_pointer_policy
-  {
-    static constexpr size_t K = K_;
-    
-    static size_t retired_nodes_threshold()
-    {
-      return A * number_of_active_hazard_pointers() + B;
-    }
-
-    static size_t number_of_active_hazard_pointers()
-    {
-      return number_of_active_hps.load(std::memory_order_relaxed);
-    }
-
-    using thread_control_block = ThreadControlBlock<generic_hazard_pointer_policy>;
-  private:
-    friend thread_control_block;
-    friend basic_hp_thread_control_block<generic_hazard_pointer_policy, thread_control_block>;
-
-    static std::atomic<size_t> number_of_active_hps;
+    template <class... Policies>
+    using with = hazard_pointer_traits<
+      parameter::type_param_t<policy::allocation_strategy, AllocationStrategy, Policies...>
+    >;
   };
-
-  template <class Policy>
-  struct static_hp_thread_control_block;
-
-  template <class Policy>
-  struct dynamic_hp_thread_control_block;
-
-  /**
-   * @brief Hazard pointer policy for a static number of hazard pointers per thread.
-   */
-  template <size_t K = 2, size_t A = 2, size_t B = 100>
-  struct static_hazard_pointer_policy : generic_hazard_pointer_policy<K, A, B, static_hp_thread_control_block> {};
-
-  /**
-   * @brief Hazard pointer policy for a dynamic number of hazard pointers per thread.
-   */
-  template <size_t K = 2, size_t A = 2, size_t B = 100>
-  struct dynamic_hazard_pointer_policy : generic_hazard_pointer_policy<K, A, B, dynamic_hp_thread_control_block> {};
 
   /**
    * @brief An implementation of the hazard pointers reclamation scheme as proposed by Michael
@@ -80,18 +93,32 @@ namespace xenium { namespace reclamation {
    * allocated/deallocated and how the threshold for the local retire list is calculated. The two
    * available policies are `static_hazard_pointer_policy` and `dynamic_hazard_pointer_policy`.
    * 
-   * @tparam Policy
+   * This class does not take a list of policies, but a `Traits` type that can be customized
+   * with a list of policies. The following policies are supported:
+   *  * `xenium::policy::allocation_strategy`<br>
+   *    Defines how hazard pointers are allocated and how the threshold for the number of
+   *    retired nodes is calculated.
+   *    Possible arguments are `xenium::reclamation::hp_allocation::static_strategy`
+   *    and 'xenium::reclamation::hp_allocation::dynamic_strategy`, where both strategies
+   *    can by further customized via their respective template parameters.
+   *    (defaults to `xenium::reclamation::hp_allocation::static_strategy<3>`)
+   * 
+   * @tparam Traits
    */
-  template <typename Policy>
+  template <typename Traits = hazard_pointer_traits<>>
   class hazard_pointer
   {
-    using thread_control_block = typename Policy::thread_control_block;
-    friend basic_hp_thread_control_block<Policy, thread_control_block>;
+    using allocation_strategy = typename Traits::allocation_strategy;
+    using thread_control_block = typename allocation_strategy::thread_control_block;
+    friend detail::basic_hp_thread_control_block<allocation_strategy, thread_control_block>;
 
     template <class T, class MarkedPtr>
     class guard_ptr;
 
   public:
+    template <class... Policies>
+    using with = hazard_pointer<typename Traits::template with<Policies...>>;
+
     template <class T, std::size_t N = 0, class Deleter = std::default_delete<T>>
     class enable_concurrent_ptr;
 
@@ -110,9 +137,9 @@ namespace xenium { namespace reclamation {
     ALLOCATION_TRACKING_FUNCTIONS;
   };
 
-  template <typename Policy>
+  template <typename Traits>
   template <class T, std::size_t N, class Deleter>
-  class hazard_pointer<Policy>::enable_concurrent_ptr :
+  class hazard_pointer<Traits>::enable_concurrent_ptr :
     private detail::deletable_object_impl<T, Deleter>,
     private detail::tracked_object<hazard_pointer>
   {
@@ -132,9 +159,9 @@ namespace xenium { namespace reclamation {
     friend class guard_ptr;
   };
 
-  template <typename Policy>
+  template <typename Traits>
   template <class T, class MarkedPtr>
-  class hazard_pointer<Policy>::guard_ptr : public detail::guard_ptr<T, MarkedPtr, guard_ptr<T, MarkedPtr>>
+  class hazard_pointer<Traits>::guard_ptr : public detail::guard_ptr<T, MarkedPtr, guard_ptr<T, MarkedPtr>>
   {
     using base = detail::guard_ptr<T, MarkedPtr, guard_ptr>;
     using Deleter = typename T::Deleter;

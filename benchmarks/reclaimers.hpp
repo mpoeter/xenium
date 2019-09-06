@@ -60,21 +60,21 @@ struct descriptor<xenium::reclamation::debra<UpdateThreshold>> {
 #ifdef WITH_HAZARD_POINTER
 #include <xenium/reclamation/hazard_pointer.hpp>
 
-template <class Policy>
-struct descriptor<xenium::reclamation::hazard_pointer<Policy>> {
+template <class Traits>
+struct descriptor<xenium::reclamation::hazard_pointer<Traits>> {
   static boost::property_tree::ptree generate() {
     boost::property_tree::ptree pt;
     pt.put("type", "hazard_pointer");
-    pt.put_child("policy", descriptor<Policy>::generate());
+    pt.put_child("allocation_strategy", descriptor<typename Traits::allocation_strategy>::generate());
     return pt;
   }
 };
 
 template <size_t K, size_t A, size_t B>
-struct descriptor<xenium::reclamation::dynamic_hazard_pointer_policy<K, A, B>> {
+struct descriptor<xenium::reclamation::hp_allocation::dynamic_strategy<K, A, B>> {
   static boost::property_tree::ptree generate() {
     boost::property_tree::ptree pt;
-    pt.put("type", "dynamic_hazard_pointer_policy");
+    pt.put("type", "dynamic");
     pt.put("K", K);
     pt.put("A", A);
     pt.put("B", B);
@@ -83,10 +83,10 @@ struct descriptor<xenium::reclamation::dynamic_hazard_pointer_policy<K, A, B>> {
 };
 
 template <size_t K, size_t A, size_t B>
-struct descriptor<xenium::reclamation::static_hazard_pointer_policy<K, A, B>> {
+struct descriptor<xenium::reclamation::hp_allocation::static_strategy<K, A, B>> {
   static boost::property_tree::ptree generate() {
     boost::property_tree::ptree pt;
-    pt.put("type", "static_hazard_pointer_policy");
+    pt.put("type", "static");
     pt.put("K", K);
     pt.put("A", A);
     pt.put("B", B);

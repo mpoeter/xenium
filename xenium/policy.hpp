@@ -84,5 +84,16 @@ struct container;
  */
 template <class T>
 struct hash;
+
+/**
+ * @brief Policy to configure the allocation strategy.
+ * 
+ * This policy is used by the following reclamation schemes:
+ *   * `xenium::reclamation::hazard_pointer`
+ * 
+ * @tparam T 
+ */
+template <class T>
+struct allocation_strategy;
 }}
 #endif

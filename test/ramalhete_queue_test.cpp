@@ -23,7 +23,8 @@ int* v2 = new int(43);
 
 using Reclaimers = ::testing::Types<
     xenium::reclamation::lock_free_ref_count<>,
-    xenium::reclamation::hazard_pointer<xenium::reclamation::static_hazard_pointer_policy<2>>,
+    xenium::reclamation::hazard_pointer<>::with<
+      xenium::policy::allocation_strategy<xenium::reclamation::hp_allocation::static_strategy<2>>>,
     xenium::reclamation::hazard_eras<xenium::reclamation::static_hazard_eras_policy<2>>,
     xenium::reclamation::epoch_based<10>,
     xenium::reclamation::new_epoch_based<10>,

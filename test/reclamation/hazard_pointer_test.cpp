@@ -4,16 +4,16 @@
 
 namespace {
 
-struct my_static_hazard_pointer_policy : xenium::reclamation::static_hazard_pointer_policy<2>
+struct my_static_allocation_strategy : xenium::reclamation::hp_allocation::static_strategy<2>
 {
-  // we are redifining this method in our own policy to enforce the
+  // we are redifining this method in our own strategy to enforce the
   // immediate reclamation of nodes.
   static constexpr size_t retired_nodes_threshold() { return 0; }
 };
 
-struct my_dynamic_hazard_pointer_policy : xenium::reclamation::dynamic_hazard_pointer_policy<2>
+struct my_dynamic_allocation_strategy : xenium::reclamation::hp_allocation::dynamic_strategy<2>
 {
-  // we are redifining this method in our own policy to enforce the
+  // we are redifining this method in our own strategy to enforce the
   // immediate reclamation of nodes.
   static constexpr size_t retired_nodes_threshold() { return 0; }
 };
@@ -21,7 +21,7 @@ struct my_dynamic_hazard_pointer_policy : xenium::reclamation::dynamic_hazard_po
 template <typename Policy>
 struct HazardPointer : ::testing::Test
 {
-  using HP = xenium::reclamation::hazard_pointer<Policy>;
+  using HP = xenium::reclamation::hazard_pointer<>::with<xenium::policy::allocation_strategy<Policy>>;
 
   struct Foo : HP::template enable_concurrent_ptr<Foo, 2>
   {
@@ -69,8 +69,8 @@ struct HazardPointer : ::testing::Test
 };
 
 using Policies = ::testing::Types<
-    my_static_hazard_pointer_policy,
-    my_dynamic_hazard_pointer_policy
+    my_static_allocation_strategy,
+    my_dynamic_allocation_strategy
   >;
 TYPED_TEST_CASE(HazardPointer, Policies);
 
@@ -126,9 +126,9 @@ TYPED_TEST(HazardPointer, acquire_if_equal_returns_false_and_resets_guard_when_v
   EXPECT_FALSE(gp.acquire_if_equal(foo_ptr, other));
   EXPECT_EQ(nullptr, gp.get());
 }
-TYPED_TEST(HazardPointer, static_policy_throws_bad_hazard_pointer_when_HP_pool_is_exceeded)
+TYPED_TEST(HazardPointer, static_allocation_strategy_throws_bad_hazard_pointer_when_HP_pool_is_exceeded)
 {
-  if (std::is_same<TypeParam , my_dynamic_hazard_pointer_policy>::value)
+  if (std::is_same<TypeParam , my_dynamic_allocation_strategy>::value)
     return;
 
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;
@@ -251,9 +251,9 @@ TYPED_TEST(HazardPointer, guard_ptr_protects_the_same_object_via_different_base_
   EXPECT_EQ(nullptr, ptr);
 }
 
-TYPED_TEST(HazardPointer, dynamic_policy_can_protect_more_than_K_objects)
+TYPED_TEST(HazardPointer, dynamic_allocation_strategy_can_protect_more_than_K_objects)
 {
-  if (std::is_same<TypeParam , my_static_hazard_pointer_policy>::value)
+  if (std::is_same<TypeParam , my_dynamic_allocation_strategy>::value)
     return;
 
   const size_t count = 100;

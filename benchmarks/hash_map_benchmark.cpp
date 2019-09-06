@@ -174,10 +174,10 @@ namespace {
   #ifdef WITH_HAZARD_POINTER
     make_benchmark_builder<
       vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<
-        reclamation::hazard_pointer<reclamation::static_hazard_pointer_policy<3>>>>>(),
+        reclamation::hazard_pointer<>::with<policy::allocation_strategy<reclamation::hp_allocation::static_strategy<3>>>>>>(),
     make_benchmark_builder<
       vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<
-        reclamation::hazard_pointer<reclamation::dynamic_hazard_pointer_policy<3>>>>>(),
+        reclamation::hazard_pointer<>::with<policy::allocation_strategy<reclamation::hp_allocation::dynamic_strategy<3>>>>>>(),
   #endif
 #endif
 
@@ -198,10 +198,11 @@ namespace {
   #ifdef WITH_HAZARD_POINTER
     make_benchmark_builder<
       harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<
-        reclamation::hazard_pointer<reclamation::static_hazard_pointer_policy<3>>>>>(),
+        reclamation::hazard_pointer<>::with<
+          policy::allocation_strategy<reclamation::hp_allocation::static_strategy<3>>>>>>(),
     make_benchmark_builder<
       harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<
-        reclamation::hazard_pointer<reclamation::dynamic_hazard_pointer_policy<3>>>>>(),
+        reclamation::hazard_pointer<>::with<policy::allocation_strategy<reclamation::hp_allocation::dynamic_strategy<3>>>>>>(),
   #endif
 #endif
 
