@@ -314,10 +314,10 @@ namespace xenium { namespace reclamation {
       enable_concurrent_ptr<T, N, Deleter>::global_free_list;
 
 #ifdef TRACK_ALLOCATIONS
-    template <bool InsertPadding, size_t ThreadLocalFreeListSize>
+    template <class Traits>
     detail::allocation_tracker lock_free_ref_count<Traits>::allocation_tracker;
 
-    template <bool InsertPadding, size_t ThreadLocalFreeListSize>
+    template <class Traits>
     inline detail::allocation_counter&
       lock_free_ref_count<Traits>::allocation_counter()
     {
@@ -325,11 +325,11 @@ namespace xenium { namespace reclamation {
       return counter;
     };
 
-    template <bool InsertPadding, size_t ThreadLocalFreeListSize>
+    template <class Traits>
     inline void lock_free_ref_count<Traits>::count_allocation()
     { allocation_counter().count_allocation(); }
 
-    template <bool InsertPadding, size_t ThreadLocalFreeListSize>
+    template <class Traits>
     inline void lock_free_ref_count<Traits>::count_reclamation()
     { allocation_counter().count_reclamation(); }
 #endif
