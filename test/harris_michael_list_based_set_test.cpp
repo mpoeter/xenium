@@ -23,7 +23,8 @@ using Reclaimers = ::testing::Types<
     xenium::reclamation::lock_free_ref_count<>,
     xenium::reclamation::hazard_pointer<>::with<
       xenium::policy::allocation_strategy<xenium::reclamation::hp_allocation::static_strategy<3>>>,
-    xenium::reclamation::hazard_eras<xenium::reclamation::static_hazard_eras_policy<3>>,
+    xenium::reclamation::hazard_eras<>::with<
+      xenium::policy::allocation_strategy<xenium::reclamation::he_allocation::static_strategy<3>>>,
     xenium::reclamation::epoch_based<10>,
     xenium::reclamation::new_epoch_based<10>,
     xenium::reclamation::quiescent_state_based,

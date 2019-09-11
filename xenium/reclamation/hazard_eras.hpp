@@ -13,75 +13,92 @@
 #include <xenium/reclamation/detail/allocation_tracker.hpp>
 
 #include <xenium/acquire_guard.hpp>
+#include <xenium/parameter.hpp>
+#include <xenium/policy.hpp>
 
 #include <memory>
 #include <stdexcept>
 
 namespace xenium { namespace reclamation {
 
-  namespace detail {
-    struct deletable_object_with_eras;
-  }
-
-  class bad_hazard_era_alloc : public std::runtime_error
-  {
+  class bad_hazard_era_alloc : public std::runtime_error {
     using std::runtime_error::runtime_error;
   };
 
-  // TODO - move policies into policy namespace
+  namespace detail {
+    struct deletable_object_with_eras;
 
-  template <class Policy, class Derived>
-  struct basic_he_thread_control_block;
+    template <class Strategy, class Derived>
+    struct basic_he_thread_control_block;
 
-  template <size_t K_, size_t A, size_t B, template <class> class ThreadControlBlock>
-  struct generic_hazard_eras_policy
-  {
-    static constexpr size_t K = K_;
+    template <size_t K_, size_t A, size_t B, template <class> class ThreadControlBlock>
+    struct generic_hazard_era_allocation_strategy
+    {
+      static constexpr size_t K = K_;
 
-    static size_t retired_nodes_threshold() {
-      return A * number_of_active_hazard_eras() + B;
-    }
+      static size_t retired_nodes_threshold() {
+        return A * number_of_active_hazard_eras() + B;
+      }
 
-    static size_t number_of_active_hazard_eras() {
-      return number_of_active_hes.load(std::memory_order_relaxed);
-    }
+      static size_t number_of_active_hazard_eras() {
+        return number_of_active_hes.load(std::memory_order_relaxed);
+      }
 
-    using thread_control_block = ThreadControlBlock<generic_hazard_eras_policy>;
-  private:
-    friend thread_control_block;
-    friend basic_he_thread_control_block<generic_hazard_eras_policy, thread_control_block>;
+      using thread_control_block = ThreadControlBlock<generic_hazard_era_allocation_strategy>;
+    private:
+      friend thread_control_block;
+      friend basic_he_thread_control_block<generic_hazard_era_allocation_strategy, thread_control_block>;
 
-    static std::atomic<size_t> number_of_active_hes;
+      static std::atomic<size_t> number_of_active_hes;
+    };
+
+    template <class Strategy>
+    struct static_he_thread_control_block;
+
+    template <class Strategy>
+    struct dynamic_he_thread_control_block;
+  }
+
+  namespace he_allocation {
+    template <size_t K = 2, size_t A = 2, size_t B = 100>
+    struct static_strategy :
+      detail::generic_hazard_era_allocation_strategy<K, A, B, detail::static_he_thread_control_block> {};
+
+    template <size_t K = 2, size_t A = 2, size_t B = 100>
+    struct dynamic_strategy :
+      detail::generic_hazard_era_allocation_strategy<K, A, B, detail::dynamic_he_thread_control_block> {};
+  }
+
+  template <class AllocationStrategy = he_allocation::static_strategy<3>>
+  struct hazard_era_traits {
+    using allocation_strategy = AllocationStrategy;
+
+    template <class... Policies>
+    using with = hazard_era_traits<
+      parameter::type_param_t<policy::allocation_strategy, AllocationStrategy, Policies...>
+    >;
   };
-
-  template <class Policy>
-  struct static_he_thread_control_block;
-
-  template <class Policy>
-  struct dynamic_he_thread_control_block;
-
-  template <size_t K = 2, size_t A = 2, size_t B = 100>
-  using static_hazard_eras_policy = generic_hazard_eras_policy<K, A, B, static_he_thread_control_block>;
-
-  template <size_t K = 2, size_t A = 2, size_t B = 100>
-  using dynamic_hazard_eras_policy = generic_hazard_eras_policy<K, A, B, dynamic_he_thread_control_block>;
 
   /**
    * @brief An implementation of the hazard eras scheme proposed by Ramalhete and Correia
    * \[[RC17](index.html#ref-ramalhete-2017)\].
    *
-   * @tparam Policy
+   * @tparam Traits
    */
-  template <typename Policy>
+  template <class Traits = hazard_era_traits<>>
   class hazard_eras
   {
-    using thread_control_block = typename Policy::thread_control_block;
-    friend basic_he_thread_control_block<Policy, thread_control_block>;
+    using allocation_strategy = typename Traits::allocation_strategy;
+    using thread_control_block = typename allocation_strategy::thread_control_block;
+    friend detail::basic_he_thread_control_block<allocation_strategy, thread_control_block>;
 
     template <class T, class MarkedPtr>
     class guard_ptr;
 
   public:
+    template <class... Policies>
+    using with = hazard_eras<typename Traits::template with<Policies...>>;
+
     template <class T, std::size_t N = 0, class Deleter = std::default_delete<T>>
     class enable_concurrent_ptr;
 
@@ -102,9 +119,9 @@ namespace xenium { namespace reclamation {
     ALLOCATION_TRACKING_FUNCTIONS;
   };
 
-  template <typename Policy>
+  template <class Traits>
   template <class T, std::size_t N, class Deleter>
-  class hazard_eras<Policy>::enable_concurrent_ptr :
+  class hazard_eras<Traits>::enable_concurrent_ptr :
     public detail::deletable_object_impl<T, Deleter, detail::deletable_object_with_eras>,
     private detail::tracked_object<hazard_eras>
   {
@@ -126,9 +143,9 @@ namespace xenium { namespace reclamation {
     friend class guard_ptr;
   };
 
-  template <typename Policy>
+  template <class Traits>
   template <class T, class MarkedPtr>
-  class hazard_eras<Policy>::guard_ptr : public detail::guard_ptr<T, MarkedPtr, guard_ptr<T, MarkedPtr>>
+  class hazard_eras<Traits>::guard_ptr : public detail::guard_ptr<T, MarkedPtr, guard_ptr<T, MarkedPtr>>
   {
     using base = detail::guard_ptr<T, MarkedPtr, guard_ptr>;
     using Deleter = typename T::Deleter;
