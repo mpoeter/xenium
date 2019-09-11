@@ -253,7 +253,7 @@ TYPED_TEST(HazardPointer, guard_ptr_protects_the_same_object_via_different_base_
 
 TYPED_TEST(HazardPointer, dynamic_allocation_strategy_can_protect_more_than_K_objects)
 {
-  if (std::is_same<TypeParam , my_dynamic_allocation_strategy>::value)
+  if (std::is_same<TypeParam , my_static_allocation_strategy>::value)
     return;
 
   const size_t count = 100;
