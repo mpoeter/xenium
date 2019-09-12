@@ -6,7 +6,7 @@
 #ifndef XENIUM_DETAL_CONCURRENT_PTR_HPP
 #define XENIUM_DETAL_CONCURRENT_PTR_HPP
 
-#include <xenium/reclamation/detail/marked_ptr.hpp>
+#include <xenium/marked_ptr.hpp>
 
 #include <atomic>
 
@@ -20,7 +20,7 @@ namespace xenium{  namespace reclamation { namespace detail {
   >
   class concurrent_ptr {
   public:
-    using marked_ptr = detail::marked_ptr<T, N>;
+    using marked_ptr = xenium::marked_ptr<T, N>;
     using guard_ptr = GuardPtr<T, marked_ptr>;
     
     concurrent_ptr(const marked_ptr& p = marked_ptr()) noexcept : ptr(p) {}

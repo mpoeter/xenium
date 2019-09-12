@@ -8,7 +8,7 @@
 
 #include <xenium/acquire_guard.hpp>
 #include <xenium/backoff.hpp>
-#include <xenium/reclamation/detail/marked_ptr.hpp>
+#include <xenium/marked_ptr.hpp>
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
 
@@ -124,7 +124,7 @@ private:
   using marked_ptr = typename concurrent_ptr::marked_ptr;
   using guard_ptr = typename concurrent_ptr::guard_ptr;
 
-  using marked_value = reclamation::detail::marked_ptr<std::remove_pointer_t<raw_value_type>, 1>;
+  using marked_value = xenium::marked_ptr<std::remove_pointer_t<raw_value_type>, 1>;
 
   struct padded_entry {
     std::atomic<marked_value> value;

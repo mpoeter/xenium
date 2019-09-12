@@ -1,4 +1,3 @@
-#include <xenium/reclamation/detail/marked_ptr.hpp>
 #include <xenium/reclamation/detail/concurrent_ptr.hpp>
 
 #include <gtest/gtest.h>

@@ -196,7 +196,7 @@ namespace xenium { namespace reclamation {
         void set_link(hazard_pointer* link)
         {
           // (5) - this release store synchronizes-with the acquire fence (9)
-          value.store(detail::marked_ptr<void*, 1>(reinterpret_cast<void**>(link), 1), std::memory_order_release);
+          value.store(marked_ptr<void*, 1>(reinterpret_cast<void**>(link), 1), std::memory_order_release);
         }
         hazard_pointer* get_link() const
         {
@@ -211,7 +211,7 @@ namespace xenium { namespace reclamation {
       private:
         // since we use the hazard pointer array to build our internal linked list of hazard pointers
         // we set the LSB to signal that this is an internal pointer and not a pointer to a protected object.
-        std::atomic<detail::marked_ptr<void*, 1>> value;
+        std::atomic<marked_ptr<void*, 1>> value;
       };
 
       using hint = hazard_pointer*;

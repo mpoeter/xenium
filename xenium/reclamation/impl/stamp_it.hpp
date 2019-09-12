@@ -20,7 +20,7 @@ namespace xenium { namespace reclamation {
     aligned_object<thread_control_block, 1 << MarkBits>,
     detail::thread_block_list<thread_control_block>::entry
   {
-    using concurrent_ptr = std::atomic<detail::marked_ptr<thread_control_block, MarkBits>>;
+    using concurrent_ptr = std::atomic<marked_ptr<thread_control_block, MarkBits>>;
 
     concurrent_ptr prev;
     concurrent_ptr next;
@@ -36,7 +36,7 @@ namespace xenium { namespace reclamation {
   class stamp_it::thread_order_queue
   {
   public:
-    using marked_ptr = detail::marked_ptr<thread_control_block, MarkBits>;
+    using marked_ptr = xenium::marked_ptr<thread_control_block, MarkBits>;
     using concurrent_ptr = std::atomic<marked_ptr>;
 
     thread_order_queue()

@@ -272,7 +272,7 @@ namespace xenium { namespace reclamation {
           return value.load(std::memory_order_relaxed).mark() != 0;
         }
       private:
-        using marked_ptr = detail::marked_ptr<void*, 1>;
+        using marked_ptr = xenium::marked_ptr<void*, 1>;
         // since we use the hazard era array to build our internal linked list of hazard eras we set
         // the LSB to signal that this is an internal pointer and not a pointer to a protected object.
         std::atomic<marked_ptr> value;

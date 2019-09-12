@@ -3,14 +3,16 @@
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 //
 
-#ifndef XENIUM_DETAIL_MARKED_PTR_HPP
-#define XENIUM_DETAIL_MARKED_PTR_HPP
+#ifndef XENIUM_MARKED_PTR_HPP
+#define XENIUM_MARKED_PTR_HPP
 
 #include <cassert>
 #include <cstdint>
 #include <cstddef>
 
-namespace xenium { namespace reclamation { namespace detail {
+namespace xenium {
+  
+  // TODO - documentation
   
   template <class T, std::size_t N>
   class marked_ptr {
@@ -60,6 +62,6 @@ namespace xenium { namespace reclamation { namespace detail {
     using PtrType = T*;
 #endif
   };
-}}}
+}
 
 #endif
