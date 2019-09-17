@@ -10,51 +10,119 @@
 #include <cstdint>
 #include <cstddef>
 
+#ifndef XENIUM_MAX_UPPER_MARK_BITS
+  #define XENIUM_MAX_UPPER_MARK_BITS 16
+#endif
+
 namespace xenium {
   
-  // TODO - documentation
-  
-  template <class T, std::size_t N>
+  /**
+   * @brief A pointer with an embedded mark/tag value.
+   *
+   * Acts like a pointer, but has an embeded mark/tag value with `MarkBits` bits.
+   * On most systems pointers are only 48-bit, leaving the 16 topmost bits clear.
+   * Therefore, the mark value is usually embeded in these top-most bits. For mark
+   * mark values that exceed `MaxUpperMarkBits` bits the remaining bits are embedded
+   * in the lowest bits, but this requires the pointer to be aligned properly.
+   * 
+   * @tparam T
+   * @tparam MarkBits the number of bits used for the mark value
+   * @tparam MaxUpperMarkBits the max number of bits to be used (defaults to 16)
+   */
+  template <class T, uintptr_t MarkBits, uintptr_t MaxUpperMarkBits = XENIUM_MAX_UPPER_MARK_BITS>
   class marked_ptr {
+    static constexpr uintptr_t pointer_bits = sizeof(T*) * 8 - MarkBits;
+    static constexpr uintptr_t MarkMask = (1ul << MarkBits) - 1;
+
+    static constexpr uintptr_t lower_mark_bits = MarkBits < MaxUpperMarkBits ? 0 : MarkBits - MaxUpperMarkBits;
+    static constexpr uintptr_t upper_mark_bits = MarkBits - lower_mark_bits;
+    static constexpr uintptr_t pointer_mask =
+      MarkBits == 0 ? static_cast<uintptr_t>(-1) : ((1ul << pointer_bits) - 1) << lower_mark_bits;
+    
   public:
-    // Construct a marked ptr
+    static constexpr uintptr_t number_of_mark_bits = MarkBits;
+    static_assert(MarkBits <= 32, "MarkBits must not be greater than 32.");
+    static_assert(sizeof(T*) == 8, "marked_ptr requires 64bit pointers.");
+
+    /**
+     * @brief Construct a marked ptr with an optional mark value.
+     * 
+     * The `mark` value is automatically trimmed to `MarkBits` bits.
+     */
     marked_ptr(T* p = nullptr, uintptr_t mark = 0) noexcept
     {
-      assert(mark <= MarkMask && "mark exceeds the number of bits reserved");
-      assert((reinterpret_cast<uintptr_t>(p) & MarkMask) == 0 &&
+      assert((reinterpret_cast<uintptr_t>(p) & ~pointer_mask) == 0 &&
         "bits reserved for masking are occupied by the pointer");
-      ptr = reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(p) | mark);
+      
+      uintptr_t ip = reinterpret_cast<uintptr_t>(p);
+      if (number_of_mark_bits == 0) {
+        assert(mark == 0);
+        ptr = p;
+      } else {
+        mark = rotate_left<lower_mark_bits>(mark << pointer_bits);
+        ptr = reinterpret_cast<T*>(ip | mark);
+      }
     }
     
-    // Set to nullptr
+    /**
+     * @brief Reset the pointer to `nullptr` and the mark to 0.
+     */
     void reset() noexcept { ptr = nullptr; }
     
-    // Get mark bits
+    /**
+     * @brief Get the mark value.
+     */
     uintptr_t mark() const noexcept {
-      return reinterpret_cast<uintptr_t>(ptr) & MarkMask;
+      return rotate_right<lower_mark_bits>(reinterpret_cast<uintptr_t>(ptr)) >> pointer_bits;
     }
     
-    // Get underlying pointer (with mark bits stripped off).
+    /**
+     * @brief Get underlying pointer (with mark bits stripped off).
+     */
     T* get() const noexcept {
-      return reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(ptr) & ~MarkMask);
+      auto ip = reinterpret_cast<uintptr_t>(ptr);
+      if (number_of_mark_bits != 0)
+        ip &= pointer_mask;
+      return reinterpret_cast<T*>(ip);
     }
     
-    // True if get() != nullptr || mark() != 0
+    /**
+     * @brief True if `get() != nullptr || mark() != 0`
+     */
     explicit operator bool() const noexcept { return ptr != nullptr; }
     
-    // Get pointer with mark bits stripped off.
+    /**
+     * @brief Get pointer with mark bits stripped off.
+     */
     T* operator->() const noexcept { return get(); }
     
-    // Get reference to target of pointer.
+    /**
+     * @brief Get reference to target of pointer.
+     */
     T& operator*() const noexcept { return *get(); }
 
     inline friend bool operator==(const marked_ptr& l, const marked_ptr& r) { return l.ptr == r.ptr; }
     inline friend bool operator!=(const marked_ptr& l, const marked_ptr& r) { return l.ptr != r.ptr; }
 
-    static constexpr std::size_t number_of_mark_bits = N;
   private:
-    static constexpr uintptr_t MarkMask = (1 << N) - 1;
     T* ptr;
+
+    // TODO - use intrinsics for rotate operation (if available)
+    template <uintptr_t C>
+    static uintptr_t rotate_left(uintptr_t v) {
+      if (C == 0)
+        return v;
+      else
+        return (v >> (64 - C)) | (v << C);
+    }
+
+    template <uintptr_t C>
+    static uintptr_t rotate_right(uintptr_t v) {
+      if (C == 0)
+        return v;
+      else 
+        return (v >> C) | (v << (64 - C));
+    }
 
 #ifdef _MSC_VER
     // These members are only for the VS debugger visualizer (natvis).

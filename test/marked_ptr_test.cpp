@@ -14,7 +14,20 @@ TEST(marked_ptr, get_returns_correct_pointer)
   Foo f;
   xenium::marked_ptr<Foo, 2> p(&f, 3);
   EXPECT_EQ(&f, p.get());
+
+  xenium::marked_ptr<Foo, 18> p2(&f, (1 << 18) - 1);
+  EXPECT_EQ(&f, p2.get());
+}
+
+TEST(marked_ptr, mark_returns_correct_value) {
+  Foo f;
+  
+  xenium::marked_ptr<Foo, 2> p(&f, 3);
   EXPECT_EQ(3, p.mark());
+
+  auto mark = (1 << 18) - 1;
+  xenium::marked_ptr<Foo, 18> p2(&f, mark);
+  EXPECT_EQ(mark, p2.mark());
 }
 
 TEST(marked_ptr, deref_works_correctly)
