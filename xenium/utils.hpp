@@ -6,6 +6,11 @@
 #ifndef XENIUM_UTILS_HPP
 #define XENIUM_UTILS_HPP
 
+#include <cstdint>
+
+// TODO - make portable
+#include <x86intrin.h>
+
 namespace xenium { namespace utils {
   template <typename T>
   constexpr bool is_power_of_two(T val) {
@@ -33,5 +38,11 @@ namespace xenium { namespace utils {
   struct modulo {
     T operator()(T a, T b) { return a % b; }
   };
+
+
+  inline std::uint64_t random() {
+    // TODO - make portable
+    return __rdtsc() >> 4;
+  }
 }}
 #endif

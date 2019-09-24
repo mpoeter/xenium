@@ -11,10 +11,7 @@
 #include <xenium/marked_ptr.hpp>
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
-
-#define XENIUM_RAMALHETE_QUEUE_IMPL
-#include <xenium/impl/ramalhete_queue_traits.hpp>
-#undef XENIUM_RAMALHETE_QUEUE_IMPL
+#include <xenium/detail/pointer_queue_traits.hpp>
 
 #include <algorithm>
 #include <atomic>
@@ -23,26 +20,6 @@
 namespace xenium {
 
 namespace policy {
-  /**
-   * @brief Policy to configure the number of entries per allocated node in `ramalhete_queue`.
-   * @tparam Value
-   */
-  template <unsigned Value>
-  struct entries_per_node;
-
-  /**
-   * @brief Policy to configure the number of padding bytes to add to each entry in
-   * `ramalhete_queue` to reduce false sharing.
-   *
-   * Note that this number of bytes is a lower bound. Depending on the size of the
-   * queue's `value_type` the compiler may add some additional padding. The effective
-   * size of a queue entry is provided in `ramalhete_queue::entry_size`.
-   *
-   * @tparam Value
-   */
-  template <unsigned Value>
-  struct padding_bytes;
-
   /**
    * @brief Policy to configure the number of iterations to spin on a queue entry while waiting
    * for a pending push operation to finish.
@@ -82,7 +59,7 @@ namespace policy {
 template <class T, class... Policies>
 class ramalhete_queue {
 private:
-  using traits = impl::ramalhete_queue_traits<T, Policies...>;
+  using traits = detail::pointer_queue_traits<T, Policies...>;
   using raw_value_type = typename traits::raw_type;
 public:
   using value_type = T;
