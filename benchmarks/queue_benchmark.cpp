@@ -208,6 +208,35 @@ namespace {
       make_benchmark_builder<vyukov_bounded_queue<QUEUE_ITEM, policy::default_to_weak<false>>>(),
 #endif
 
+#ifdef WITH_KIRSCH_KFIFO_QUEUE
+  #ifdef WITH_EPOCH_BASED
+      make_benchmark_builder<kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::epoch_based<100>>>>(),
+  #endif
+  #ifdef WITH_NEW_EPOCH_BASED
+      make_benchmark_builder<kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::new_epoch_based<100>>>>(),
+  #endif
+  #ifdef WITH_QUIESCENT_STATE_BASED
+    make_benchmark_builder<kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::quiescent_state_based>>>(),
+  #endif
+  #ifdef WITH_DEBRA
+    make_benchmark_builder<kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::debra<100>>>>(),
+  #endif
+  #ifdef WITH_HAZARD_POINTER
+    make_benchmark_builder<
+      kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<
+        reclamation::hazard_pointer<>::with<
+          policy::allocation_strategy<reclamation::hp_allocation::static_strategy<3>>>>>>(),
+    make_benchmark_builder<
+      kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<
+        reclamation::hazard_pointer<>::with<
+          policy::allocation_strategy<reclamation::hp_allocation::dynamic_strategy<3>>>>>>(),
+  #endif
+#endif
+
+#ifdef WITH_KIRSCH_BOUNDED_KFIFO_QUEUE
+    make_benchmark_builder<kirsch_bounded_kfifo_queue<QUEUE_ITEM*>>(),
+#endif
+
 #ifdef WITH_CDS_MSQUEUE
       make_benchmark_builder<cds::container::MSQueue<cds::gc::HP, QUEUE_ITEM>>(),
 #endif
