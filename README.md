@@ -20,6 +20,8 @@ Michael and Scott \[[MS96](#ref-michael-1996)\].
 * `ramalhete_queue` - a fast unbounded lock-free multi-producer/multi-consumer queue proposed by
 Ramalhete \[[Ram16](#ref-ramalhete-2016)\].
 * `vyukov_bounded_queue` - a bounded multi-producer/multi-consumer FIFO queue based on the version proposed by Vyukov \[[Vyu10 ](#ref-vyukov-2010)\].
+* `kirsch_kfifo_queue` - an unbounded multi-producer/multi-consumer k-FIFO queue proposed by Kirsch et al. \[[KLP13](#ref-kirsch-2013)\].
+* `kirsch_bounded_kfifo_queue` - a bounded multi-producer/multi-consumer k-FIFO queue proposed by Kirsch et al. \[[KLP13](#ref-kirsch-2013)\].
 * `harris_michael_list_based_set` - a lock-free container that contains a sorted set of unique objects.
 This data structure is based on the solution proposed by Michael \[[Mic02](#ref-michael-2002)\] which builds
 upon the original proposal by Harris \[[Har01](#ref-harris-2001)\].
@@ -87,6 +89,13 @@ The following reclamation schemes are implemented:
     <a href=http://csng.cs.toronto.edu/publication_files/0000/0159/jpdc07.pdf>
     Performance of memory reclamation for lockless synchronization</a>.
     Journal of Parallel and Distributed Computing, 67(12):1270–1285, 2007.</td>
+</tr>
+<tr>
+    <td valign="top"><a name="ref-kirsch-2013"></a>[KLP13]</td>
+    <td>Christoph Kirsch, Michael Lippautz, and Hannes Payer.
+    <a href="http://www.cs.uni-salzburg.at/~ck/content/publications/conferences/PaCT13-FastScalableQueues.pdf">
+    Fast and scalable, lock-free k-FIFO queues</a>.
+    In <i>Proceedings of the International Conference on Parallel Computing Technologies (PaCT)</i>, pages 208–223, Springer-Verlag, 2013.
 </tr>
 <tr>
     <td valign="top"><a name="ref-michael-2002"></a>[Mic02]</td>

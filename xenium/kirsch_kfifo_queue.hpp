@@ -17,6 +17,26 @@
 #include <cstdint>
 
 namespace xenium {
+  /**
+   * @brief An unbounded lock-free multi-producer/multi-consumer k-FIFO queue.
+   * 
+   * This is an implementation of the proposal by Kirsch et al. [[KLP13](index.html#ref-kirsch-2013)\].
+   * 
+   * A k-FIFO queue can be understood as a queue where each element may be dequeued
+   * out-of-order up to k−1.
+   * 
+   * A limitation of this queue is that it can only handle pointers (i.e., `T` must be
+   * a raw pointer or a `std::unique_ptr`).
+   * 
+   * Supported policies:
+   *  * `xenium::policy::reclaimer`<br>
+   *    Defines the reclamation scheme to be used for internal nodes. (**required**)
+   *  * `xenium::policy::padding_bytes`<br>
+   *    Defines the number of padding bytes for each entry. (*optional*; defaults to `sizeof(T*)`)
+   * 
+   * @tparam T
+   * @tparam Policies list of policies to customize the behaviour
+   */
   template <class T, class... Policies>
   class kirsch_kfifo_queue {
   private:
@@ -41,9 +61,22 @@ namespace xenium {
     kirsch_kfifo_queue& operator= (const kirsch_kfifo_queue&) = delete;
     kirsch_kfifo_queue& operator= (kirsch_kfifo_queue&&) = delete;
 
+    /**
+     * Pushes the given value to the queue.
+     * This operation might have to allocate a new segment.
+     * Progress guarantees: lock-free (may perform a memory allocation)
+     * @param value
+     */
     void push(value_type value);
 
+    /**
+     * Tries to pop an object from the queue.
+     * Progress guarantees: lock-free
+     * @param result
+     * @return `true` if the operation was successful, otherwise `false`
+     */
     bool try_pop(value_type& result);
+
   private:
     using marked_value = xenium::marked_ptr<std::remove_pointer_t<raw_value_type>, 16>;
 
