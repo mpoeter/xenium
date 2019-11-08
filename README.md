@@ -4,13 +4,21 @@
 [![MIT Licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Documentation](https://img.shields.io/badge/docs-doxygen-orange.svg)](https://mpoeter.github.io/xenium)
 
-xenium is a collection of concurrent data structures and memory reclamation algorithms.
-The data structures are parameterized so that they can be used with various reclamation
-schemes (similar to how the STL allows customization of allocators). The [documentation](https://mpoeter.github.io/xenium) provides more details.
+xenium is a header-only library that provides a collection of concurrent data structures
+and memory reclamation algorithms. The data structures are parameterized so that they can
+be used with various reclamation schemes (similar to how the STL allows customization of
+allocators).
 
-This project is based on the previous work in https://github.com/mpoeter/emr
+ * header only
+ * highly customizable
+ * no initialization code needed
+ * supports dynamic number of threads (no fixed compile time specification)
 
-### Data Structures
+The [documentation](https://mpoeter.github.io/xenium) provides more details.
+
+This project is based on my previous work in https://github.com/mpoeter/emr
+
+## Data Structures
 At the moment the number of provided data structures is rather small since the focus so far
 was on the reclamation schemes. However, the plan is to add several more data structures in
 the near future.
@@ -34,7 +42,7 @@ This implementation is heavily inspired by the version proposed by Vyukov \[[Vyu
 * `left_right` - a generic implementation of the LeftRight algorithm proposed by Ramalhete and Correia
 \[[RC15](#ref-ramalhete-2015)\].
 
-### Reclamation Schemes
+## Reclamation Schemes
 
 The implementation of the reclamation schemes is based on an adapted version of the interface
 proposed by Robison \[[Rob13](#ref-robison-2013)\].
@@ -49,7 +57,7 @@ The following reclamation schemes are implemented:
 * `debra` \[[Bro15](#ref-brown-2015)\]
 * `stamp_it` \[[PT18a](#ref-pöter-2018), [PT18b](#ref-pöter-2018-tr)\]
 
-#### References
+### References
 
 <table style="border:0px">
 <tr>
@@ -185,7 +193,7 @@ The following reclamation schemes are implemented:
     <td valign="top"><a name="ref-vyukov-2010"></a>[Vyu10]</td>
     <td>Dmitry Vyukov.
     <a href=https://groups.google.com/forum/#!topic/lock-free/-bqYlfbQmH0>
-    Simple and efficient bounded mpmc queue</a>. Google Groups posting, 2010.</td>
+    Simple and efficient bounded MPMC queue</a>. Google Groups posting, 2010.</td>
 </tr>
 </table>
 
