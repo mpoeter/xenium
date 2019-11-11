@@ -130,6 +130,55 @@ namespace xenium {
     using PtrType = T*;
 #endif
   };
+
+  template <class T, uintptr_t MaxUpperMarkBits>
+  class marked_ptr<T, 0, MaxUpperMarkBits> {
+  public:
+    static constexpr uintptr_t number_of_mark_bits = 0;
+    
+    /**
+     * @brief Construct a marked ptr.
+     */
+    marked_ptr(T* p = nullptr) noexcept {
+      ptr = p;
+    }
+    
+    /**
+     * @brief Reset the pointer to `nullptr` and the mark to 0.
+     */
+    void reset() noexcept { ptr = nullptr; }
+    
+    /**
+     * @brief Get the mark value.
+     */
+    uintptr_t mark() const noexcept { return 0; }
+    
+    /**
+     * @brief Get underlying pointer.
+     */
+    T* get() const noexcept { return ptr; }
+    
+    /**
+     * @brief True if `get() != nullptr || mark() != 0`
+     */
+    explicit operator bool() const noexcept { return ptr != nullptr; }
+    
+    /**
+     * @brief Get pointer with mark bits stripped off.
+     */
+    T* operator->() const noexcept { return get(); }
+    
+    /**
+     * @brief Get reference to target of pointer.
+     */
+    T& operator*() const noexcept { return *get(); }
+
+    inline friend bool operator==(const marked_ptr& l, const marked_ptr& r) { return l.ptr == r.ptr; }
+    inline friend bool operator!=(const marked_ptr& l, const marked_ptr& r) { return l.ptr != r.ptr; }
+
+  private:
+    T* ptr;
+  };
 }
 
 #endif
