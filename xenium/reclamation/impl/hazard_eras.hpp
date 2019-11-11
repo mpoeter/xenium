@@ -91,7 +91,7 @@ namespace xenium { namespace reclamation {
       // the era_clock.load cannot return an outdated value.
       order = std::memory_order_acquire;
     }
-    auto prev_era = he == nullptr ? 0 : he->get_era();
+    era_t prev_era = he == nullptr ? 0 : he->get_era();
     for (;;) {
       // (1) - this load operation synchronizes-with any release operation on p.
       // we have to use acquire here to ensure that the subsequent era_clock.load
@@ -230,8 +230,9 @@ namespace xenium { namespace reclamation {
 
         era_t get_era() const
         {
-          era_t result;
+          era_t result = 0;
           bool success = try_get_era(result);
+          (void)success;
           assert(success);
           assert(result != 0);
           return result;

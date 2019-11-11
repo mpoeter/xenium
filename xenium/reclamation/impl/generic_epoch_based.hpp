@@ -385,7 +385,7 @@ namespace xenium { namespace reclamation {
       control_block->local_epoch.store(new_epoch, std::memory_order_relaxed);
 
       auto diff = std::min<int>(number_epochs, new_epoch - old_epoch);
-      epoch_t epoch_idx;
+      epoch_t epoch_idx = local_epoch_idx;
       for (int i = diff - 1; i >= 0; --i)
       {
         epoch_idx = (new_epoch - i) % number_epochs;

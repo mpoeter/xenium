@@ -88,7 +88,7 @@ TEST(VyukovBoundedQueue, parallel_usage)
       for (int j = 0; j < MaxIterations; ++j)
       {
         EXPECT_TRUE(queue.try_push(i));
-        int elem;
+        int elem = 0;
         EXPECT_TRUE(queue.try_pop(elem));
         EXPECT_TRUE(elem >= 0 && elem <= 4);
       }
