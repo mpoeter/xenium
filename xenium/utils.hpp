@@ -8,9 +8,6 @@
 
 #include <cstdint>
 
-// TODO - make portable
-#include <x86intrin.h>
-
 namespace xenium { namespace utils {
   template <typename T>
   constexpr bool is_power_of_two(T val) {
@@ -24,7 +21,7 @@ namespace xenium { namespace utils {
       ++result;
     return result;
   }
-
+  
   template <typename T>
   constexpr T next_power_of_two(T val)
   {
@@ -38,11 +35,50 @@ namespace xenium { namespace utils {
   struct modulo {
     T operator()(T a, T b) { return a % b; }
   };
+  
+  // TODO - use intrinsics for rotate operation (if available)
+  template <uintptr_t C>
+  struct rotate {
+    static uintptr_t left(uintptr_t v) {
+      static_assert(C > 0, "should never happen!");
+      return (v >> (64 - C)) | (v << C);
+    }
+    
+    static uintptr_t right(uintptr_t v) {
+      static_assert(C > 0, "should never happen!");
+      return (v >> C) | (v << (64 - C));
+    }
+  };
 
+  template <>
+  struct rotate<0> {
+    static uintptr_t left(uintptr_t v) { return v; }
+    static uintptr_t right(uintptr_t v) { return v; }
+  };
+  
+#if defined(__GNUC__)
+  #if defined(__sparc__)
+  static inline std::uint64_t getticks(void) {
+      std::uint64_t ret;
+      __asm__("rd %%tick, %0" : "=r" (ret));
+      return ret;
+  }
+  #elif defined(__x86_64__)
+  static inline std::uint64_t getticks(void) {
+      std::uint32_t hi, lo;
+      __asm__ ("rdtsc" : "=a"(lo), "=d"(hi));
+      return (static_cast<std::uint64_t>(hi) << 32) | static_cast<std::uint64_t>(lo);
+  }
+  #else
+    #error "Unsupported platform"
+  #endif
+#else
+  // TODO - add support for more compilers!
+  #error "Unsupported compiler"
+#endif
 
   inline std::uint64_t random() {
-    // TODO - make portable
-    return __rdtsc() >> 4;
+    return getticks() >> 4;
   }
 }}
 #endif

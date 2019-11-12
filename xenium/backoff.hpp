@@ -11,6 +11,8 @@
 
 #if BOOST_ARCH_X86
 #include <emmintrin.h>
+#else
+#include <thread>
 #endif
 
 namespace xenium {
@@ -38,7 +40,7 @@ private:
     _mm_pause();
 #else
     #warning "No backoff implementation available."
-    std::this_thread::yield;
+    std::this_thread::yield();
 #endif
   }
 

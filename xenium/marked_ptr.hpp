@@ -6,6 +6,8 @@
 #ifndef XENIUM_MARKED_PTR_HPP
 #define XENIUM_MARKED_PTR_HPP
 
+#include <xenium/utils.hpp>
+
 #include <cassert>
 #include <cstdint>
 #include <cstddef>
@@ -15,7 +17,6 @@
 #endif
 
 namespace xenium {
-  
   /**
    * @brief A pointer with an embedded mark/tag value.
    *
@@ -31,6 +32,7 @@ namespace xenium {
    */
   template <class T, uintptr_t MarkBits, uintptr_t MaxUpperMarkBits = XENIUM_MAX_UPPER_MARK_BITS>
   class marked_ptr {
+    static_assert(MarkBits > 0, "should never happen - compiler should pick the specilization for zero MarkBits!");
     static constexpr uintptr_t pointer_bits = sizeof(T*) * 8 - MarkBits;
     static constexpr uintptr_t MarkMask = (1ul << MarkBits) - 1;
 
@@ -59,7 +61,7 @@ namespace xenium {
         assert(mark == 0);
         ptr = p;
       } else {
-        mark = rotate_left<lower_mark_bits>(mark << pointer_bits);
+        mark = utils::rotate<lower_mark_bits>::left(mark << pointer_bits);
         ptr = reinterpret_cast<T*>(ip | mark);
       }
     }
@@ -73,7 +75,7 @@ namespace xenium {
      * @brief Get the mark value.
      */
     uintptr_t mark() const noexcept {
-      return rotate_right<lower_mark_bits>(reinterpret_cast<uintptr_t>(ptr)) >> pointer_bits;
+      return utils::rotate<lower_mark_bits>::right(reinterpret_cast<uintptr_t>(ptr)) >> pointer_bits;
     }
     
     /**
@@ -106,23 +108,6 @@ namespace xenium {
 
   private:
     T* ptr;
-
-    // TODO - use intrinsics for rotate operation (if available)
-    template <uintptr_t C>
-    static uintptr_t rotate_left(uintptr_t v) {
-      if (C == 0)
-        return v;
-      else
-        return (v >> (64 - C)) | (v << C);
-    }
-
-    template <uintptr_t C>
-    static uintptr_t rotate_right(uintptr_t v) {
-      if (C == 0)
-        return v;
-      else 
-        return (v >> C) | (v << (64 - C));
-    }
 
 #ifdef _MSC_VER
     // These members are only for the VS debugger visualizer (natvis).

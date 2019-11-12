@@ -7,6 +7,7 @@
 #error "This is an impl file and must not be included directly!"
 #endif
 
+#include <xenium/detail/port.hpp>
 #include <boost/config.hpp>
 
 namespace xenium { namespace reclamation {
