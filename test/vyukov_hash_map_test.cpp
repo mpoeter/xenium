@@ -13,22 +13,26 @@
 #include <vector>
 #include <thread>
 
-// Simple solution to simulate exception beeing thrown in "compare_key". Such
-// exceptions can be caused by the construction of guard_ptr instances (e.g.,
-// when using hazard_pointer reclaimer).
-struct throwing_key {
-  throwing_key() noexcept {}
-  throwing_key(int v) noexcept : v(v) {}
-  int v;
-  bool operator==(const throwing_key&) const {
-    throw std::runtime_error("test exception");
-  }
-};
+namespace {
+  // Simple solution to simulate exception beeing thrown in "compare_key". Such
+  // exceptions can be caused by the construction of guard_ptr instances (e.g.,
+  // when using hazard_pointer reclaimer).
+  struct throwing_key {
+    throwing_key() noexcept {}
+    throwing_key(int v) noexcept : v(v) {}
+    int v;
+    bool operator==(const throwing_key&) const {
+      throw std::runtime_error("test exception");
+    }
+  };
+}
 
-template <>
-struct xenium::hash<throwing_key> {
-  hash_t operator()(const throwing_key& v) const { return v.v; }
-};
+namespace xenium {
+  template <>
+  struct hash<throwing_key> {
+    hash_t operator()(const throwing_key& v) const { return v.v; }
+  };
+}
 
 namespace {
 
