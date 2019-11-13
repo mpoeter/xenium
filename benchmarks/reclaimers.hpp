@@ -1,6 +1,88 @@
 #include "descriptor.hpp"
 
-// TODO - adapt for generic_epoch_based
+#ifdef WITH_GENERIC_EPOCH_BASED
+#include <xenium/reclamation/generic_epoch_based.hpp>
+
+inline std::string to_string(xenium::reclamation::region_extension v) {
+  switch (v) {
+    case xenium::reclamation::region_extension::eager: return "eager";
+    case xenium::reclamation::region_extension::lazy: return "lazy";
+    case xenium::reclamation::region_extension::none: return "none";
+    default: assert(false); return "<invalid region_extension>";
+  }
+}
+
+template <>
+struct descriptor<xenium::reclamation::scan::all_threads> {
+  static boost::property_tree::ptree generate() {
+    boost::property_tree::ptree pt;
+    pt.put("type", "all_threads");
+    return pt;
+  }
+};
+
+template <>
+struct descriptor<xenium::reclamation::scan::one_thread> {
+  static boost::property_tree::ptree generate() {
+    boost::property_tree::ptree pt;
+    pt.put("type", "one_thread");
+    return pt;
+  }
+};
+
+template <unsigned N>
+struct descriptor<xenium::reclamation::scan::n_threads<N>> {
+  static boost::property_tree::ptree generate() {
+    boost::property_tree::ptree pt;
+    pt.put("type", "n_threads");
+    pt.put("n", N);
+    return pt;
+  }
+};
+
+template <>
+struct descriptor<xenium::reclamation::abandon::never> {
+  static boost::property_tree::ptree generate() {
+    boost::property_tree::ptree pt;
+    pt.put("type", "never");
+    return pt;
+  }
+};
+
+template <>
+struct descriptor<xenium::reclamation::abandon::always> {
+  static boost::property_tree::ptree generate() {
+    boost::property_tree::ptree pt;
+    pt.put("type", "always");
+    return pt;
+  }
+};
+
+template <size_t Threshold>
+struct descriptor<xenium::reclamation::abandon::when_exceeds_threshold<Threshold>> {
+  static boost::property_tree::ptree generate() {
+    boost::property_tree::ptree pt;
+    pt.put("type", "when_exceeds_threshold");
+    pt.put("threshold", Threshold);
+    return pt;
+  }
+};
+
+template <class Traits>
+struct descriptor<xenium::reclamation::generic_epoch_based<Traits>> {
+  static boost::property_tree::ptree generate() {
+    boost::property_tree::ptree pt;
+    pt.put("type", "generic_epoch_based");
+    // for some reason GCC does not like it if `Traits::scan_frequency` is passed directly...
+    constexpr auto scan_frequency = Traits::scan_frequency;
+    pt.put("scan_frequency", scan_frequency);
+    pt.put_child("scan_strategy", descriptor<typename Traits::scan_strategy>::generate());
+    pt.put_child("abandon_strategy", descriptor<typename Traits::abandon_strategy>::generate());
+    pt.put("region_extension", to_string(Traits::region_extension_type));
+    return pt;
+  }
+};
+#endif
 
 #ifdef WITH_EPOCH_BASED
 #include <xenium/reclamation/epoch_based.hpp>

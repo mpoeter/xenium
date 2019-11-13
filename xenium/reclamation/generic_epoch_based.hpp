@@ -171,8 +171,7 @@ namespace reclamation {
   >
   struct generic_epoch_based_traits {
     static constexpr std::size_t scan_frequency = ScanFrequency;
-    template <class Reclaimer>
-    using scan_strategy = typename ScanStrategy::template type<Reclaimer>;
+    using scan_strategy = ScanStrategy;
     using abandon_strategy = AbandonStrategy;
     static constexpr region_extension region_extension_type = RegionExtension;
 

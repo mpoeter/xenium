@@ -430,7 +430,7 @@ namespace xenium { namespace reclamation {
     unsigned critical_entries_since_update = 0;
     unsigned nested_critical_entries = 0;
     unsigned region_entries = 0;
-    typename Traits::template scan_strategy<generic_epoch_based> scan_strategy;
+    typename Traits::scan_strategy::template type<generic_epoch_based> scan_strategy;
     thread_control_block* control_block = nullptr;
     epoch_t local_epoch_idx;
     std::array<typename Traits::abandon_strategy::retire_list, number_epochs> retire_lists = {};

@@ -159,6 +159,11 @@ namespace {
     return benchmark_builders
     {
 #ifdef WITH_VYUKOV_HASH_MAP
+  #ifdef WITH_GENERIC_EPOCH_BASED
+      make_benchmark_builder<vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::epoch_based2<>>>>(),
+      make_benchmark_builder<vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::new_epoch_based2<>>>>(),
+      make_benchmark_builder<vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::debra2<>>>>(),
+  #endif
   #ifdef WITH_EPOCH_BASED
       make_benchmark_builder<vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::epoch_based<100>>>>(),
   #endif
@@ -182,6 +187,11 @@ namespace {
 #endif
 
 #ifdef WITH_HARRIS_MICHAEL_HASH_MAP
+  #ifdef WITH_GENERIC_EPOCH_BASED
+      make_benchmark_builder<harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::epoch_based2<>>>>(),
+      make_benchmark_builder<harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::new_epoch_based2<>>>>(),
+      make_benchmark_builder<harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::debra2<>>>>(),
+  #endif
   #ifdef WITH_EPOCH_BASED
       make_benchmark_builder<harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::epoch_based<100>>>>(),
   #endif
