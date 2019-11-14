@@ -18,6 +18,28 @@ The [documentation](https://mpoeter.github.io/xenium) provides more details.
 
 This project is based on my previous work in https://github.com/mpoeter/emr
 
+# Usage Example
+
+```cpp
+#include <xenium/ramalhete_queue.hpp>
+#include <xenium/reclamation/epoch_based.hpp>
+
+struct msg { ... };
+
+xenium::ramalhete_queue<
+  std::unique_ptr<msg>,
+  xenium::policy::reclaimer<xenium::reclamation::epoch_based<>>,
+  xenium::policy::entries_per_node<2048>
+> queue;
+
+queue.push(std::make_unique<msg>());
+
+std::unique_ptr<msg> data;
+if (queue.try_pop(data)) {
+    // do something with data
+}
+```
+
 ## Data Structures
 At the moment the number of provided data structures is rather small since the focus so far
 was on the reclamation schemes. However, the plan is to add several more data structures in
@@ -52,9 +74,11 @@ The following reclamation schemes are implemented:
 * `hazard_pointer` \[[Mic04](#ref-michael-2004)\]
 * `hazard_eras` \[[RC17](#ref-ramalhete-2017)\]
 * `quiescent_state_based`
-* `epoch_based` \[[Fra04](#ref-fraser-2004)\]
-* `new_epoch_based` \[[HMBW07](#ref-hart-2007)\]
-* `debra` \[[Bro15](#ref-brown-2015)\]
+* `generic_epoch_based` - this is a generalized epoch based reclaimer that can be configured in several
+ways. For simplicity, the following aliases are predefined for the corresponding configurations.
+  * `epoch_based` \[[Fra04](#ref-fraser-2004)\]
+  * `new_epoch_based` \[[HMBW07](#ref-hart-2007)\]
+  * `debra` \[[Bro15](#ref-brown-2015)\]
 * `stamp_it` \[[PT18a](#ref-pöter-2018), [PT18b](#ref-pöter-2018-tr)\]
 
 ### References
