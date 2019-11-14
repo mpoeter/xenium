@@ -337,9 +337,8 @@ namespace reclamation {
 #undef GENERIC_EPOCH_BASED_IMPL
 
 namespace xenium { namespace reclamation {
-  // TODO - rename once old EBR/NEBR/DEBRA implementations have been removed
   template <class... Policies>
-  using epoch_based2 = generic_epoch_based<>::with<
+  using epoch_based = generic_epoch_based<>::with<
     policy::scan_frequency<100>,
     policy::scan<scan::all_threads>,
     policy::region_extension<region_extension::none>,
@@ -347,7 +346,7 @@ namespace xenium { namespace reclamation {
   >;
 
   template <class... Policies>
-  using new_epoch_based2 = generic_epoch_based<>::with<
+  using new_epoch_based = generic_epoch_based<>::with<
     policy::scan_frequency<100>,
     policy::scan<scan::all_threads>,
     policy::region_extension<region_extension::eager>,
@@ -355,7 +354,7 @@ namespace xenium { namespace reclamation {
   >;
 
   template <class... Policies>
-  using debra2 = generic_epoch_based<>::with<
+  using debra = generic_epoch_based<>::with<
     policy::scan_frequency<20>,
     policy::scan<scan::one_thread>,
     policy::region_extension<region_extension::none>,

@@ -1,10 +1,10 @@
-#include <xenium/reclamation/epoch_based.hpp>
+#include <xenium/reclamation/generic_epoch_based.hpp>
 
 #include <gtest/gtest.h>
 
 namespace {
 
-using Reclaimer = xenium::reclamation::epoch_based<0>;
+using Reclaimer = xenium::reclamation::generic_epoch_based<>::with<xenium::policy::scan_frequency<0>>;
 
 struct Foo : Reclaimer::enable_concurrent_ptr<Foo, 2>
 {
@@ -17,7 +17,7 @@ template <typename T>
 using concurrent_ptr = Reclaimer::concurrent_ptr<T>;
 template <typename T> using marked_ptr = typename concurrent_ptr<T>::marked_ptr;
 
-struct EpochBased : testing::Test
+struct GenericEpochBased : testing::Test
 {
   Foo* foo = new Foo(&foo);
   marked_ptr<Foo> mp = marked_ptr<Foo>(foo, 3);
@@ -47,56 +47,61 @@ struct EpochBased : testing::Test
   }
 };
 
-TEST_F(EpochBased, mark_returns_the_same_mark_as_the_original_marked_ptr)
+TEST_F(GenericEpochBased, mark_returns_the_same_mark_as_the_original_marked_ptr)
 {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   EXPECT_EQ(mp.mark(), gp.mark());
 }
 
-TEST_F(EpochBased, get_returns_the_same_pointer_as_the_original_marked_ptr)
+TEST_F(GenericEpochBased, get_returns_the_same_pointer_as_the_original_marked_ptr)
 {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   EXPECT_EQ(mp.get(), gp.get());
 }
 
-TEST_F(EpochBased, reset_releases_ownership_and_sets_pointer_to_null)
+TEST_F(GenericEpochBased, reset_releases_ownership_and_sets_pointer_to_null)
 {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   gp.reset();
   EXPECT_EQ(nullptr, gp.get());
 }
 
-TEST_F(EpochBased, reclaim_releases_ownership_and_the_object_gets_deleted_when_advancing_two_epochs)
+TEST_F(GenericEpochBased, reclaim_releases_ownership_and_the_object_gets_deleted_when_advancing_two_epochs)
 {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   gp.reclaim();
   this->mp = nullptr;
+  EXPECT_EQ(nullptr, gp.get());
+  EXPECT_NE(nullptr, foo);
+
   wrap_around_epochs();
   EXPECT_EQ(nullptr, foo);
-  EXPECT_EQ(nullptr, gp.get());
 }
-
 
 struct WithCustomDeleter;
 struct DummyDeleter {
+  bool* called;
   WithCustomDeleter* reference;
   void operator()(WithCustomDeleter* obj) const;
 };
 struct WithCustomDeleter : Reclaimer::enable_concurrent_ptr<WithCustomDeleter, 2, DummyDeleter> {};
 
 void DummyDeleter::operator()(WithCustomDeleter* obj) const {
+  *called = true;
   EXPECT_EQ(reference, obj);
   delete obj;
 }
 
-TEST_F(EpochBased, supports_custom_deleters)
+TEST_F(GenericEpochBased, supports_custom_deleters)
 {
+  bool called = false;
   concurrent_ptr<WithCustomDeleter>::guard_ptr gp(new WithCustomDeleter());
-  gp.reclaim(DummyDeleter{gp.get()});
+  gp.reclaim(DummyDeleter{&called, gp.get()});
   wrap_around_epochs();
+  EXPECT_TRUE(called);
 }
 
-TEST_F(EpochBased, object_cannot_be_reclaimed_as_long_as_another_guard_protects_it)
+TEST_F(GenericEpochBased, object_cannot_be_reclaimed_as_long_as_another_guard_protects_it)
 {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2(mp);
@@ -105,7 +110,7 @@ TEST_F(EpochBased, object_cannot_be_reclaimed_as_long_as_another_guard_protects_
   EXPECT_NE(nullptr, foo);
 }
 
-TEST_F(EpochBased, copy_constructor_leads_to_shared_ownership_preventing_the_object_from_beeing_reclaimed)
+TEST_F(GenericEpochBased, copy_constructor_leads_to_shared_ownership_preventing_the_object_from_beeing_reclaimed)
 {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2(gp);
@@ -115,18 +120,19 @@ TEST_F(EpochBased, copy_constructor_leads_to_shared_ownership_preventing_the_obj
   EXPECT_NE(nullptr, foo);
 }
 
-TEST_F(EpochBased, move_constructor_moves_ownership_and_resets_source_object)
+TEST_F(GenericEpochBased, move_constructor_moves_ownership_and_resets_source_object)
 {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2(std::move(gp));
   EXPECT_EQ(nullptr, gp.get());
+
   gp2.reclaim();
   this->mp = nullptr;
   wrap_around_epochs();
   EXPECT_EQ(nullptr, foo);
 }
 
-TEST_F(EpochBased, copy_assignment_leads_to_shared_ownership_preventing_the_object_from_beeing_reclaimed)
+TEST_F(GenericEpochBased, copy_assignment_leads_to_shared_ownership_preventing_the_object_from_beeing_reclaimed)
 {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2{};
@@ -137,11 +143,13 @@ TEST_F(EpochBased, copy_assignment_leads_to_shared_ownership_preventing_the_obje
   EXPECT_NE(nullptr, foo);
 }
 
-TEST_F(EpochBased, move_assignment_moves_ownership_and_resets_source_object)
+TEST_F(GenericEpochBased, move_assignment_moves_ownership_and_resets_source_object)
 {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2{};
   gp2 = std::move(gp);
+  EXPECT_EQ(nullptr, gp.get());
+
   gp2.reclaim();
   this->mp = nullptr;
   wrap_around_epochs();

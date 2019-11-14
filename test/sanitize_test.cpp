@@ -12,10 +12,8 @@
 #include <xenium/reclamation/lock_free_ref_count.hpp>
 #include <xenium/reclamation/hazard_pointer.hpp>
 #include <xenium/reclamation/hazard_eras.hpp>
-#include <xenium/reclamation/epoch_based.hpp>
-#include <xenium/reclamation/new_epoch_based.hpp>
+#include <xenium/reclamation/generic_epoch_based.hpp>
 #include <xenium/reclamation/quiescent_state_based.hpp>
-#include <xenium/reclamation/debra.hpp>
 #include <xenium/reclamation/stamp_it.hpp>
 
 #include <gtest/gtest.h>
@@ -34,10 +32,10 @@ using Reclaimers = ::testing::Types<
     xenium::policy::allocation_strategy<xenium::reclamation::hp_allocation::static_strategy<3, 2, 1>>>,
   xenium::reclamation::hazard_eras<>::with<
     xenium::policy::allocation_strategy<xenium::reclamation::he_allocation::static_strategy<3, 2, 1>>>,
-  xenium::reclamation::epoch_based<1>,
-  xenium::reclamation::new_epoch_based<1>,
+  xenium::reclamation::debra<>::with<xenium::policy::scan_frequency<1>>,
+  xenium::reclamation::epoch_based<>::with<xenium::policy::scan_frequency<1>>,
+  xenium::reclamation::new_epoch_based<>::with<xenium::policy::scan_frequency<1>>,
   xenium::reclamation::quiescent_state_based,
-  xenium::reclamation::debra<1>,
   xenium::reclamation::stamp_it
 >;
 TYPED_TEST_CASE(Sanitize, Reclaimers);

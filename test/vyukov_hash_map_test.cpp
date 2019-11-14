@@ -1,9 +1,6 @@
 #include <xenium/reclamation/hazard_pointer.hpp>
 #include <xenium/reclamation/hazard_eras.hpp>
-#include <xenium/reclamation/epoch_based.hpp>
-#include <xenium/reclamation/new_epoch_based.hpp>
 #include <xenium/reclamation/quiescent_state_based.hpp>
-#include <xenium/reclamation/debra.hpp>
 #include <xenium/reclamation/generic_epoch_based.hpp>
 #include <xenium/reclamation/stamp_it.hpp>
 #include <xenium/vyukov_hash_map.hpp>
@@ -49,14 +46,11 @@ using Reclaimers = ::testing::Types<
       xenium::policy::allocation_strategy<xenium::reclamation::hp_allocation::static_strategy<3>>>,
     xenium::reclamation::hazard_eras<>::with<
       xenium::policy::allocation_strategy<xenium::reclamation::he_allocation::static_strategy<3>>>,
-    xenium::reclamation::epoch_based<10>,
-    xenium::reclamation::new_epoch_based<10>,
     xenium::reclamation::quiescent_state_based,
-    xenium::reclamation::debra<20>,
     xenium::reclamation::stamp_it,
-    xenium::reclamation::epoch_based2<>,
-    xenium::reclamation::new_epoch_based2<>,
-    xenium::reclamation::debra2<>
+    xenium::reclamation::epoch_based<>::with<xenium::policy::scan_frequency<10>>,
+    xenium::reclamation::new_epoch_based<>::with<xenium::policy::scan_frequency<10>>,
+    xenium::reclamation::debra<>::with<xenium::policy::scan_frequency<10>>
   >;
 TYPED_TEST_CASE(VyukovHashMap, Reclaimers);
 
@@ -445,7 +439,7 @@ TYPED_TEST(VyukovHashMap, iterator_covers_all_entries_in_sparsely_populated_map)
 #ifdef DEBUG
   const int MaxIterations = 2000;
 #else
-  const int MaxIterations = 40000;
+  const int MaxIterations = 8000;
 #endif
 
 TYPED_TEST(VyukovHashMap, parallel_usage)

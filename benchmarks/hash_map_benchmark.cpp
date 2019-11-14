@@ -160,21 +160,12 @@ namespace {
     {
 #ifdef WITH_VYUKOV_HASH_MAP
   #ifdef WITH_GENERIC_EPOCH_BASED
-      make_benchmark_builder<vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::epoch_based2<>>>>(),
-      make_benchmark_builder<vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::new_epoch_based2<>>>>(),
-      make_benchmark_builder<vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::debra2<>>>>(),
-  #endif
-  #ifdef WITH_EPOCH_BASED
-      make_benchmark_builder<vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::epoch_based<100>>>>(),
-  #endif
-  #ifdef WITH_NEW_EPOCH_BASED
-      make_benchmark_builder<vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::new_epoch_based<100>>>>(),
+      make_benchmark_builder<vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::epoch_based<>>>>(),
+      make_benchmark_builder<vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::new_epoch_based<>>>>(),
+      make_benchmark_builder<vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::debra<>>>>(),
   #endif
   #ifdef WITH_QUIESCENT_STATE_BASED
     make_benchmark_builder<vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::quiescent_state_based>>>(),
-  #endif
-  #ifdef WITH_DEBRA
-    make_benchmark_builder<vyukov_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::debra<100>>>>(),
   #endif
   #ifdef WITH_HAZARD_POINTER
     make_benchmark_builder<
@@ -188,21 +179,12 @@ namespace {
 
 #ifdef WITH_HARRIS_MICHAEL_HASH_MAP
   #ifdef WITH_GENERIC_EPOCH_BASED
-      make_benchmark_builder<harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::epoch_based2<>>>>(),
-      make_benchmark_builder<harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::new_epoch_based2<>>>>(),
-      make_benchmark_builder<harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::debra2<>>>>(),
-  #endif
-  #ifdef WITH_EPOCH_BASED
-      make_benchmark_builder<harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::epoch_based<100>>>>(),
-  #endif
-  #ifdef WITH_NEW_EPOCH_BASED
-      make_benchmark_builder<harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::new_epoch_based<100>>>>(),
+      make_benchmark_builder<harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::epoch_based<>>>>(),
+      make_benchmark_builder<harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::new_epoch_based<>>>>(),
+      make_benchmark_builder<harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::debra<>>>>(),
   #endif
   #ifdef WITH_QUIESCENT_STATE_BASED
     make_benchmark_builder<harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::quiescent_state_based>>>(),
-  #endif
-  #ifdef WITH_DEBRA
-    make_benchmark_builder<harris_michael_hash_map<QUEUE_ITEM, QUEUE_ITEM, policy::reclaimer<reclamation::debra<100>>>>(),
   #endif
 
   #ifdef WITH_HAZARD_POINTER

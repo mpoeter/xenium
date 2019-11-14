@@ -19,10 +19,7 @@
 
 // defines which reclamation schemes shall be included
 #define WITH_HAZARD_POINTER
-#define WITH_EPOCH_BASED
-#define WITH_NEW_EPOCH_BASED
 #define WITH_QUIESCENT_STATE_BASED
-#define WITH_DEBRA
 #define WITH_GENERIC_EPOCH_BASED
 
 #ifdef WITH_LIBCDS
