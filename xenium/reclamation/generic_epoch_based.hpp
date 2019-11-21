@@ -213,9 +213,13 @@ namespace reclamation {
    *   policy::region_extension<region_extension::none>
    * >
    * ```
+   * For ease of use these aliases are already predefined.
    * 
    * This class does not take a list of policies, but a `Traits` type that can be customized
-   * with a list of policies. The following policies are supported:
+   * with a list of policies. Use the `with<>` template alias to pass your custom policies
+   * (see the previous examples for `epoch_based`, `new_epoch_based` and `debra`).
+   * 
+   * The following policies are supported:
    *  * `xenium::policy::scan_frequency`<br>
    *    Defines how often a thread should scan the epochs of the other threads in an attempt
    *    to update the global epoch. (defaults to 100)
@@ -242,6 +246,16 @@ namespace reclamation {
     friend struct scan::all_threads;
 
   public:
+    /**
+     * @brief Customize the reclamation scheme with the given policies.
+     * 
+     * The given policies are applied to the current configuration, replacing previously
+     * specified policies of the same type.
+     * 
+     * The resulting type is the newly configured reclamation scheme.
+     * 
+     * @tparam Policies list of policies to customize the behaviour
+     */
     template <class... Policies>
     using with = generic_epoch_based<typename Traits::template with<Policies...>>;
 
