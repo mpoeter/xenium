@@ -21,6 +21,11 @@
 
 namespace xenium { namespace reclamation {
 
+  /**
+   * @brief This exception is thrown if a thread tries to allocate a new hazard era, but
+   * the number of available hazard eras is exhausted. This can only happen when
+   * `xenium::reclamation::he_allocation::static_strategy` is used.
+   */
   class bad_hazard_era_alloc : public std::runtime_error {
     using std::runtime_error::runtime_error;
   };
@@ -60,10 +65,46 @@ namespace xenium { namespace reclamation {
   }
 
   namespace he_allocation {
+    /**
+     * @brief Hazard era allocation strategy for a static number of hazard eras per thread.
+     * 
+     * The threshold for the number of retired nodes is calculated as `A * K * num_threads + B`;
+     * `K`, `A` and `B` can be configured via template parameter. 
+     * 
+     * Note that in contrast to the `hazard_pointer` reclamation scheme, a `hazard_eras::guard_ptr`
+     * may use the same hazard era entry as a previously created `guard_ptr` if they observe the
+     * same era. However, since this is not guarenteed, one has to use the same upper bound for the
+     * number of hazard eras as when using the `hazard_pointer` scheme. 
+     * 
+     * @tparam K The max. number of hazard eras that can be allocated at the same time.
+     * @tparam A
+     * @tparam B
+     */
     template <size_t K = 2, size_t A = 2, size_t B = 100>
     struct static_strategy :
       detail::generic_hazard_era_allocation_strategy<K, A, B, detail::static_he_thread_control_block> {};
 
+    /**
+     * @brief Hazard era allocation strategy for a dynamic number of hazard eras per thread.
+     * 
+     * This strategy uses a linked list of segments for the hazard eras. The first segment can
+     * hold `K` hazard eras; subsequently allocated segments can hold 1.5x the number of hazard
+     * eras as the sum of all previous segments.
+     * 
+     * The threshold for the number of retired nodes is calculated as `A * available_hes + B`, where
+     * `available_hes` is the max. number of hazard eras that could be allocated by all threads
+     * at that time, without growing the number of segments. E.g., if `K = 2` and we have two threads
+     * each with a single segment, then `available_hes = 4`; if one thread later allocates additional
+     * hes and increases the number of segments such that they can hold up to 10 hazard eras,
+     * then `available_hes = 10+2 = 12`.
+     * 
+     * `K`, `A` and `B` can be configured via template parameter.
+     * 
+     * @tparam K The initial number of hazard eras (i.e., the number of hes that can be allocated
+     * without the need to grow).
+     * @tparam A
+     * @tparam B
+     */
     template <size_t K = 2, size_t A = 2, size_t B = 100>
     struct dynamic_strategy :
       detail::generic_hazard_era_allocation_strategy<K, A, B, detail::dynamic_he_thread_control_block> {};
@@ -83,6 +124,18 @@ namespace xenium { namespace reclamation {
    * @brief An implementation of the hazard eras scheme proposed by Ramalhete and Correia
    * \[[RC17](index.html#ref-ramalhete-2017)\].
    *
+   * For general information about the interface of the reclamation scheme see @ref reclamation_schemes.
+   *
+   * This class does not take a list of policies, but a `Traits` type that can be customized
+   * with a list of policies. The following policies are supported:
+   *  * `xenium::policy::allocation_strategy`<br>
+   *    Defines how hazard eras are allocated and how the threshold for the number of
+   *    retired nodes is calculated.
+   *    Possible arguments are `xenium::reclamation::he_allocation::static_strategy`
+   *    and 'xenium::reclamation::he_allocation::dynamic_strategy`, where both strategies
+   *    can be further customized via their respective template parameters.
+   *    (defaults to `xenium::reclamation::he_allocation::static_strategy<3>`)
+   * 
    * @tparam Traits
    */
   template <class Traits = hazard_era_traits<>>
@@ -96,6 +149,16 @@ namespace xenium { namespace reclamation {
     class guard_ptr;
 
   public:
+    /**
+     * @brief Customize the reclamation scheme with the given policies.
+     * 
+     * The given policies are applied to the current configuration, replacing previously
+     * specified policies of the same type.
+     * 
+     * The resulting type is the newly configured reclamation scheme.
+     * 
+     * @tparam Policies list of policies to customize the behaviour
+     */
     template <class... Policies>
     using with = hazard_eras<typename Traits::template with<Policies...>>;
 

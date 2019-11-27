@@ -21,6 +21,11 @@
 
 namespace xenium { namespace reclamation {
 
+  /**
+   * @brief This exception is thrown if a thread tries to allocate a new hazard pointer, but
+   * the number of available hazard pointers is exhausted. This can only happen when
+   * `xenium::reclamation::hp_allocation::static_strategy` is used.
+   */
   class bad_hazard_pointer_alloc : public std::runtime_error {
     using std::runtime_error::runtime_error;
   };
@@ -60,6 +65,13 @@ namespace xenium { namespace reclamation {
   namespace hp_allocation {
     /**
      * @brief Hazard pointer allocation strategy for a static number of hazard pointers per thread.
+     * 
+     * The threshold for the number of retired nodes is calculated as `A * K * num_threads + B`;
+     * `K`, `A` and `B` can be configured via template parameter. 
+     * 
+     * @tparam K The max. number of hazard pointers that can be allocated at the same time.
+     * @tparam A
+     * @tparam B
      */
     template <size_t K = 2, size_t A = 2, size_t B = 100>
     struct static_strategy :
@@ -67,6 +79,24 @@ namespace xenium { namespace reclamation {
 
     /**
      * @brief Hazard pointer allocation strategy for a dynamic number of hazard pointers per thread.
+     * 
+     * This strategy uses a linked list of segments for the hazard pointers. The first segment can
+     * hold `K` hazard pointers; subsequently allocated segments can hold 1.5x the number of hazard
+     * pointers as the sum of all previous segments.
+     * 
+     * The threshold for the number of retired nodes is calculated as `A * available_hps + B`, where
+     * `available_hps` is the max. number of hazard pointers that could be allocated by all threads
+     * at that time, without growing the number of segments. E.g., if `K = 2` and we have two threads
+     * each with a single segment, then `available_hps = 4`; if one thread later allocates additional
+     * hps and increases the number of segments such that they can hold up to 10 hazard pointers,
+     * then `available_hps = 10+2 = 12`.
+     * 
+     * `K`, `A` and `B` can be configured via template parameter.
+     * 
+     * @tparam K The initial number of hazard pointers (i.e., the number of hps that can be allocated
+     * without the need to grow).
+     * @tparam A
+     * @tparam B
      */
     template <size_t K = 2, size_t A = 2, size_t B = 100>
     struct dynamic_strategy :
@@ -89,10 +119,6 @@ namespace xenium { namespace reclamation {
    *
    * For general information about the interface of the reclamation scheme see @ref reclamation_schemes.
    * 
-   * The implementation takes a single template parameter `Policy` that controls how hazard pointers are
-   * allocated/deallocated and how the threshold for the local retire list is calculated. The two
-   * available policies are `static_hazard_pointer_policy` and `dynamic_hazard_pointer_policy`.
-   * 
    * This class does not take a list of policies, but a `Traits` type that can be customized
    * with a list of policies. The following policies are supported:
    *  * `xenium::policy::allocation_strategy`<br>
@@ -100,8 +126,8 @@ namespace xenium { namespace reclamation {
    *    retired nodes is calculated.
    *    Possible arguments are `xenium::reclamation::hp_allocation::static_strategy`
    *    and 'xenium::reclamation::hp_allocation::dynamic_strategy`, where both strategies
-   *    can by further customized via their respective template parameters.
-   *    (defaults to `xenium::reclamation::hp_allocation::static_strategy<3>`)
+   *    can be further customized via their respective template parameters.
+   *    (defaults to `xenium::reclamation::he_allocation::static_strategy<3>`)
    * 
    * @tparam Traits
    */
@@ -116,6 +142,16 @@ namespace xenium { namespace reclamation {
     class guard_ptr;
 
   public:
+    /**
+     * @brief Customize the reclamation scheme with the given policies.
+     * 
+     * The given policies are applied to the current configuration, replacing previously
+     * specified policies of the same type.
+     * 
+     * The resulting type is the newly configured reclamation scheme.
+     * 
+     * @tparam Policies list of policies to customize the behaviour
+     */
     template <class... Policies>
     using with = hazard_pointer<typename Traits::template with<Policies...>>;
 
