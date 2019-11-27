@@ -285,13 +285,13 @@ namespace xenium { namespace reclamation {
 
       void initialize(hint& hint)
       {
-        Strategy::number_of_active_hes.fetch_add(self().number_of_hps(), std::memory_order_relaxed);
+        Strategy::number_of_active_hes.fetch_add(self().number_of_hes(), std::memory_order_relaxed);
         hint = initialize_block(self());
       }
 
       void abandon()
       {
-        Strategy::number_of_active_hes.fetch_sub(self().number_of_hps(), std::memory_order_relaxed);
+        Strategy::number_of_active_hes.fetch_sub(self().number_of_hes(), std::memory_order_relaxed);
         detail::thread_block_list<Derived, detail::deletable_object_with_eras>::entry::abandon();
       }
 
@@ -387,7 +387,7 @@ namespace xenium { namespace reclamation {
     private:
       hazard_era* need_more_hes() {
         throw bad_hazard_era_alloc("hazard era pool exceeded"); }
-      constexpr size_t number_of_hps() const { return Strategy::K; }
+      constexpr size_t number_of_hes() const { return Strategy::K; }
       constexpr hazard_era* initialize_next_block() const { return nullptr; }
     };
 
@@ -428,7 +428,7 @@ namespace xenium { namespace reclamation {
         // (7) - this acquire-load synchronizes-with the release-store (8)
         return he_block.load(std::memory_order_acquire);
       }
-      size_t number_of_hps() const { return total_number_of_hps; }
+      size_t number_of_hes() const { return total_number_of_hes; }
       hazard_era* need_more_hes() { return allocate_new_hazard_eras_block(); }
 
 
@@ -450,13 +450,13 @@ namespace xenium { namespace reclamation {
 
       hazard_era* allocate_new_hazard_eras_block()
       {
-        size_t hps = std::max(static_cast<size_t>(Strategy::K), total_number_of_hps / 2);
-        total_number_of_hps += hps;
-        Strategy::number_of_active_hes.fetch_add(hps, std::memory_order_relaxed);
+        size_t hes = std::max(static_cast<size_t>(Strategy::K), total_number_of_hes / 2);
+        total_number_of_hes += hes;
+        Strategy::number_of_active_hes.fetch_add(hes, std::memory_order_relaxed);
 
-        size_t buffer_size = sizeof(hazard_eras_block) + hps * sizeof(hazard_era);
+        size_t buffer_size = sizeof(hazard_eras_block) + hes * sizeof(hazard_era);
         void* buffer = hazard_eras_block::operator new(buffer_size);
-        auto block = ::new(buffer) hazard_eras_block(hps);
+        auto block = ::new(buffer) hazard_eras_block(hes);
         auto result = this->initialize_block(*block);
         block->next = he_block.load(std::memory_order_relaxed);
         // (8) - this release-store synchronizes-with the acquire-load (7)
@@ -464,7 +464,7 @@ namespace xenium { namespace reclamation {
         return result;
       }
 
-      size_t total_number_of_hps = Strategy::K;
+      size_t total_number_of_hes = Strategy::K;
       std::atomic<hazard_eras_block*> he_block;
     };
   }
