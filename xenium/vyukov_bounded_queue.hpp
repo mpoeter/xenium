@@ -53,6 +53,8 @@ namespace policy {
 template<class T, class... Policies>
 struct vyukov_bounded_queue {
 public:
+  using value_type = T;
+  
   static constexpr bool default_to_weak =
     parameter::value_param_t<bool, policy::default_to_weak, false, Policies...>::value;;
 

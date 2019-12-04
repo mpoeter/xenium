@@ -31,7 +31,7 @@ namespace xenium {
 template <class T, class... Policies>
 class michael_scott_queue {
 public:
-  using value_type = T*;
+  using value_type = T;
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
 
