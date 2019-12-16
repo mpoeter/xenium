@@ -85,6 +85,13 @@ namespace xenium {
 
     using entry = std::conditional_t<padding_bytes == 0, unpadded_entry, padded_entry>;
 
+  public:
+    /**
+     * @brief Provides the effective size of a single queue entry (including padding).
+     */
+    static constexpr std::size_t entry_size = sizeof(entry);
+
+  private:
     struct marked_idx {
       marked_idx() = default;
       marked_idx(uint64_t val, uint64_t mark) { val_ = val | (mark << bits); }

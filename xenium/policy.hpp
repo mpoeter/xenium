@@ -105,11 +105,11 @@ struct entries_per_node;
 
 /**
  * @brief Policy to configure the number of padding bytes to add to each entry in
- * `ramalhete_queue` to reduce false sharing.
+ * `kirsch_kfifo_queue` and `kirsch_bounded_kfifo_queue` to reduce false sharing.
  *
  * Note that this number of bytes is a lower bound. Depending on the size of the
  * queue's `value_type` the compiler may add some additional padding. The effective
- * size of a queue entry is provided in `ramalhete_queue::entry_size`.
+ * size of a queue entry is provided in `entry_size`.
  *
  * @tparam Value
  */
