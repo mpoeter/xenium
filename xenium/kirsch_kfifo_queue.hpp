@@ -25,8 +25,9 @@ namespace xenium {
    * A k-FIFO queue can be understood as a queue where each element may be dequeued
    * out-of-order up to k−1.
    * 
-   * A limitation of this queue is that it can only handle pointers (i.e., `T` must be
-   * a raw pointer or a `std::unique_ptr`).
+   * A limitation of this queue is that it can only handle pointers or trivially copyable types that are
+   * smaller than a pointer (i.e., `T` must be a raw pointer, a `std::unique_ptr` or a trivially copyable
+   * type like std::uint32_t).
    * 
    * Supported policies:
    *  * `xenium::policy::reclaimer`<br>
@@ -40,7 +41,7 @@ namespace xenium {
   template <class T, class... Policies>
   class kirsch_kfifo_queue {
   private:
-    using traits = detail::pointer_queue_traits<T, Policies...>;
+    using traits = detail::pointer_queue_traits_t<T, Policies...>;
     using raw_value_type = typename traits::raw_type;
   public:
     using value_type = T;

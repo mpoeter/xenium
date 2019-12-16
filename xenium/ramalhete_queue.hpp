@@ -35,7 +35,8 @@ namespace policy {
  * This is an implementation of the `FAAArrayQueue` by Ramalhete and Correia \[[Ram16](index.html#ref-ramalhete-2016)\].
  *
  * It is faster and more efficient than the `michael_scott_queue`, but less generic as it can
- * only handle pointers (i.e., `T` must be a raw pointer or a `std::unique_ptr`).
+ * only handle pointers or trivially copyable types that are smaller than a pointer
+ * (i.e., `T` must be a raw pointer, a `std::unique_ptr` or a trivially copyable type like std::uint32_t).
  * Note: `std::unique_ptr` are supported for convinience, but custom deleters are not yet supported.
  *
  * A generic version that does not have this limitation is planned for a future version.
@@ -59,7 +60,7 @@ namespace policy {
 template <class T, class... Policies>
 class ramalhete_queue {
 private:
-  using traits = detail::pointer_queue_traits<T, Policies...>;
+  using traits = detail::pointer_queue_traits_t<T, Policies...>;
   using raw_value_type = typename traits::raw_type;
 public:
   using value_type = T;
@@ -176,12 +177,11 @@ ramalhete_queue<T, Policies...>::~ramalhete_queue()
 template <class T, class... Policies>
 void ramalhete_queue<T, Policies...>::push(value_type value)
 {
-  if (value == nullptr)
+  raw_value_type raw_val = traits::get_raw(value);
+  if (raw_val == nullptr)
     throw std::invalid_argument("value can not be nullptr");
 
   backoff backoff;
-
-  raw_value_type raw_val = traits::get_raw(value);
   guard_ptr t;
   for (;;) {
     // (3) - this acquire-load synchronizes-with the release-CAS (5, 7)

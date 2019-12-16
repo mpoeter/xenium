@@ -51,6 +51,40 @@ TYPED_TEST(RamalheteQueue, supports_unique_ptr)
   EXPECT_EQ(42, *elem);
 }
 
+TYPED_TEST(RamalheteQueue, supports_trivially_copyable_types_smaller_than_a_pointer)
+{
+  {
+    xenium::ramalhete_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
+    int elem;
+    queue.push(42);
+    queue.push(-42);
+    EXPECT_TRUE(queue.try_pop(elem));
+    EXPECT_EQ(42, elem);
+    EXPECT_TRUE(queue.try_pop(elem));
+    EXPECT_EQ(-42, elem);
+  }
+
+  {
+    struct dummy {
+      char c;
+      bool b;
+      bool operator==(const dummy& rhs) const {
+        return c == rhs.c && b == rhs.b;
+      }
+    };
+    xenium::ramalhete_queue<dummy, xenium::policy::reclaimer<TypeParam>> queue;
+    dummy elem;
+    queue.push({'a', true});
+    queue.push({'b', false});
+    EXPECT_TRUE(queue.try_pop(elem));
+    dummy expected = {'a', true};
+    EXPECT_EQ(expected, elem);
+    EXPECT_TRUE(queue.try_pop(elem));
+    expected = {'b', false};
+    EXPECT_EQ(expected, elem);
+  }
+}
+
 TYPED_TEST(RamalheteQueue, deletes_remaining_unique_ptr_entries)
 {
   unsigned delete_count = 0;
