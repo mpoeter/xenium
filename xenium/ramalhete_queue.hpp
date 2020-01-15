@@ -83,7 +83,8 @@ public:
   ~ramalhete_queue();
 
   /**
-   * Pushes the given value to the queue.
+   * @brief Pushes the given value to the queue.
+   * 
    * This operation might have to allocate a new node.
    * Progress guarantees: lock-free (may perform a memory allocation)
    * @param value
@@ -91,7 +92,8 @@ public:
   void push(value_type value);
 
   /**
-   * Tries to pop an object from the queue.
+   * @brief Tries to pop an object from the queue.
+   * 
    * Progress guarantees: lock-free
    * @param result
    * @return `true` if the operation was successful, otherwise `false`
@@ -205,6 +207,8 @@ void ramalhete_queue<T, Policies...>::push(value_type value)
           tail.compare_exchange_strong(expected, new_node, std::memory_order_release, std::memory_order_relaxed);
           return;
         }
+        // prevent the pre-stored value from beeing deleted
+        new_node->push_idx.store(0, std::memory_order_relaxed);
         // some other node already added a new node
         delete new_node;
       } else {
