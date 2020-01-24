@@ -52,7 +52,7 @@ namespace xenium { namespace reclamation {
       friend thread_control_block;
       friend basic_hp_thread_control_block<generic_hp_allocation_strategy, thread_control_block>;
 
-      static std::atomic<size_t> number_of_active_hps;
+      inline static std::atomic<size_t> number_of_active_hps{0};
     };
 
     template <class Strategy>
@@ -167,8 +167,8 @@ namespace xenium { namespace reclamation {
   private:
     struct thread_data;
 
-    static detail::thread_block_list<thread_control_block> global_thread_block_list;
-    static thread_local thread_data local_thread_data;
+    inline static detail::thread_block_list<thread_control_block> global_thread_block_list;
+    inline static thread_local thread_data local_thread_data;
 
     ALLOCATION_TRACKING_FUNCTIONS;
   };

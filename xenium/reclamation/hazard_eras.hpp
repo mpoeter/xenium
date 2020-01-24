@@ -54,7 +54,7 @@ namespace xenium { namespace reclamation {
       friend thread_control_block;
       friend basic_he_thread_control_block<generic_hazard_era_allocation_strategy, thread_control_block>;
 
-      static std::atomic<size_t> number_of_active_hes;
+      inline static std::atomic<size_t> number_of_active_hes{0};
     };
 
     template <class Strategy>
@@ -171,13 +171,16 @@ namespace xenium { namespace reclamation {
     using concurrent_ptr = detail::concurrent_ptr<T, N, guard_ptr>;
 
     ALLOCATION_TRACKER;
+  
   private:
     struct thread_data;
 
+    friend struct detail::deletable_object_with_eras;
+  
     using era_t = uint64_t;
-    static std::atomic<era_t> era_clock;
-    static detail::thread_block_list<thread_control_block, detail::deletable_object_with_eras> global_thread_block_list;
-    static thread_local thread_data local_thread_data;
+    inline static std::atomic<era_t> era_clock{1};
+    inline static detail::thread_block_list<thread_control_block, detail::deletable_object_with_eras> global_thread_block_list{};
+    inline static thread_local thread_data local_thread_data{};
 
     ALLOCATION_TRACKING_FUNCTIONS;
   };

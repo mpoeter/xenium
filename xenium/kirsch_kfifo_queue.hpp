@@ -76,7 +76,7 @@ namespace xenium {
      * @param result
      * @return `true` if the operation was successful, otherwise `false`
      */
-    bool try_pop(value_type& result);
+    [[nodiscard]] bool try_pop(value_type& result);
 
   private:
     using marked_value = xenium::marked_ptr<std::remove_pointer_t<raw_value_type>, 16>;
@@ -84,7 +84,7 @@ namespace xenium {
     struct padded_entry {
       std::atomic<marked_value> value;
       // we use max here to avoid arrays of size zero which are not allowed by Visual C++
-      char padding[std::max(padding_bytes, 1u)];
+      [[maybe_unused]] char padding[std::max(padding_bytes, 1u)];
     };
 
     struct unpadded_entry {

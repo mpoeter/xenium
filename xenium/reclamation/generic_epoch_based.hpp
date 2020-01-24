@@ -285,10 +285,10 @@ namespace reclamation {
     struct thread_data;
     struct thread_control_block;
 
-    static std::atomic<epoch_t> global_epoch;
-    static detail::thread_block_list<thread_control_block> global_thread_block_list;
-    static std::array<detail::orphan_list<>, number_epochs> orphans;
-    static thread_data& local_thread_data();
+    inline static std::atomic<epoch_t> global_epoch;
+    inline static detail::thread_block_list<thread_control_block> global_thread_block_list;
+    inline static std::array<detail::orphan_list<>, number_epochs> orphans;
+    inline static thread_local thread_data local_thread_data;
 
     ALLOCATION_TRACKING_FUNCTIONS;
   };

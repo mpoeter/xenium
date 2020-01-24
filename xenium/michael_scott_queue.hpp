@@ -58,7 +58,7 @@ public:
    * @param result
    * @return `true` if the operation was successful, otherwise `false`
    */
-  bool try_pop(T &result);
+  [[nodiscard]] bool try_pop(T &result);
 
 private:
   struct node;

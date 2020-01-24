@@ -103,6 +103,7 @@ namespace reclamation {
 
     ALLOCATION_TRACKING_FUNCTIONS;
 #ifdef TRACK_ALLOCATIONS
+    inline static thread_local detail::registered_allocation_counter<lock_free_ref_count> allocation_counter_;
     static detail::allocation_counter& allocation_counter();
 #endif
   };

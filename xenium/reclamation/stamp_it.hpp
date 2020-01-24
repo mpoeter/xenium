@@ -70,8 +70,8 @@ namespace xenium { namespace reclamation {
     static constexpr stamp_t PendingPush = 2;
     static constexpr stamp_t StampInc = 4;
 
-    static thread_data& local_thread_data();
     static thread_order_queue queue;
+    static thread_local thread_data local_thread_data_;
 
     ALLOCATION_TRACKING_FUNCTIONS;
   };

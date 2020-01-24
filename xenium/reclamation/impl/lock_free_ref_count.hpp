@@ -315,15 +315,8 @@ namespace xenium { namespace reclamation {
 
 #ifdef TRACK_ALLOCATIONS
     template <class Traits>
-    detail::allocation_tracker lock_free_ref_count<Traits>::allocation_tracker;
-
-    template <class Traits>
-    inline detail::allocation_counter&
-      lock_free_ref_count<Traits>::allocation_counter()
-    {
-      static thread_local detail::registered_allocation_counter<lock_free_ref_count> counter;
-      return counter;
-    };
+    inline detail::allocation_counter& lock_free_ref_count<Traits>::allocation_counter()
+    { return allocation_counter_; };
 
     template <class Traits>
     inline void lock_free_ref_count<Traits>::count_allocation()

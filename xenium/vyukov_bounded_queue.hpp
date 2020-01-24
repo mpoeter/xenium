@@ -151,7 +151,7 @@ public:
    * @param result the value popped from the queue if the operation was successful
    * @return `true` if the operation was successful, otherwise `false`
    */
-  bool try_pop(T& result) {
+  [[nodiscard]] bool try_pop(T& result) {
     return do_try_pop<default_to_weak>(result);
   }
 
@@ -166,7 +166,7 @@ public:
    * @param result the value popped from the queue if the operation was successful
    * @return `true` if the operation was successful, otherwise `false`
    */
-  bool try_pop_strong(T& result) {
+  [[nodiscard]] bool try_pop_strong(T& result) {
     return do_try_pop<false>(result);
   }
 
@@ -181,7 +181,7 @@ public:
    * @param result the value popped from the queue if the operation was successful
    * @return `true` if the operation was successful, otherwise `false`
    */
-  bool try_pop_weak(T& result) {
+  [[nodiscard]] bool try_pop_weak(T& result) {
     return do_try_pop<true>(result);
   }
 

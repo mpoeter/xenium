@@ -12,8 +12,6 @@
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
 
-#include <boost/align/aligned_alloc.hpp>
-
 #include <atomic>
 #include <cstring>
 
@@ -142,7 +140,7 @@ struct alignas(64) vyukov_hash_map<Key, Value, Policies...>::block :
   std::uint32_t index(const key_type& key) const { return static_cast<std::uint32_t>(key & mask); }
   bucket* buckets() { return reinterpret_cast<bucket*>(this+1); }
 
-  void operator delete(void* p) { boost::alignment::aligned_free(p); }
+  void operator delete(void* p) { ::operator delete(p, static_cast<std::align_val_t>(cacheline_size)); }
 };
 
 template <class Key, class Value, class... Policies>
@@ -699,8 +697,7 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_block(std::uint32_t buck
     sizeof(bucket) * bucket_count +
     sizeof(extension_bucket) * (extension_bucket_count + 1);
 
-  static constexpr std::uint32_t cacheline_size = 64;
-  void* mem = boost::alignment::aligned_alloc(cacheline_size, size);
+  void* mem = ::operator new(size, static_cast<std::align_val_t>(cacheline_size));
   if (mem == nullptr)
     return nullptr;
 

@@ -162,12 +162,12 @@ namespace xenium { namespace reclamation {
 
   inline quiescent_state_based::region_guard::region_guard() noexcept
   {
-      local_thread_data().enter_region();
+      local_thread_data_.enter_region();
   }
 
   inline quiescent_state_based::region_guard::~region_guard() noexcept
   {
-      local_thread_data().leave_region();
+      local_thread_data_.leave_region();
   }
 
   template <class T, class MarkedPtr>
@@ -175,7 +175,7 @@ namespace xenium { namespace reclamation {
     base(p)
   {
     if (this->ptr)
-      local_thread_data().enter_region();
+      local_thread_data_.enter_region();
   }
 
   template <class T, class MarkedPtr>
@@ -200,7 +200,7 @@ namespace xenium { namespace reclamation {
     reset();
     this->ptr = p.ptr;
     if (this->ptr)
-      local_thread_data().enter_region();
+      local_thread_data_.enter_region();
 
     return *this;
   }
@@ -230,11 +230,11 @@ namespace xenium { namespace reclamation {
     }
 
     if (!this->ptr)
-      local_thread_data().enter_region();
+      local_thread_data_.enter_region();
     // (6) - this load operation potentially synchronizes-with any release operation on p.
     this->ptr = p.load(order);
     if (!this->ptr)
-      local_thread_data().leave_region();
+      local_thread_data_.leave_region();
   }
 
   template <class T, class MarkedPtr>
@@ -249,12 +249,12 @@ namespace xenium { namespace reclamation {
     }
 
     if (!this->ptr)
-      local_thread_data().enter_region();
+      local_thread_data_.enter_region();
     // (7) - this load operation potentially synchronizes-with any release operation on p.
     this->ptr = p.load(order);
     if (!this->ptr || this->ptr != expected)
     {
-      local_thread_data().leave_region();
+      local_thread_data_.leave_region();
       this->ptr.reset();
     }
 
@@ -265,7 +265,7 @@ namespace xenium { namespace reclamation {
   void quiescent_state_based::guard_ptr<T, MarkedPtr>::reset() noexcept
   {
     if (this->ptr)
-      local_thread_data().leave_region();
+      local_thread_data_.leave_region();
     this->ptr.reset();
   }
 
@@ -273,28 +273,17 @@ namespace xenium { namespace reclamation {
   void quiescent_state_based::guard_ptr<T, MarkedPtr>::reclaim(Deleter d) noexcept
   {
     this->ptr->set_deleter(std::move(d));
-    local_thread_data().add_retired_node(this->ptr.get());
+    local_thread_data_.add_retired_node(this->ptr.get());
     reset();
   }
 
-  inline quiescent_state_based::thread_data& quiescent_state_based::local_thread_data()
-  {
-    // workaround for a GCC issue with weak references for static thread_local variables
-    static thread_local thread_data local_thread_data;
-    return local_thread_data;
-  }
-
-  SELECT_ANY std::atomic<unsigned> quiescent_state_based::global_epoch;
-  SELECT_ANY detail::thread_block_list<quiescent_state_based::thread_control_block>
-    quiescent_state_based::global_thread_block_list;
+  inline thread_local quiescent_state_based::thread_data quiescent_state_based::local_thread_data_;
 
 #ifdef TRACK_ALLOCATIONS
-  SELECT_ANY detail::allocation_tracker quiescent_state_based::allocation_tracker;
-
   inline void quiescent_state_based::count_allocation()
-  { local_thread_data().allocation_counter.count_allocation(); }
+  { local_thread_data_.allocation_counter.count_allocation(); }
 
   inline void quiescent_state_based::count_reclamation()
-  { local_thread_data().allocation_counter.count_reclamation(); }
+  { local_thread_data_.allocation_counter.count_reclamation(); }
 #endif
 }}

@@ -49,10 +49,9 @@ namespace xenium { namespace reclamation {
     struct thread_data;
     struct thread_control_block;
 
-    static std::atomic<unsigned> global_epoch;
-    static detail::thread_block_list<thread_control_block> global_thread_block_list;
-
-    static thread_data& local_thread_data();
+    inline static std::atomic<unsigned> global_epoch;
+    inline static detail::thread_block_list<thread_control_block> global_thread_block_list;
+    static thread_local thread_data local_thread_data_;
 
     ALLOCATION_TRACKING_FUNCTIONS;
   };

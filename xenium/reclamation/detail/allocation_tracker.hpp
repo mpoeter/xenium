@@ -129,7 +129,7 @@ namespace xenium { namespace reclamation { namespace detail {
   detail::registered_allocation_counter<tracker> allocation_counter;
 
 #define ALLOCATION_TRACKER \
-  static detail::allocation_tracker allocation_tracker;
+  inline static detail::allocation_tracker allocation_tracker;
 
 #define ALLOCATION_TRACKING_FUNCTIONS \
   template <typename> friend struct detail::tracked_object; \

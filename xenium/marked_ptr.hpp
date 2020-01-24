@@ -38,8 +38,7 @@ namespace xenium {
 
     static constexpr uintptr_t lower_mark_bits = MarkBits < MaxUpperMarkBits ? 0 : MarkBits - MaxUpperMarkBits;
     static constexpr uintptr_t upper_mark_bits = MarkBits - lower_mark_bits;
-    static constexpr uintptr_t pointer_mask =
-      MarkBits == 0 ? static_cast<uintptr_t>(-1) : ((1ul << pointer_bits) - 1) << lower_mark_bits;
+    static constexpr uintptr_t pointer_mask = ((static_cast<uintptr_t>(1) << pointer_bits) - 1) << lower_mark_bits;
     
   public:
     static constexpr uintptr_t number_of_mark_bits = MarkBits;
@@ -51,20 +50,7 @@ namespace xenium {
      * 
      * The `mark` value is automatically trimmed to `MarkBits` bits.
      */
-    marked_ptr(T* p = nullptr, uintptr_t mark = 0) noexcept
-    {
-      assert((reinterpret_cast<uintptr_t>(p) & ~pointer_mask) == 0 &&
-        "bits reserved for masking are occupied by the pointer");
-      
-      uintptr_t ip = reinterpret_cast<uintptr_t>(p);
-      if (number_of_mark_bits == 0) {
-        assert(mark == 0);
-        ptr = p;
-      } else {
-        mark = utils::rotate<lower_mark_bits>::left(mark << pointer_bits);
-        ptr = reinterpret_cast<T*>(ip | mark);
-      }
-    }
+    marked_ptr(T* p = nullptr, uintptr_t mark = 0) noexcept : ptr(make_ptr(p, mark)) {}
     
     /**
      * @brief Reset the pointer to `nullptr` and the mark to 0.
@@ -83,7 +69,7 @@ namespace xenium {
      */
     T* get() const noexcept {
       auto ip = reinterpret_cast<uintptr_t>(ptr);
-      if (number_of_mark_bits != 0)
+      if constexpr(number_of_mark_bits != 0)
         ip &= pointer_mask;
       return reinterpret_cast<T*>(ip);
     }
@@ -107,6 +93,21 @@ namespace xenium {
     inline friend bool operator!=(const marked_ptr& l, const marked_ptr& r) { return l.ptr != r.ptr; }
 
   private:
+    T* make_ptr(T* p, uintptr_t mark) noexcept {
+      assert((reinterpret_cast<uintptr_t>(p) & ~pointer_mask) == 0 &&
+        "bits reserved for masking are occupied by the pointer");
+
+      uintptr_t ip = reinterpret_cast<uintptr_t>(p);
+      if constexpr (number_of_mark_bits == 0) {
+        assert(mark == 0);
+        return p;
+      }
+      else {
+        mark = utils::rotate<lower_mark_bits>::left(mark << pointer_bits);
+        return reinterpret_cast<T*>(ip | mark);
+      }
+    }
+
     T* ptr;
 
 #ifdef _MSC_VER

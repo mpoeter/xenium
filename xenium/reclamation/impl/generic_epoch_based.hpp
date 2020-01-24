@@ -118,13 +118,13 @@ namespace xenium { namespace reclamation {
   template <class Traits>
   generic_epoch_based<Traits>::region_guard::region_guard() noexcept
   {
-    local_thread_data().enter_region();
+    local_thread_data.enter_region();
   }
 
   template <class Traits>
   generic_epoch_based<Traits>::region_guard::~region_guard() noexcept
   {
-    local_thread_data().leave_region();
+    local_thread_data.leave_region();
   }
 
   template <class Traits>
@@ -133,7 +133,7 @@ namespace xenium { namespace reclamation {
     base(p)
   {
     if (this->ptr)
-      local_thread_data().enter_critical();
+      local_thread_data.enter_critical();
   }
 
   template <class Traits>
@@ -161,7 +161,7 @@ namespace xenium { namespace reclamation {
     reset();
     this->ptr = p.ptr;
     if (this->ptr)
-      local_thread_data().enter_critical();
+      local_thread_data.enter_critical();
 
     return *this;
   }
@@ -193,11 +193,11 @@ namespace xenium { namespace reclamation {
     }
 
     if (!this->ptr)
-      local_thread_data().enter_critical();
+      local_thread_data.enter_critical();
     // (1) - this load operation potentially synchronizes-with any release operation on p.
     this->ptr = p.load(order);
     if (!this->ptr)
-      local_thread_data().leave_critical();
+      local_thread_data.leave_critical();
   }
 
   template <class Traits>
@@ -213,12 +213,12 @@ namespace xenium { namespace reclamation {
     }
 
     if (!this->ptr)
-      local_thread_data().enter_critical();
+      local_thread_data.enter_critical();
     // (2) - this load operation potentially synchronizes-with any release operation on p.
     this->ptr = p.load(order);
     if (!this->ptr || this->ptr != expected)
     {
-      local_thread_data().leave_critical();
+      local_thread_data.leave_critical();
       this->ptr.reset();
     }
 
@@ -230,7 +230,7 @@ namespace xenium { namespace reclamation {
   void generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::reset() noexcept
   {
     if (this->ptr)
-      local_thread_data().leave_critical();
+      local_thread_data.leave_critical();
     this->ptr.reset();
   }
 
@@ -239,7 +239,7 @@ namespace xenium { namespace reclamation {
   void generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::reclaim(Deleter d) noexcept
   {
     this->ptr->set_deleter(std::move(d));
-    local_thread_data().add_retired_node(this->ptr.get());
+    local_thread_data.add_retired_node(this->ptr.get());
     reset();
   }
 
@@ -439,34 +439,13 @@ namespace xenium { namespace reclamation {
     ALLOCATION_COUNTER(generic_epoch_based);
   };
 
-  template <class Traits>
-  std::atomic<typename generic_epoch_based<Traits>::epoch_t> generic_epoch_based<Traits>::global_epoch;
-
-  template <class Traits>
-  detail::thread_block_list<typename generic_epoch_based<Traits>::thread_control_block>
-    generic_epoch_based<Traits>::global_thread_block_list;
-
-  template <class Traits>
-  std::array<detail::orphan_list<>, generic_epoch_based<Traits>::number_epochs>
-    generic_epoch_based<Traits>::orphans;
-
-  template <class Traits>
-  inline typename generic_epoch_based<Traits>::thread_data& generic_epoch_based<Traits>::local_thread_data()
-  {
-    static thread_local thread_data local_thread_data;
-    return local_thread_data;
-  }
-
-#ifdef TRACK_ALLOCATIONS
-  template <class Traits>
-  detail::allocation_tracker generic_epoch_based<Traits>::allocation_tracker;
-
+#ifdef TRACK_ALLOCATIONS 
   template <class Traits>
   inline void generic_epoch_based<Traits>::count_allocation()
-  { local_thread_data().allocation_counter.count_allocation(); }
+  { local_thread_data.allocation_counter.count_allocation(); }
 
   template <class Traits>
   inline void generic_epoch_based<Traits>::count_reclamation()
-  { local_thread_data().allocation_counter.count_reclamation(); }
+  { local_thread_data.allocation_counter.count_reclamation(); }
 #endif
 }}

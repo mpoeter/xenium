@@ -576,24 +576,7 @@ namespace xenium { namespace reclamation {
     ALLOCATION_COUNTER(hazard_eras);
   };
 
-  template <size_t K, size_t A, size_t B, template <class> class ThreadControlBlock>
-  std::atomic<size_t> detail::generic_hazard_era_allocation_strategy<K ,A, B, ThreadControlBlock>::number_of_active_hes;
-
-  template <class Traits>
-  std::atomic<typename hazard_eras<Traits>::era_t>
-    hazard_eras<Traits>::era_clock{1};
-
-  template <class Traits>
-  detail::thread_block_list<typename hazard_eras<Traits>::thread_control_block, detail::deletable_object_with_eras>
-    hazard_eras<Traits>::global_thread_block_list;
-
-  template <class Traits>
-  thread_local typename hazard_eras<Traits>::thread_data hazard_eras<Traits>::local_thread_data;
-
 #ifdef TRACK_ALLOCATIONS
-  template <class Traits>
-  detail::allocation_tracker hazard_eras<Traits>::allocation_tracker;
-
   template <class Traits>
   inline void hazard_eras<Traits>::count_allocation()
   { local_thread_data.allocation_counter.count_allocation(); }

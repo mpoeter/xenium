@@ -49,8 +49,8 @@ struct chase_work_stealing_deque {
   chase_work_stealing_deque& operator=(chase_work_stealing_deque&&) = delete;
 
   bool try_push(value_type item);
-  bool try_pop(value_type &result);
-  bool try_steal(value_type &result);
+  [[nodiscard]] bool try_pop(value_type &result);
+  [[nodiscard]] bool try_steal(value_type &result);
 
   std::size_t size() {
     auto t = top.load(std::memory_order_relaxed);

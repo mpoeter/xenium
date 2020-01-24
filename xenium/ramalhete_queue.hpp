@@ -91,7 +91,7 @@ public:
    * @param result
    * @return `true` if the operation was successful, otherwise `false`
    */
-  bool try_pop(value_type &result);
+  [[nodiscard]] bool try_pop(value_type &result);
 
 private:
   struct node;
@@ -255,7 +255,7 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
     }
     idx %= entries_per_node;
 
-    if (pop_retries > 0) {
+    if constexpr(pop_retries > 0) {
       unsigned cnt = 0;
       ramalhete_queue::backoff backoff;
       while (h->entries[idx].value.load(std::memory_order_relaxed) == nullptr && ++cnt <= pop_retries)
