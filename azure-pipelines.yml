@@ -33,10 +33,6 @@ stages:
           cd build
           make -j 4
         displayName: build
-        
-    - job: Test
-      dependsOn: Build
-      steps:
       - script: |
           ./build/gtest
         displayName: test
