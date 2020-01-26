@@ -6,36 +6,45 @@
 #pool:
   #vmImage: 'Ubuntu-16.04', 'vs2017-win2016', 'macOS-10.13'
 
-jobs:
-  - job: build
-    pool:
-      vmImage: 'Ubuntu-16.04'
-    steps:
-    - script: |
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-        sudo apt-get update -y
-        sudo apt-get install -y g++-7
-      displayName: Install GCC 7
-    - script: |
-        wget https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.tar.gz
-        tar xzf boost_1_68_0.tar.gz
-      displayName: Get boost
-    - script: |
-        git submodule update --init --recursive
-        mkdir build
-        cd build
-        g++ --version
-        cmake .. -DCMAKE_CXX_COMPILER=g++-7 -DBOOST_ROOT=./boost_1_68_0
-      displayName: Prepare build
-    - script: |
-        cd build
-        make -j 2
-      displayName: build
-    - script: |
-        ./build/gtest
-      displayName: test
+stages:
+- stage: Build
+  jobs:
+    - job: Build
+      pool:
+        vmImage: 'Ubuntu-16.04'
+      steps:
+      - script: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update -y
+          sudo apt-get install -y g++-7
+        displayName: Install GCC 7
+      - script: |
+          wget https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.tar.gz
+          tar xzf boost_1_68_0.tar.gz
+        displayName: Get boost
+      - script: |
+          git submodule update --init --recursive
+          mkdir build
+          cd build
+          g++ --version
+          cmake .. -DCMAKE_CXX_COMPILER=g++-7 -DBOOST_ROOT=./boost_1_68_0
+        displayName: Prepare build
+      - script: |
+          cd build
+          make -j 4
+        displayName: build
+        
+    - job: Test
+      dependsOn: Build
+      steps:
+      - script: |
+          ./build/gtest
+        displayName: test
 
-  - job: documentation
+- stage: Documentation
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  jobs:
+  - job: Documentation
     displayName: "build + deploy documentation"
     pool:
       vmImage: 'Ubuntu-16.04'
@@ -50,7 +59,6 @@ jobs:
     - script: |
         cd doc/html
         git init
-        echo "variable: $(GITHUB_TOKEN)"
         git checkout --orphan gh-pages
         git add .
         git -c user.name='Azure' -c user.email='Azure' commit -m "Deploy xenium documentation to gh-pages"
