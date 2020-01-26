@@ -38,7 +38,7 @@ stages:
         displayName: test
 
 - stage: Documentation
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/azure-pipelines'))
   jobs:
   - job: Documentation
     displayName: "build + deploy documentation"
