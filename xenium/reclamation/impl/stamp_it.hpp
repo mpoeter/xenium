@@ -768,12 +768,12 @@ namespace xenium { namespace reclamation {
 
   inline stamp_it::region_guard::region_guard() noexcept
   {
-      local_thread_data_.enter_region();
+      local_thread_data().enter_region();
   }
 
   inline stamp_it::region_guard::~region_guard() //noexcept ??
   {
-      local_thread_data_.leave_region();
+      local_thread_data().leave_region();
   }
 
   template <class T, class MarkedPtr>
@@ -781,7 +781,7 @@ namespace xenium { namespace reclamation {
     base(p)
   {
     if (this->ptr)
-      local_thread_data_.enter_region();
+      local_thread_data().enter_region();
   }
 
   template <class T, class MarkedPtr>
@@ -806,7 +806,7 @@ namespace xenium { namespace reclamation {
     reset();
     this->ptr = p.ptr;
     if (this->ptr)
-      local_thread_data_.enter_region();
+      local_thread_data().enter_region();
 
     return *this;
   }
@@ -836,10 +836,10 @@ namespace xenium { namespace reclamation {
     }
 
     if (!this->ptr)
-      local_thread_data_.enter_region();
+      local_thread_data().enter_region();
     this->ptr = p.load(order);
     if (!this->ptr)
-      local_thread_data_.leave_region();
+      local_thread_data().leave_region();
   }
 
   template <class T, class MarkedPtr>
@@ -854,11 +854,11 @@ namespace xenium { namespace reclamation {
     }
 
     if (!this->ptr)
-      local_thread_data_.enter_region();
+      local_thread_data().enter_region();
     this->ptr = p.load(order);
     if (!this->ptr || this->ptr != expected)
     {
-      local_thread_data_.leave_region();
+      local_thread_data().leave_region();
       this->ptr.reset();
     }
 
@@ -869,7 +869,7 @@ namespace xenium { namespace reclamation {
   void stamp_it::guard_ptr<T, MarkedPtr>::reset() noexcept
   {
     if (this->ptr)
-      local_thread_data_.leave_region();
+      local_thread_data().leave_region();
     this->ptr.reset();
   }
 
@@ -877,12 +877,18 @@ namespace xenium { namespace reclamation {
   void stamp_it::guard_ptr<T, MarkedPtr>::reclaim(Deleter d) noexcept
   {
     this->ptr->set_deleter(std::move(d));
-    local_thread_data_.add_retired_node(this->ptr.get());
+    local_thread_data().add_retired_node(this->ptr.get());
     reset();
   }
   
+  inline stamp_it::thread_data& stamp_it::local_thread_data()
+  {
+    // workaround for a GCC issue with multiple definitions of __tls_guard
+    static thread_local thread_data local_thread_data;
+    return local_thread_data;
+  }
+
   inline stamp_it::thread_order_queue stamp_it::queue;
-  inline thread_local stamp_it::thread_data stamp_it::local_thread_data_;
 
 #ifdef WITH_PERF_COUNTER
   inline stamp_it::performance_counters stamp_it::get_performance_counters()
@@ -905,9 +911,9 @@ namespace xenium { namespace reclamation {
 
 #ifdef TRACK_ALLOCATIONS
   inline void stamp_it::count_allocation()
-  { local_thread_data_.allocation_counter.count_allocation(); }
+  { local_thread_data().allocation_counter.count_allocation(); }
 
   inline void stamp_it::count_reclamation()
-  { local_thread_data_.allocation_counter.count_reclamation(); }
+  { local_thread_data().allocation_counter.count_reclamation(); }
 #endif
 }}
