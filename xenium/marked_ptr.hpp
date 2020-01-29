@@ -16,6 +16,13 @@
   #define XENIUM_MAX_UPPER_MARK_BITS 16
 #endif
 
+#ifdef _MSC_VER
+#pragma warning(push)
+// TODO - remove this after upgrading to C++17
+#pragma warning(disable: 4127) // conditional expression is constant
+#pragma warning(disable: 4293) // shift count negative or too big
+#endif
+
 namespace xenium {
   /**
    * @brief A pointer with an embedded mark/tag value.
@@ -34,7 +41,7 @@ namespace xenium {
   class marked_ptr {
     static_assert(MarkBits > 0, "should never happen - compiler should pick the specilization for zero MarkBits!");
     static constexpr uintptr_t pointer_bits = sizeof(T*) * 8 - MarkBits;
-    static constexpr uintptr_t MarkMask = (1ul << MarkBits) - 1;
+    static constexpr uintptr_t MarkMask = (static_cast<uintptr_t>(1) << MarkBits) - 1;
 
     static constexpr uintptr_t lower_mark_bits = MarkBits < MaxUpperMarkBits ? 0 : MarkBits - MaxUpperMarkBits;
     static constexpr uintptr_t upper_mark_bits = MarkBits - lower_mark_bits;
@@ -166,5 +173,9 @@ namespace xenium {
     T* ptr;
   };
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #endif

@@ -14,6 +14,12 @@
 #include <new>
 #include <vector>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4324) // structure was padded due to alignment specifier
+#pragma warning(disable: 26495) // uninitialized member variable
+#endif
+
 namespace xenium { namespace reclamation {
 
   template <class Traits>
@@ -96,11 +102,11 @@ namespace xenium { namespace reclamation {
       // (1) - this load operation synchronizes-with any release operation on p.
       // we have to use acquire here to ensure that the subsequent era_clock.load
       // sees a value >= p.construction_era
-      auto ptr = p.load(order);
+      auto value = p.load(order);
 
       auto era = era_clock.load(std::memory_order_relaxed);
       if (era == prev_era) {
-        this->ptr = ptr;
+        this->ptr = value;
         return;
       }
 
@@ -586,3 +592,7 @@ namespace xenium { namespace reclamation {
   { local_thread_data.allocation_counter.count_reclamation(); }
 #endif
 }}
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

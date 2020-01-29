@@ -10,6 +10,11 @@
 #include <vector>
 #include <thread>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4458) // declaration hides member
+#endif
+
 namespace {
   // Simple solution to simulate exception beeing thrown in "compare_key". Such
   // exceptions can be caused by the construction of guard_ptr instances (e.g.,
@@ -331,7 +336,6 @@ TYPED_TEST(VyukovHashMap, emplace_unlocks_bucket_in_case_of_exception)
     this->map.get_or_emplace_lazy(43, []() -> int { throw std::runtime_error("test exception"); }),
     std::runtime_error
   );
-  typename VyukovHashMap<TypeParam>::hash_map::accessor acc;
   EXPECT_TRUE(this->map.erase(42));
 }
 
@@ -565,11 +569,16 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_same_values)
             EXPECT_EQ(k, *acc);
           }
 
-          if (j % 4 == 0) {
+          if (j % 8 == 0) {
             for (auto v : map)
               (void)v;
+          } else if (j % 4 == 0) {
+            auto it = map.find(k);
+            if (it != map.end())
+              map.erase(it);
+          } else {
+            map.erase(k);
           }
-          map.erase(k);
         }
     }));
   }
@@ -579,3 +588,7 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_same_values)
 }
 
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

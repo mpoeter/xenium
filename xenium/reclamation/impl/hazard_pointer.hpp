@@ -14,6 +14,11 @@
 #include <new>
 #include <vector>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4324) // structure was padded due to alignment specifier
+#endif
+
 namespace xenium { namespace reclamation {
 
   template <class Traits>
@@ -482,7 +487,7 @@ namespace xenium { namespace reclamation {
     }
     detail::deletable_object* retire_list = nullptr;
     std::size_t number_of_retired_nodes = 0;
-    typename thread_control_block::hint hint;
+    typename thread_control_block::hint hint{};
 
     thread_control_block* control_block = nullptr;
 
@@ -500,3 +505,7 @@ namespace xenium { namespace reclamation {
   { local_thread_data.allocation_counter.count_reclamation(); }
 #endif
 }}
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

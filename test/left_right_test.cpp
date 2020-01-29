@@ -45,7 +45,7 @@ TEST(LeftRight, parallel_usage)
   std::vector<std::thread> threads;
   for (int i = 0; i < 4; ++i)
   {
-    threads.push_back(std::thread([i, &lr]
+    threads.push_back(std::thread([i, &lr, MaxIterations]
     {
       std::mt19937 rand;
       rand.seed(i);

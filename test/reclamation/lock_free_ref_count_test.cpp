@@ -28,7 +28,7 @@ TEST_F(LockFreeRefCount, inital_ref_count_value_is_one)
 {
   guard_ptr<Foo> g;
   marked_ptr<Foo> m(g);
-  EXPECT_EQ(1, foo->refs());
+  EXPECT_EQ(1u, foo->refs());
 }
 
 TEST_F(LockFreeRefCount, mark_returns_the_same_mark_as_the_original_marked_ptr)
@@ -61,21 +61,21 @@ TEST_F(LockFreeRefCount, reclaim_releases_ownership_and_deletes_object_if_ref_co
 TEST_F(LockFreeRefCount, guard_increments_ref_count)
 {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
-  EXPECT_EQ(2, mp->refs());
+  EXPECT_EQ(2u, mp->refs());
 }
 
 TEST_F(LockFreeRefCount, copy_constructor_increments_ref_count)
 {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2(gp);
-  EXPECT_EQ(3, mp->refs());
+  EXPECT_EQ(3u, mp->refs());
 }
 
 TEST_F(LockFreeRefCount, move_constructor_does_not_increment_ref_count_and_resets_source)
 {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2(std::move(gp));
-  EXPECT_EQ(2, mp->refs());
+  EXPECT_EQ(2u, mp->refs());
   EXPECT_EQ(nullptr, gp.get());
 }
 
@@ -84,7 +84,7 @@ TEST_F(LockFreeRefCount, copy_assignment_increments_ref_count)
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2{};
   gp2 = gp;
-  EXPECT_EQ(3, mp->refs());
+  EXPECT_EQ(3u, mp->refs());
 }
 
 TEST_F(LockFreeRefCount, move_assignment_does_not_increment_ref_count_and_resets_source)
@@ -92,7 +92,7 @@ TEST_F(LockFreeRefCount, move_assignment_does_not_increment_ref_count_and_resets
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2{};
   gp2 = std::move(gp);
-  EXPECT_EQ(2, mp->refs());
+  EXPECT_EQ(2u, mp->refs());
   EXPECT_EQ(nullptr, gp.get());
 }
 
@@ -101,7 +101,7 @@ TEST_F(LockFreeRefCount, guard_destructor_decrements_ref_count)
   {
     concurrent_ptr<Foo>::guard_ptr gp(mp);
   }
-  EXPECT_EQ(1, foo->refs());
+  EXPECT_EQ(1u, foo->refs());
 }
 
 TEST_F(LockFreeRefCount, parallel_allocation_and_deallocation_of_nodes)

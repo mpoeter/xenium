@@ -9,6 +9,12 @@
 
 #include <xenium/detail/port.hpp>
 #include <boost/config.hpp>
+#include <array>
+
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4127) // conditional expression is constant
+#endif
 
 namespace xenium { namespace reclamation {
   namespace scan {
@@ -385,7 +391,7 @@ namespace xenium { namespace reclamation {
       assert(new_epoch > old_epoch);
       control_block->local_epoch.store(new_epoch, std::memory_order_relaxed);
 
-      auto diff = std::min<int>(number_epochs, new_epoch - old_epoch);
+      auto diff = std::min<int>(static_cast<int>(number_epochs), static_cast<int>(new_epoch - old_epoch));
       epoch_t epoch_idx = local_epoch_idx;
       for (int i = diff - 1; i >= 0; --i)
       {
@@ -432,7 +438,7 @@ namespace xenium { namespace reclamation {
     unsigned region_entries = 0;
     typename Traits::scan_strategy::template type<generic_epoch_based> scan_strategy;
     thread_control_block* control_block = nullptr;
-    epoch_t local_epoch_idx;
+    epoch_t local_epoch_idx = 0;
     std::array<typename Traits::abandon_strategy::retire_list, number_epochs> retire_lists = {};
 
     friend class generic_epoch_based;
@@ -449,3 +455,7 @@ namespace xenium { namespace reclamation {
   { local_thread_data.allocation_counter.count_reclamation(); }
 #endif
 }}
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

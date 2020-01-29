@@ -11,6 +11,11 @@
 #include <vector>
 #include <thread>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4458) // declaration hides member
+#endif
+
 namespace {
 
 template <typename Reclaimer>
@@ -339,3 +344,7 @@ TYPED_TEST(HarrisMichaelHashMap, parallel_usage_with_same_values)
 }
 
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

@@ -105,7 +105,7 @@ namespace xenium {
       void operator()(segment* seg) const { release_segment(seg); }
     };
     struct segment : reclaimer::template enable_concurrent_ptr<segment, 16, segment_deleter> {
-      using concurrent_ptr = typename reclaimer::template concurrent_ptr<segment>;
+      using concurrent_ptr = typename reclaimer::template concurrent_ptr<segment, 16>;
       
       explicit segment(uint64_t k) : k(k) {}
       ~segment() {

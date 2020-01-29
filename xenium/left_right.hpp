@@ -11,6 +11,11 @@
 #include <mutex>
 #include <thread>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4324) // structure was padded due to alignment specifier
+#endif
+
 namespace xenium {
 
 /**
@@ -182,5 +187,9 @@ private:
   T right;
 };
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #endif

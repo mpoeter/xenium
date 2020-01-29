@@ -16,6 +16,11 @@
 #include <atomic>
 #include <cstdint>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 26495) // uninitialized member variable
+#endif
+
 namespace xenium {
   /**
    * @brief A bounded lock-free multi-producer/multi-consumer k-FIFO queue.
@@ -102,7 +107,7 @@ namespace xenium {
       bool operator!=(const marked_idx& other) const { return this->val_ != other.val_; }
     private:
       static constexpr unsigned bits = 16;
-      static constexpr uint64_t val_mask = (1ul << bits) - 1;
+      static constexpr uint64_t val_mask = (static_cast<uint64_t>(1) << bits) - 1;
       uint64_t val_;
     };
     
@@ -305,4 +310,8 @@ namespace xenium {
     return tail_old < tail_current && head_current < tail_old;
   }
 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+
 #endif

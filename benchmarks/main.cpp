@@ -1,4 +1,5 @@
 #include <iostream>
+#include <numeric>
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -207,7 +208,7 @@ void runner::write_report(const report& report) {
     if (stream) {
       boost::property_tree::json_parser::read_json(stream, ptree);
     }
-  } catch(const boost::property_tree::json_parser_error& e) {
+  } catch(const boost::property_tree::json_parser_error&) {
     std::cerr << "Failed to parse existing report file \"" << _reportfile << "\"" <<
       " - skipping report generation!" << std::endl;
   }
@@ -224,7 +225,8 @@ void runner::warmup() {
   auto runtime = _config.get<std::uint32_t>("warmup.runtime", 5000);
   for (std::uint32_t i = 0; i < rounds; ++i) {
     std::cout << "warmup round " << i << std::endl;
-    exec_round(runtime);
+    auto report = exec_round(runtime);
+    (void)report;
   }
 }
 

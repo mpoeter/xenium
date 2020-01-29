@@ -7,6 +7,11 @@
 #error "This is an impl file and must not be included directly!"
 #endif
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4127) // conditional expression is constant
+#endif
+
 namespace xenium { namespace reclamation {
 
     template<class Traits>
@@ -210,7 +215,7 @@ namespace xenium { namespace reclamation {
     template<class Traits>
     template<class T, class MarkedPtr>
     auto lock_free_ref_count<Traits>::
-    guard_ptr<T, MarkedPtr>::operator=(guard_ptr &&p)
+    guard_ptr<T, MarkedPtr>::operator=(guard_ptr &&p) noexcept
     -> guard_ptr & {
       if (&p == this)
         return *this;
@@ -327,3 +332,7 @@ namespace xenium { namespace reclamation {
     { allocation_counter().count_reclamation(); }
 #endif
 }}
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

@@ -323,7 +323,7 @@ private:
   static constexpr std::size_t version_shift = lock_bit;
 
   static constexpr std::uint32_t lock = 1u << (lock_bit - 1);
-  static constexpr std::size_t version_inc = 1ul << lock_bit;
+  static constexpr std::size_t version_inc = static_cast<std::size_t>(1) << lock_bit;
   
   static constexpr std::uint32_t item_count_mask = (1u << item_counter_bits) - 1;
   static constexpr std::uint32_t delete_item_mask = item_count_mask << item_counter_bits;
@@ -337,6 +337,7 @@ private:
   
   bucket& lock_bucket(hash_t hash, guarded_block& block, bucket_state& state);
   void grow(bucket& bucket, bucket_state state);
+  void do_grow();
 
   template <bool AcquireAccessor, class Factory, class Callback>
   bool do_get_or_emplace(Key&& key, Factory&& factory, Callback&& callback);
@@ -377,8 +378,8 @@ public:
   iterator();
   ~iterator();
 
-  iterator(iterator&&) = default;
-  iterator& operator=(iterator&&) = default;
+  iterator(iterator&&);
+  iterator& operator=(iterator&&);
   
   iterator(const iterator&) = delete;
   iterator& operator=(const iterator&) = delete;
@@ -403,7 +404,7 @@ private:
   std::uint32_t index;
   extension_item* extension;
   std::atomic<extension_item*>* prev;
-  friend class vyukov_hash_map;
+  friend struct vyukov_hash_map;
 
   void move_to_next_bucket();
   Value* erase_current();

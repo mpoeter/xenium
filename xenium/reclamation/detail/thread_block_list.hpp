@@ -9,6 +9,11 @@
 #include <atomic>
 #include <iterator>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4324) // structure was padded due to alignment specifier
+#endif
+
 namespace xenium { namespace reclamation { namespace detail {
 
 template <typename T, typename DeletableObject = detail::deletable_object>
@@ -204,12 +209,15 @@ private:
     return result;
   }
 
-  std::atomic<T*> head;
+  std::atomic<T*> head{nullptr};
 
-  alignas(64) std::atomic<DeletableObject*> abandoned_retired_nodes;
+  alignas(64) std::atomic<DeletableObject*> abandoned_retired_nodes{nullptr};
 };
 
 }}}
 
+#ifdef _MSC_VER
+#pragma warning(pop)
 #endif
 
+#endif

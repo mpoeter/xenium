@@ -257,13 +257,13 @@ namespace xenium { namespace reclamation {
     protected:
       virtual ~deletable_object_with_eras() = default;
       using era_t = size_t;
-      era_t construction_era;
-      era_t retirement_era;
+      era_t construction_era{};
+      era_t retirement_era{};
       template <class>
       friend class hazard_eras;
 
       template <class T>
-      friend class hazard_eras<T>::thread_data;
+      friend struct hazard_eras<T>::thread_data;
     };
   }
 }}

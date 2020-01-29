@@ -17,6 +17,11 @@
 #include <atomic>
 #include <stdexcept>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4324) // structure was padded due to alignment specifier
+#endif
+
 namespace xenium {
 
 namespace policy {
@@ -257,9 +262,9 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
 
     if constexpr(pop_retries > 0) {
       unsigned cnt = 0;
-      ramalhete_queue::backoff backoff;
+      ramalhete_queue::backoff retry_backoff;
       while (h->entries[idx].value.load(std::memory_order_relaxed) == nullptr && ++cnt <= pop_retries)
-        backoff(); // TODO - use a backoff tpye that can be configured separately
+        retry_backoff(); // TODO - use a backoff tpye that can be configured separately
     }
 
     // (12) - this acquire-exchange synchronizes-with the release-CAS (8)
@@ -275,5 +280,9 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
   return false;
 }
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #endif

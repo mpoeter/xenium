@@ -13,7 +13,7 @@
 #include <cstdint>
 
 namespace xenium { namespace  detail {
-  template <class T, std::size_t MinCapacity = 64, std::size_t MaxCapacity = 1u << 31>
+  template <class T, std::size_t MinCapacity = 64, std::size_t MaxCapacity = static_cast<std::size_t>(1) << 31>
   struct growing_circular_array {
     static constexpr std::size_t min_capacity = MinCapacity;
     static constexpr std::size_t max_capacity = MaxCapacity;
@@ -71,7 +71,7 @@ namespace xenium { namespace  detail {
     _data[0] = ptr++;
     for(std::size_t i = 1; i < _buckets; ++i) {
       _data[i] = ptr;
-      ptr += 1 << (i - 1);
+      ptr += static_cast<std::size_t>(1) << (i - 1);
     }
   }
 

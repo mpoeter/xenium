@@ -14,6 +14,11 @@
 #include <cstdint>
 #include <memory>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4324) // structure was padded due to alignment specifier
+#endif
+
 namespace xenium {
 
 namespace policy {
@@ -265,5 +270,9 @@ private:
   alignas(64) std::atomic<size_t> dequeue_pos;
 };
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #endif

@@ -78,7 +78,7 @@ TEST(KirschBoundedKFifoQueue, deletes_remaining_unique_ptr_entries)
       EXPECT_TRUE(queue.try_pop(elem));
     }
   }
-  EXPECT_EQ(200, delete_count);
+  EXPECT_EQ(200u, delete_count);
 }
 
 TEST(KirschBoundedKFifoQueue, parallel_usage)
@@ -89,7 +89,7 @@ TEST(KirschBoundedKFifoQueue, parallel_usage)
   std::vector<std::thread> threads;
   for (int i = 0; i < max_threads; ++i)
   {
-    threads.push_back(std::thread([i, &queue]
+    threads.push_back(std::thread([i, &queue, max_threads]
     {
     #ifdef DEBUG
       const int MaxIterations = 10000;
@@ -99,7 +99,7 @@ TEST(KirschBoundedKFifoQueue, parallel_usage)
       for (int j = 0; j < MaxIterations; ++j)
       {
         EXPECT_TRUE(queue.try_push(new int(i)));
-        int* elem;
+        int* elem = nullptr;
         EXPECT_TRUE(queue.try_pop(elem));
         EXPECT_TRUE(*elem >= 0 && *elem <= max_threads);
         delete elem;

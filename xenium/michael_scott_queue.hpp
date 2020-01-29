@@ -11,6 +11,11 @@
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4324) // structure was padded due to alignment specifier
+#endif
+
 namespace xenium {
 /**
  * @brief An unbounded generic lock-free multi-producer/multi-consumer FIFO queue.
@@ -69,6 +74,9 @@ private:
   
   struct node : reclaimer::template enable_concurrent_ptr<node>
   {
+    node() : value() {};
+    node(T&& v) : value(std::move(v)) {}
+
     T value;
     concurrent_ptr next;
   };
@@ -102,8 +110,7 @@ michael_scott_queue<T, Policies...>::~michael_scott_queue()
 template <class T, class... Policies>
 void michael_scott_queue<T, Policies...>::push(T value)
 {
-  node* n = new node{};
-  n->value = std::move(value);
+  node* n = new node(std::move(value));
 
   backoff backoff;
 
@@ -192,5 +199,9 @@ bool michael_scott_queue<T, Policies...>::try_pop(T &result)
   return true;
 }
 }
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #endif

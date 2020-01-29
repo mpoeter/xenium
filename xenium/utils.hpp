@@ -7,6 +7,9 @@
 #define XENIUM_UTILS_HPP
 
 #include <cstdint>
+#ifdef _M_AMD64
+#include <intrin.h>
+#endif
 
 namespace xenium { namespace utils {
   template <typename T>
@@ -28,7 +31,7 @@ namespace xenium { namespace utils {
     if (is_power_of_two(val))
       return val;
 
-    return 1ul << find_last_bit_set(val);
+    return static_cast<T>(1) << find_last_bit_set(val);
   }
 
   template <typename T>
@@ -56,22 +59,22 @@ namespace xenium { namespace utils {
     static uintptr_t right(uintptr_t v) { return v; }
   };
   
-#if defined(__GNUC__)
-  #if defined(__sparc__)
+#if defined(__sparc__)
   static inline std::uint64_t getticks(void) {
       std::uint64_t ret;
       __asm__("rd %%tick, %0" : "=r" (ret));
       return ret;
   }
-  #elif defined(__x86_64__)
+#elif defined(__x86_64__)
   static inline std::uint64_t getticks(void) {
       std::uint32_t hi, lo;
       __asm__ ("rdtsc" : "=a"(lo), "=d"(hi));
       return (static_cast<std::uint64_t>(hi) << 32) | static_cast<std::uint64_t>(lo);
   }
-  #else
-    #error "Unsupported platform"
-  #endif
+#elif defined(_M_AMD64)
+  static inline std::uint64_t getticks(void) {
+    return __rdtsc();
+  }
 #else
   // TODO - add support for more compilers!
   #error "Unsupported compiler"

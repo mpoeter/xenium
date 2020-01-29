@@ -14,6 +14,11 @@
 
 #include <algorithm>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4324) // structure was padded due to alignment specifier
+#endif
+
 namespace xenium { namespace reclamation {
 
   struct stamp_it::thread_control_block :
@@ -572,8 +577,8 @@ namespace xenium { namespace reclamation {
     thread_control_block* head;
     thread_control_block* tail;
 
-    alignas(64) std::atomic<deletable_object_with_stamp*> global_retired_nodes;
-    alignas(64) detail::thread_block_list<thread_control_block> global_thread_block_list;
+    alignas(64) std::atomic<deletable_object_with_stamp*> global_retired_nodes{nullptr};
+    alignas(64) detail::thread_block_list<thread_control_block> global_thread_block_list{};
     friend class stamp_it;
   };
 
@@ -917,3 +922,7 @@ namespace xenium { namespace reclamation {
   { local_thread_data().allocation_counter.count_reclamation(); }
 #endif
 }}
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

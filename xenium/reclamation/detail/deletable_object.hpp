@@ -9,6 +9,11 @@
 #include <memory>
 #include <type_traits>
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 26495) // uninitialized member variable
+#endif
+
 namespace xenium { namespace reclamation { namespace detail {
 
   struct deletable_object
@@ -73,5 +78,9 @@ namespace xenium { namespace reclamation { namespace detail {
     deletable_object_with_non_empty_deleter<Derived, Deleter, Base>
   >;
 }}}
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #endif

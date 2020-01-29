@@ -110,7 +110,7 @@ namespace {
 
     for (unsigned i = 0; i < num_threads; ++i)
     {
-      threads[i] = std::thread([i, &start, &queues]()
+      threads[i] = std::thread([i, &start, &queues, num_threads, MaxIterations]()
         {
           std::mt19937 rand;
           rand.seed(i);

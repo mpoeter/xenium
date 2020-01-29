@@ -35,7 +35,7 @@ struct benchmark_thread : execution_thread {
     if (update_ratio > 1.0)
       throw std::runtime_error("The sum of remove_ratio and insert_ratio must be <= 1.0");
 
-    auto rand_range = std::numeric_limits<std::uint64_t>::max();
+    constexpr auto rand_range = std::numeric_limits<std::uint64_t>::max();
     _scale_insert = static_cast<std::uint64_t>(insert_ratio * rand_range);
     _scale_remove = static_cast<std::uint64_t>(update_ratio * rand_range);
   }
@@ -50,16 +50,16 @@ struct benchmark_thread : execution_thread {
     return { data, insert_operations + remove_operations + get_operations };
   }
 protected:
-  std::uint32_t insert_operations = 0;
-  std::uint32_t remove_operations = 0;
-  std::uint32_t get_operations = 0;
+  std::uint64_t insert_operations = 0;
+  std::uint64_t remove_operations = 0;
+  std::uint64_t get_operations = 0;
 private:
   hash_map_benchmark<T>& _benchmark;
   
-  std::uint64_t _key_range;
-  std::uint64_t _key_offset;
-  std::uint64_t _scale_remove;
-  std::uint64_t _scale_insert;
+  std::uint64_t _key_range = 0;
+  std::uint64_t _key_offset = 0;
+  std::uint64_t _scale_remove = 0;
+  std::uint64_t _scale_insert = 0;
 };
 
 template <class T>
@@ -78,10 +78,10 @@ struct hash_map_benchmark : benchmark {
   }
 
   std::unique_ptr<T> hash_map;
-  std::uint32_t batch_size;
-  std::uint64_t key_range;
-  std::uint64_t key_offset;
-  config::prefill prefill;
+  std::uint32_t batch_size = 0;
+  std::uint64_t key_range = 0;
+  std::uint64_t key_offset = 0;
+  config::prefill prefill{};
 };
 
 template <class T>
@@ -100,14 +100,14 @@ void hash_map_benchmark<T>::setup(const boost::property_tree::ptree& config) {
 template <class T>
 void benchmark_thread<T>::initialize(std::uint32_t num_threads) {
   auto id = this->id() & execution::thread_id_mask;
-  std::uint32_t cnt = _benchmark.prefill.get_thread_quota(id, num_threads);
+  std::uint64_t cnt = _benchmark.prefill.get_thread_quota(id, num_threads);
 
   region_guard_t<T>{};
   auto step_size = _benchmark.key_range / _benchmark.prefill.count;
   std::uint64_t key = id * step_size + _benchmark.key_offset;
   step_size *= num_threads;
   for (std::uint64_t i = 0 ; i < cnt; ++i, key += step_size) {
-    if (!try_emplace(*_benchmark.hash_map, key)) {
+    if (!try_emplace(*_benchmark.hash_map, static_cast<unsigned>(key))) {
       throw initialization_failure();
     }
   }
@@ -126,7 +126,7 @@ void benchmark_thread<T>::run() {
   region_guard_t<T>{};
   for (std::uint32_t i = 0; i < n; ++i) {
     auto r = _randomizer();
-    auto key = (r % _key_range) + _key_offset;
+    auto key = static_cast<unsigned>((r % _key_range) + _key_offset);
 
     if (r < _scale_insert) {
       if (try_emplace(hash_map, key))

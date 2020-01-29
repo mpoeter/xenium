@@ -97,7 +97,7 @@ TYPED_TEST(RamalheteQueue, deletes_remaining_unique_ptr_entries)
     xenium::ramalhete_queue<std::unique_ptr<dummy>, xenium::policy::reclaimer<TypeParam>> queue;
     queue.push(std::make_unique<dummy>(delete_count));
   }
-  EXPECT_EQ(1, delete_count);
+  EXPECT_EQ(1u, delete_count);
 }
 
 TYPED_TEST(RamalheteQueue, push_two_items_pop_them_in_FIFO_order)
@@ -132,7 +132,7 @@ TYPED_TEST(RamalheteQueue, parallel_usage)
       {
         typename Reclaimer::region_guard{};
         queue.push(new int(i));
-        int* elem;
+        int* elem = nullptr;
         EXPECT_TRUE(queue.try_pop(elem));
         EXPECT_TRUE(*elem >= 0 && *elem <= 4);
         delete elem;

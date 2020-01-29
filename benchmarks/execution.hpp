@@ -71,7 +71,7 @@ struct execution {
   void create_threads(const boost::property_tree::ptree& config);
   round_report run();
   execution_state state(std::memory_order order = std::memory_order_relaxed) const;
-  std::uint32_t num_threads() const { return _threads.size(); }
+  std::uint32_t num_threads() const { return static_cast<std::uint32_t>(_threads.size()); }
 private:
   void wait_until_all_threads_are(thread_state state);
 

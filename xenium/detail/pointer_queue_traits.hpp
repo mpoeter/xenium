@@ -54,7 +54,7 @@ struct pointer_queue_traits<std::unique_ptr<T>, Policies...> {
   static raw_type get_raw(value_type& val) { return val.get(); }
   static void release(value_type& val) { val.release(); }
   static void store(value_type& target, raw_type val) { target.reset(val); }
-  static void delete_value(raw_type v) { value_type{v}; }
+  static void delete_value(raw_type v) { std::unique_ptr<T> dummy{v}; }
 };
 
 template <class T, class... Policies>

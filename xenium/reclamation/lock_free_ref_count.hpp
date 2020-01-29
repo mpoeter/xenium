@@ -185,7 +185,7 @@ namespace reclamation {
     guard_ptr(guard_ptr&& p) noexcept;
 
     guard_ptr& operator=(const guard_ptr& p);
-    guard_ptr& operator=(guard_ptr&& p);
+    guard_ptr& operator=(guard_ptr&& p) noexcept;
 
     // Atomically take snapshot of p, and *if* it points to unreclaimed object, acquire shared ownership of it.
     void acquire(const concurrent_ptr<T>& p, std::memory_order order = std::memory_order_seq_cst) noexcept;
