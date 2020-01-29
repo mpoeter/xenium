@@ -84,7 +84,7 @@ namespace xenium {
     struct padded_entry {
       std::atomic<marked_value> value;
       // we use max here to avoid arrays of size zero which are not allowed by Visual C++
-      [[maybe_unused]] char padding[std::max(padding_bytes, 1u)];
+      char padding[std::max(padding_bytes, 1u)];
     };
 
     struct unpadded_entry {

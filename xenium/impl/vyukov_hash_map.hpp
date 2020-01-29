@@ -140,7 +140,7 @@ struct alignas(64) vyukov_hash_map<Key, Value, Policies...>::block :
   std::uint32_t index(const key_type& key) const { return static_cast<std::uint32_t>(key & mask); }
   bucket* buckets() { return reinterpret_cast<bucket*>(this+1); }
 
-  void operator delete(void* p) { ::operator delete(p, static_cast<std::align_val_t>(cacheline_size)); }
+  void operator delete(void* p) { ::operator delete(p, cacheline_size); }
 };
 
 template <class Key, class Value, class... Policies>
@@ -697,7 +697,7 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_block(std::uint32_t buck
     sizeof(bucket) * bucket_count +
     sizeof(extension_bucket) * (extension_bucket_count + 1);
 
-  void* mem = ::operator new(size, static_cast<std::align_val_t>(cacheline_size));
+  void* mem = ::operator new(size, cacheline_size);
   if (mem == nullptr)
     return nullptr;
 

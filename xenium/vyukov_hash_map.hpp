@@ -328,6 +328,8 @@ private:
   static constexpr std::uint32_t item_count_mask = (1u << item_counter_bits) - 1;
   static constexpr std::uint32_t delete_item_mask = item_count_mask << item_counter_bits;
 
+  static constexpr std::align_val_t cacheline_size{64};
+
   block_ptr data_block;
   std::atomic<int> resize_lock;
 
