@@ -434,7 +434,7 @@ void vyukov_hash_map<Key, Value, Policies...>::erase(iterator& it) {
 
   auto extension = it.current_bucket->head.load(std::memory_order_relaxed);
   if (extension) {
-    auto locked_state = it.current_bucket_state;
+    auto locked_state = it.current_bucket_state.locked();
     auto marked_state = locked_state.set_delete_marker(it.index + 1);
     it.current_bucket->state.store(marked_state, std::memory_order_relaxed);
 
@@ -462,7 +462,7 @@ void vyukov_hash_map<Key, Value, Policies...>::erase(iterator& it) {
     auto max_index = it.current_bucket_state.item_count() - 1;
     if (it.index != max_index) {
       // signal which item we are deleting
-      auto locked_state = it.current_bucket_state;
+      auto locked_state = it.current_bucket_state.locked();
       auto marked_state = locked_state.set_delete_marker(it.index + 1);
       it.current_bucket->state.store(marked_state, std::memory_order_relaxed);
 
@@ -476,7 +476,7 @@ void vyukov_hash_map<Key, Value, Policies...>::erase(iterator& it) {
     auto new_state = it.current_bucket_state.new_version().dec_item_count();
     it.current_bucket_state = new_state;
     // (21) - this release store synchronizes-with the acquire-load (23)
-    it.current_bucket->state.store(new_state, std::memory_order_release);
+    it.current_bucket->state.store(new_state.locked(), std::memory_order_release);
     if (it.index == new_state.item_count()) {
       it.prev = &it.current_bucket->head;
       it.extension = it.current_bucket->head.load(std::memory_order_relaxed);

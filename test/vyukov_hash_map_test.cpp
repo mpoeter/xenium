@@ -467,10 +467,21 @@ TYPED_TEST(VyukovHashMap, parallel_usage)
             EXPECT_EQ(k, *acc);
           }
           if ((j + i) % 8 == 0) {
-            for (auto v : map)
-              EXPECT_EQ(v.first, v.second);
+            for (auto it = map.begin(); it != map.end(); ) {
+              EXPECT_EQ((*it).first, (*it).second);
+              if ((*it).first == k) {
+                map.erase(it);
+              } else {
+                ++it;
+              }
+            }
+          } else if ((j + i) % 4 == 0) {
+            typename hash_map::accessor acc;
+            EXPECT_TRUE(map.extract(k, acc));
+            EXPECT_EQ(k, *acc);
+          } else {
+            EXPECT_TRUE(map.erase(k));
           }
-          EXPECT_TRUE(map.erase(k));
         }
       }
     }));
@@ -497,19 +508,30 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_nontrivial_types)
     {
       for (int k = i * keys_per_thread; k < (i + 1) * keys_per_thread; ++k) {
         for (int j = 0; j < (MaxIterations / keys_per_thread) / 2; ++j) {
-          std::string v = std::to_string(k);
+          std::string key = std::to_string(k);
           typename Reclaimer::region_guard{};
-          EXPECT_TRUE(map.emplace(v, v));
+          EXPECT_TRUE(map.emplace(key, key));
           for (int x = 0; x < 10; ++x) {
             typename hash_map::accessor acc;
-            EXPECT_TRUE(map.try_get_value(v, acc));
-            EXPECT_EQ(v, *acc);
+            EXPECT_TRUE(map.try_get_value(key, acc));
+            EXPECT_EQ(key, *acc);
           }
           if ((j + i) % 8 == 0) {
-            for (auto& v : map)
-              EXPECT_EQ(v.first, v.second);
+            for (auto it = map.begin(); it != map.end(); ) {
+              EXPECT_EQ((*it).first, (*it).second);
+              if ((*it).first == key) {
+                map.erase(it);
+              } else {
+                ++it;
+              }
+            }
+          } else if ((j + i) % 4 == 0) {
+            typename hash_map::accessor acc;
+            EXPECT_TRUE(map.extract(key, acc));
+            EXPECT_EQ(key, *acc);
+          } else {
+            EXPECT_TRUE(map.erase(key));
           }
-          EXPECT_TRUE(map.erase(v));
         }
       }
     }));
