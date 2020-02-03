@@ -697,7 +697,7 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_block(std::uint32_t buck
     sizeof(bucket) * bucket_count +
     sizeof(extension_bucket) * (extension_bucket_count + 1);
 
-  void* mem = ::operator new(size, cacheline_size);
+  void* mem = ::operator new(size, cacheline_size, std::nothrow);
   if (mem == nullptr)
     return nullptr;
 
