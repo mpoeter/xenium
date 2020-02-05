@@ -158,7 +158,7 @@ ramalhete_queue<T, Policies...>::ramalhete_queue()
 template <class T, class... Policies>
 ramalhete_queue<T, Policies...>::~ramalhete_queue()
 {
-  // (1) - this acquire-load synchronizes-with the release-CAS (11)
+  // (1) - this acquire-load synchronizes-with the release-CAS (13)
   auto n = head.load(std::memory_order_acquire);
   while (n)
   {
@@ -195,7 +195,7 @@ void ramalhete_queue<T, Policies...>::push(value_type value)
         traits::release(value);
 
         marked_ptr expected = nullptr;
-        // (4) - this release-CAS synchronizes-with the acquire-load (2, 6, 10)
+        // (4) - this release-CAS synchronizes-with the acquire-load (2, 6, 12)
         if (t->next.compare_exchange_strong(expected, new_node,
                                             std::memory_order_release,
                                             std::memory_order_relaxed))
@@ -219,7 +219,7 @@ void ramalhete_queue<T, Policies...>::push(value_type value)
     idx %= entries_per_node;
 
     marked_value expected = nullptr;
-    // (8) - this release-CAS synchronizes-with the acquire-exchange (12)
+    // (8) - this release-CAS synchronizes-with the acquire-exchange (14)
     if (t->entries[idx].value.compare_exchange_strong(expected, raw_val, std::memory_order_release, std::memory_order_relaxed)) {
       traits::release(value);
       return;
@@ -236,23 +236,29 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
 
   guard_ptr h;
   for (;;) {
-    // (9) - this acquire-load synchronizes-with the release-CAS (11)
+    // (9) - this acquire-load synchronizes-with the release-CAS (13)
     h.acquire(head, std::memory_order_acquire);
 
-    if (h->pop_idx.load(std::memory_order_relaxed) >= h->push_idx.load(std::memory_order_relaxed) &&
+    // (10) - this acquire-load synchronizes-with the release-fetch-add (11)
+    const auto pop_idx = h->pop_idx.load(std::memory_order_acquire);
+    // This synchronization is necessary to avoid a situation where we see an up-to-date
+    // pop_idx, but an out-of-date push_idx and would (falsly) assume that the queue is empty.
+    const auto push_idx = h->push_idx.load(std::memory_order_relaxed);
+    if (pop_idx >= push_idx &&
         h->next.load(std::memory_order_relaxed) == nullptr)
       break;
 
-    unsigned idx = h->pop_idx.fetch_add(step_size, std::memory_order_relaxed);
+    // (11) - this release-fetch-add synchronizes with the acquire-load (10)
+    unsigned idx = h->pop_idx.fetch_add(step_size, std::memory_order_release);
     if (idx >= max_idx) {
       // This node has been drained, check if there is another one
-      // (10) - this acquire-load synchronizes-with the release-CAS (4)
+      // (12) - this acquire-load synchronizes-with the release-CAS (4)
       auto next = h->next.load(std::memory_order_acquire);
       if (next == nullptr)
         break;  // No more nodes in the queue
 
       marked_ptr expected = h;
-      // (11) - this release-CAS synchronizes-with the acquire-load (1, 9)
+      // (13) - this release-CAS synchronizes-with the acquire-load (1, 9)
       if (head.compare_exchange_strong(expected, next, std::memory_order_release, std::memory_order_relaxed))
         h.reclaim(); // The old node has been unlinked -> reclaim it.
 
@@ -267,7 +273,7 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
         retry_backoff(); // TODO - use a backoff tpye that can be configured separately
     }
 
-    // (12) - this acquire-exchange synchronizes-with the release-CAS (8)
+    // (14) - this acquire-exchange synchronizes-with the release-CAS (8)
     auto value = h->entries[idx].value.exchange(marked_value(nullptr, 1), std::memory_order_acquire);
     if (value != nullptr) {
       traits::store(result, value.get());
