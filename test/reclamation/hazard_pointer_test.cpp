@@ -32,7 +32,7 @@ struct HazardPointer : ::testing::Test
 
   struct Bar
   {
-    int x;
+    int x{};
     virtual ~Bar() {}
   };
 

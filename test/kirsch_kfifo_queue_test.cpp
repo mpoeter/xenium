@@ -64,7 +64,7 @@ TYPED_TEST(KirschKFifoQueue, deletes_remaining_unique_ptr_entries)
       for (int i = 0; i < 200; ++i)
     queue.push(std::make_unique<dummy>(delete_count));
   }
-  EXPECT_EQ(200, delete_count);
+  EXPECT_EQ(200u, delete_count);
 }
 
 TYPED_TEST(KirschKFifoQueue, push_two_items_pop_them_in_FIFO_order)
@@ -114,7 +114,7 @@ TYPED_TEST(KirschKFifoQueue, parallel_usage)
         typename Reclaimer::region_guard{};
         for (int k = 0; k < 10; ++k) {
           queue.push(new int(i));
-          int* elem;
+          int* elem = nullptr;
           EXPECT_TRUE(queue.try_pop(elem));
           EXPECT_TRUE(*elem >= 0 && *elem <= 4);
           delete elem;

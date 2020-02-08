@@ -43,7 +43,8 @@ namespace xenium { namespace reclamation { namespace detail {
       values() :
         allocated_instances(),
         reclaimed_instances(),
-        dead(false)
+        dead(false),
+        next()
       {}
       std::atomic<std::size_t> allocated_instances;
       std::atomic<std::size_t> reclaimed_instances;

@@ -712,7 +712,7 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_block(std::uint32_t buck
   std::uint32_t extension_bucket_count = bucket_count / bucket_to_extension_ratio;
   std::size_t size = sizeof(block) +
     sizeof(bucket) * bucket_count +
-    sizeof(extension_bucket) * (extension_bucket_count + 1);
+    sizeof(extension_bucket) * (static_cast<size_t>(extension_bucket_count) + 1);
 
   void* mem = ::operator new(size, cacheline_size, std::nothrow);
   if (mem == nullptr)
@@ -734,7 +734,7 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_block(std::uint32_t buck
   for (std::uint32_t i = 0; i != extension_bucket_count; ++i) {
     auto& bucket = b->extension_buckets[i];
     extension_item* head = nullptr;
-    for (std::uint32_t j = 0; j != extension_item_count; ++j) {
+    for (std::size_t j = 0; j != extension_item_count; ++j) {
       bucket.items[j].next.store(head, std::memory_order_relaxed);
       head = &bucket.items[j];
     }

@@ -20,7 +20,6 @@ namespace {
   // exceptions can be caused by the construction of guard_ptr instances (e.g.,
   // when using hazard_pointer reclaimer).
   struct throwing_key {
-    throwing_key() noexcept {}
     throwing_key(int v) noexcept : v(v) {}
     int v;
     bool operator==(const throwing_key&) const {

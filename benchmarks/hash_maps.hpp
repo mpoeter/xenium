@@ -20,17 +20,17 @@ struct hash_map_builder<xenium::vyukov_hash_map<Key, Value, Policies...>> {
 
 namespace {
   template <class Key, class Value, class... Policies>
-  bool try_emplace(xenium::vyukov_hash_map<Key, Value, Policies...>& hash_map, std::uint64_t key) {
+  bool try_emplace(xenium::vyukov_hash_map<Key, Value, Policies...>& hash_map, Key key) {
     return hash_map.emplace(key, key);
   }
 
   template <class Key, class Value, class... Policies>
-  bool try_remove(xenium::vyukov_hash_map<Key, Value, Policies...>& hash_map, std::uint64_t key) {
+  bool try_remove(xenium::vyukov_hash_map<Key, Value, Policies...>& hash_map, Key key) {
     return hash_map.erase(key);
   }
 
   template <class Key, class Value, class... Policies>
-  bool try_get(xenium::vyukov_hash_map<Key, Value, Policies...>& hash_map, std::uint64_t key) {
+  bool try_get(xenium::vyukov_hash_map<Key, Value, Policies...>& hash_map, Key key) {
     typename xenium::vyukov_hash_map<Key, Value, Policies...>::accessor acc;
     return hash_map.try_get_value(key, acc);
   }
@@ -55,17 +55,17 @@ struct descriptor<xenium::harris_michael_hash_map<Key, Value, Policies...>> {
 
 namespace {
   template <class Key, class Value, class... Policies>
-  bool try_emplace(xenium::harris_michael_hash_map<Key, Value, Policies...>& hash_map, std::uint64_t key) {
+  bool try_emplace(xenium::harris_michael_hash_map<Key, Value, Policies...>& hash_map, Key key) {
     return hash_map.emplace(key, key);
   }
 
   template <class Key, class Value, class... Policies>
-  bool try_remove(xenium::harris_michael_hash_map<Key, Value, Policies...>& hash_map, std::uint64_t key) {
+  bool try_remove(xenium::harris_michael_hash_map<Key, Value, Policies...>& hash_map, Key key) {
     return hash_map.erase(key);
   }
 
   template <class Key, class Value, class... Policies>
-  bool try_get(xenium::harris_michael_hash_map<Key, Value, Policies...>& hash_map, std::uint64_t key) {
+  bool try_get(xenium::harris_michael_hash_map<Key, Value, Policies...>& hash_map, Key key) {
     auto it = hash_map.find(key);
     return it != hash_map.end();
   }

@@ -169,8 +169,7 @@ namespace xenium {
   template <class T, class... Policies>
   auto kirsch_kfifo_queue<T, Policies...>::alloc_segment() const -> segment* {
     void* data = ::operator new(sizeof(segment) + k_ * sizeof(entry));
-    new(data) segment(k_);
-    auto result = static_cast<segment*>(data);
+    auto result = new(data) segment(k_);
     for (std::size_t i = 0; i < k_; ++i)
       new(&result->items()[i]) entry();
     return result;

@@ -84,7 +84,7 @@ namespace xenium { namespace reclamation {
   protected:
     virtual ~deletable_object_with_stamp() = default;
   private:
-    stamp_t stamp;
+    stamp_t stamp{};
     friend class stamp_it;
   };
 
