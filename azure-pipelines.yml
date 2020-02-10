@@ -25,6 +25,34 @@ stages:
           ./build/gtest
         displayName: "Run tests"
 
+    - job: WindowsCMake
+      displayName: "Build Windows"
+      pool:
+        vmImage: vs2017-win2016
+      steps:
+      - powershell: |
+          Invoke-WebRequest https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.tar.gz -OutFile boost_1_68_0.tar.gz
+          tar xzf boost_1_68_0.tar.gz
+        displayName: Get boost
+      - powershell: |
+          git submodule update --init --recursive
+          mkdir $(Build.BinariesDirectory)\build
+        displayName: "Prepare build"
+      - task: CMake@1
+        displayName: "Configure xenium"
+        inputs:
+          workingDirectory: $(Build.BinariesDirectory)\build
+          cmakeArgs: -G "Visual Studio 15 2017 Win64" -DBOOST_ROOT=./boost_1_68_0 -T host=x64 $(Build.SourcesDirectory)
+      - task: CMake@1
+        displayName: "Build xenium"
+        inputs:
+          workingDirectory: $(Build.BinariesDirectory)\build
+          cmakeArgs: --build . -j 4 --config Debug
+      - powershell: |
+          gtest
+        displayName: "Run tests"
+        workingDirectory: $(Build.BinariesDirectory)/build
+
 - stage: Documentation
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
   jobs:
