@@ -41,6 +41,14 @@ namespace {
       FooBar(Foo** instance) : Foo(instance) {}
     };
 
+    struct WithCustomDeleter;
+    struct DummyDeleter {
+      bool* called;
+      WithCustomDeleter* reference;
+      void operator()(WithCustomDeleter* obj) const;
+    };
+    struct WithCustomDeleter : HE::template enable_concurrent_ptr<WithCustomDeleter, 2, DummyDeleter> {};
+
     template <typename T>
     using concurrent_ptr = typename HE::template concurrent_ptr<T>;
     template <typename T> using marked_ptr = typename concurrent_ptr<T>::marked_ptr;
@@ -60,7 +68,7 @@ namespace {
         delete foo;
     }
 
-    Foo* dummy2;
+    Foo* dummy2 = nullptr;
     void advance_era() {
       // In order to do advance the global era counter we create a dummy object and mark it for reclamation.
       Foo* dummy = new Foo(&dummy2);
@@ -70,6 +78,13 @@ namespace {
       }
     }
   };
+
+  template <typename Policy>
+  void HazardEras<Policy>::DummyDeleter::operator()(WithCustomDeleter* obj) const {
+    *called = true;
+    EXPECT_EQ(reference, obj);
+    delete obj;
+  }
 
   using Policies = ::testing::Types<
     my_static_allocation_strategy,
@@ -164,18 +179,6 @@ namespace {
 
   TYPED_TEST(HazardEras, supports_custom_deleters)
   {
-    struct WithCustomDeleter;
-    struct DummyDeleter {
-      bool* called;
-      WithCustomDeleter* reference;
-      void operator()(WithCustomDeleter* obj) const {
-        *called = true;
-        EXPECT_EQ(reference, obj);
-        delete obj;
-      }
-    };
-    struct WithCustomDeleter : TestFixture::HE::template enable_concurrent_ptr<WithCustomDeleter, 2, DummyDeleter> {};
-
     bool called = false;
     typename TestFixture::HE::template concurrent_ptr<WithCustomDeleter>::guard_ptr gp(new WithCustomDeleter());
     gp.reclaim(DummyDeleter{&called, gp.get()});

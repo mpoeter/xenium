@@ -50,9 +50,9 @@ protected:
   void simulate_workload();
   const std::uint32_t _id;
   std::atomic<thread_state> _state{thread_state::starting};
-  std::mt19937_64 _randomizer;
-  std::thread _thread;
-  std::chrono::duration<double, std::milli> _runtime;
+  std::mt19937_64 _randomizer{};
+  std::thread _thread{};
+  std::chrono::duration<double, std::milli> _runtime{};
 private:
   friend struct execution;
   void thread_func();

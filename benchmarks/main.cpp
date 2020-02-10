@@ -30,7 +30,7 @@ private:
 
 registered_benchmarks benchmarks;
 
-void print_config(const ptree& config, int indent) {
+void print_config(const ptree& config, size_t indent) {
   if (config.empty()) {
     std::cout << config.get_value<std::string>() << '\n';
   } else {
@@ -157,13 +157,13 @@ void runner::load_config() {
   }
 }
 
-std::shared_ptr<benchmark_builder> runner::find_matching_builder(const benchmark_builders& benchmarks)
+std::shared_ptr<benchmark_builder> runner::find_matching_builder(const benchmark_builders& builders)
 {
   auto& ds_config = _config.get_child("ds");
   std::cout << "Given data structure config:\n";
   print_config(ds_config);
   std::vector<std::shared_ptr<benchmark_builder>> matches;
-  for(auto& var : benchmarks) {
+  for(auto& var : builders) {
     auto descriptor = var->get_descriptor();
     if (config_matches(ds_config, descriptor)) {
       matches.push_back(var);
@@ -175,7 +175,7 @@ std::shared_ptr<benchmark_builder> runner::find_matching_builder(const benchmark
 
   if (matches.empty()) {
     std::cout << "Could not find a benchmark that matches the given configuration. Available configurations are:\n";
-    for (auto& var : benchmarks) {
+    for (auto& var : builders) {
       print_config(var->get_descriptor());
       std::cout << '\n';
     }

@@ -25,11 +25,11 @@ execution::~execution() {
 }
 
 void execution::create_threads(const ptree& config) {
-  std::uint32_t count = 0;
+  std::uint32_t total_count = 0;
   for (auto& it : config)
-    count += it.second.get<std::uint32_t>("count", 1);
+    total_count += it.second.get<std::uint32_t>("count", 1);
 
-  _threads.reserve(count);
+  _threads.reserve(total_count);
 
   std::uint32_t cnt = 0;
   for (auto& it : config) {

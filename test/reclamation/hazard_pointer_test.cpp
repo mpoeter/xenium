@@ -41,6 +41,14 @@ struct HazardPointer : ::testing::Test
     FooBar(Foo** instance) : Foo(instance) {}
   };
 
+  struct WithCustomDeleter;
+  struct DummyDeleter {
+    bool* called;
+    WithCustomDeleter* reference;
+    void operator()(WithCustomDeleter* obj) const;
+  };
+  struct WithCustomDeleter : HP::template enable_concurrent_ptr<WithCustomDeleter, 2, DummyDeleter> {};
+
   template <typename T>
   using concurrent_ptr = typename HP::template concurrent_ptr<T>;
   template <typename T> using marked_ptr = typename concurrent_ptr<T>::marked_ptr;
@@ -67,6 +75,13 @@ struct HazardPointer : ::testing::Test
     gp.reclaim();
   }
 };
+
+template <typename Policy>
+void HazardPointer<Policy>::DummyDeleter::operator()(WithCustomDeleter* obj) const {
+  *called = true;
+  EXPECT_EQ(reference, obj);
+  delete obj;
+}
 
 using Policies = ::testing::Types<
     my_static_allocation_strategy,
@@ -160,18 +175,6 @@ TYPED_TEST(HazardPointer, reclaim_releases_ownership_and_deletes_object_because_
 
 TYPED_TEST(HazardPointer, supports_custom_deleters)
 {
-  struct WithCustomDeleter;
-  struct DummyDeleter {
-    bool* called;
-    WithCustomDeleter* reference;
-    void operator()(WithCustomDeleter* obj) const {
-      *called = true;
-      EXPECT_EQ(reference, obj);
-      delete obj;
-    }
-  };
-  struct WithCustomDeleter : TestFixture::HP::template enable_concurrent_ptr<WithCustomDeleter, 2, DummyDeleter> {};
-
   bool called = false;
   typename TestFixture::HP::template concurrent_ptr<WithCustomDeleter>::guard_ptr gp(new WithCustomDeleter());
   gp.reclaim(DummyDeleter{&called, gp.get()});

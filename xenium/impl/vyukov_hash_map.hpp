@@ -158,10 +158,10 @@ struct vyukov_hash_map<Key, Value, Policies...>::unlocker {
       locked_bucket.state.store(state, std::memory_order_relaxed);
     }
   }
-  void unlock(bucket_state state, std::memory_order order) {
+  void unlock(bucket_state new_state, std::memory_order order) {
     assert(enabled);
     assert(locked_bucket.state.load().is_locked());
-    locked_bucket.state.store(state, order);
+    locked_bucket.state.store(new_state, order);
     enabled = false;
   }
   void disable() { enabled = false; }
