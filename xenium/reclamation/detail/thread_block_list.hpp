@@ -73,12 +73,17 @@ public:
     std::atomic<entry_state> state;
   };
 
-  class iterator : public std::iterator<std::forward_iterator_tag, T>
+  class iterator
   {
     T* ptr = nullptr;
 
     explicit iterator(T* ptr) : ptr(ptr) {}
   public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = T;
+    using difference_type = std::ptrdiff_t;
+    using pointer = T*;
+    using reference = T&;
 
     iterator() = default;
 
