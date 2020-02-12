@@ -893,7 +893,11 @@ namespace xenium { namespace reclamation {
     return local_thread_data;
   }
 
+#if _MSC_VER
+  __declspec(selectany) stamp_it::thread_order_queue stamp_it::queue;
+#else
   inline stamp_it::thread_order_queue stamp_it::queue;
+#endif
 
 #ifdef WITH_PERF_COUNTER
   inline stamp_it::performance_counters stamp_it::get_performance_counters()
