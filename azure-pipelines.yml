@@ -1,78 +1,102 @@
 stages:
-- stage: Build
-  jobs:
-    - job: BuildLinux
-      displayName: "Build Linux"
+  - stage: Build
+    jobs:
+      - job: BuildLinux
+        displayName: 'Build Linux'
+        pool:
+          vmImage: 'ubuntu-18.04'
+        steps:
+        - script: |
+            sudo apt-get update -y
+            sudo apt-get install -y g++-8
+          displayName: Install GCC 8
+
+        - script: |
+            git submodule update --init --recursive
+            mkdir $(Build.BinariesDirectory)/build
+            cd $(Build.BinariesDirectory)/build
+            g++ --version
+            cmake $(Build.SourcesDirectory) -DCMAKE_CXX_COMPILER=g++-8
+          displayName: 'Prepare build'
+
+        - script: make -j 4
+          displayName: Build
+          workingDirectory: $(Build.BinariesDirectory)/build
+
+        - script: ./gtest --gtest_output=xml:gtest.log
+          workingDirectory: $(Build.BinariesDirectory)/build
+          displayName: 'Run tests'
+
+        - task: PublishTestResults@2
+          inputs:
+            testResultsFormat: 'JUnit'
+            testResultsFiles: $(Build.BinariesDirectory)/build/gtest.log
+
+############################################################
+
+      - job: BuildWindows
+        displayName: 'Build Windows'
+        pool:
+          vmImage: vs2017-win2016
+
+        strategy:
+          matrix:
+            x64-Release:
+              buildPlatform: x64
+              buildConfiguration: Release
+            x64-Debug:
+              buildPlatform: x64
+              buildConfiguration: Debug
+
+        steps:
+        - script: |
+            git submodule update --init --recursive
+            mkdir $(Build.BinariesDirectory)\build
+          displayName: 'Prepare build'
+
+        - task: CMake@1
+          displayName: 'Configure xenium'
+          inputs:
+            workingDirectory: '$(Build.BinariesDirectory)\build'
+            cmakeArgs: '$(Build.SourcesDirectory) -G "Visual Studio 15 2017" -A "$(buildPlatform)"'
+
+        - task: CMake@1
+          displayName: 'Build xenium'
+          inputs:
+            workingDirectory: '$(Build.BinariesDirectory)\build'
+            cmakeArgs: '--build . -j 4 --config $(buildConfiguration) -- /m'
+
+        - script: .\gtest.exe --gtest_output=xml:gtest.log
+          workingDirectory: '$(Build.BinariesDirectory)\build\$(buildConfiguration)'
+          displayName: 'Run Unit Tests'
+
+        - task: PublishTestResults@2
+          inputs:
+            testResultsFormat: 'JUnit'
+            testResultsFiles: $(Build.BinariesDirectory)\build\$(buildConfiguration)\gtest.log
+
+############################################################
+
+  - stage: Documentation
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+    jobs:
+    - job: Documentation
+      displayName: 'Build + deploy documentation'
       pool:
-        vmImage: 'ubuntu-18.04'
+        vmImage: 'Ubuntu-16.04'
       steps:
       - script: |
-          sudo apt-get update -y
-          sudo apt-get install -y g++-8
-        displayName: Install GCC 8
+          sudo apt-get install -y doxygen graphviz
+        displayName: Apt install dependencies
       - script: |
-          git submodule update --init --recursive
-          mkdir build
-          cd build
-          g++ --version
-          cmake .. -DCMAKE_CXX_COMPILER=g++-8
-        displayName: Prepare build
+          cd doc
+          doxygen
+        displayName: build doxygen
       - script: |
-          cd build
-          make -j 4
-        displayName: build
-      - script: |
-          ./build/gtest
-        displayName: "Run tests"
-
-    - job: WindowsCMake
-      displayName: "Build Windows"
-      pool:
-        vmImage: vs2017-win2016
-      steps:
-      - powershell: |
-          Invoke-WebRequest https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.tar.gz -OutFile boost_1_68_0.tar.gz
-          tar xzf boost_1_68_0.tar.gz
-        displayName: Get boost
-      - powershell: |
-          git submodule update --init --recursive
-          mkdir $(Build.BinariesDirectory)\build
-        displayName: "Prepare build"
-      - task: CMake@1
-        displayName: "Configure xenium"
-        inputs:
-          workingDirectory: $(Build.BinariesDirectory)\build
-          cmakeArgs: -G "Visual Studio 15 2017 Win64" -DBOOST_ROOT=./boost_1_68_0 -T host=x64 $(Build.SourcesDirectory)
-      - task: CMake@1
-        displayName: "Build xenium"
-        inputs:
-          workingDirectory: $(Build.BinariesDirectory)\build
-          cmakeArgs: --build . -j 4 --config Debug
-      - powershell: |
-          gtest
-        displayName: "Run tests"
-        workingDirectory: $(Build.BinariesDirectory)/build
-
-- stage: Documentation
-  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-  jobs:
-  - job: Documentation
-    displayName: "Build + deploy documentation"
-    pool:
-      vmImage: 'Ubuntu-16.04'
-    steps:
-    - script: |
-        sudo apt-get install -y doxygen graphviz
-      displayName: Apt install dependencies
-    - script: |
-        cd doc
-        doxygen
-      displayName: build doxygen
-    - script: |
-        cd doc/html
-        git init
-        git checkout --orphan gh-pages
-        git add .
-        git -c user.name='Azure' -c user.email='Azure' commit -m "Deploy xenium documentation to gh-pages"
-        git push -f -q "https://mpoeter:$(GITHUB_TOKEN)@github.com/mpoeter/xenium.git" gh-pages
-      displayName: publish GitHub pages
+          cd doc/html
+          git init
+          git checkout --orphan gh-pages
+          git add .
+          git -c user.name='Azure' -c user.email='Azure' commit -m "Deploy xenium documentation to gh-pages"
+          git push -f -q "https://mpoeter:$(GITHUB_TOKEN)@github.com/mpoeter/xenium.git" gh-pages
+        displayName: publish GitHub pages
