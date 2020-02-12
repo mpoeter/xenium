@@ -53,8 +53,13 @@ struct HazardPointer : ::testing::Test
   using concurrent_ptr = typename HP::template concurrent_ptr<T>;
   template <typename T> using marked_ptr = typename concurrent_ptr<T>::marked_ptr;
 
-  Foo* foo = new Foo(&foo);
-  marked_ptr<Foo> mp = marked_ptr<Foo>(foo, 3);
+  Foo* foo = nullptr;
+  marked_ptr<Foo> mp{};
+
+  void SetUp() override {
+    this->foo = new Foo(&foo);
+    this->mp = marked_ptr<Foo>(foo, 3);
+  }
 
   void TearDown() override
   {
@@ -176,8 +181,10 @@ TYPED_TEST(HazardPointer, reclaim_releases_ownership_and_deletes_object_because_
 TYPED_TEST(HazardPointer, supports_custom_deleters)
 {
   bool called = false;
-  typename TestFixture::HP::template concurrent_ptr<WithCustomDeleter>::guard_ptr gp(new WithCustomDeleter());
-  gp.reclaim(DummyDeleter{&called, gp.get()});
+  using TT = typename TestFixture::WithCustomDeleter;
+  using Deleter = typename TestFixture::DummyDeleter;
+  typename TestFixture::HP::template concurrent_ptr<TT>::guard_ptr gp(new TT());
+  gp.reclaim(Deleter{&called, gp.get()});
   EXPECT_TRUE(called);
 }
 
