@@ -38,6 +38,7 @@ namespace xenium { namespace reclamation {
       }
 
       global_thread_block_list.release_entry(control_block);
+      control_block = nullptr;
     }
 
     void enter_region()

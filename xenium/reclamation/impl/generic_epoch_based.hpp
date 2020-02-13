@@ -276,6 +276,7 @@ namespace xenium { namespace reclamation {
 
       assert(control_block->is_in_critical_region.load(std::memory_order_relaxed) == false);
       global_thread_block_list.release_entry(control_block);
+      control_block = nullptr;
     }
 
     void enter_region()

@@ -587,11 +587,11 @@ namespace xenium { namespace reclamation {
     ~thread_data()
     {
       assert(region_entries == 0);
-      if (control_block)
-      {
-        control_block->abandon();
-        control_block = nullptr;
-      }
+      if (control_block == nullptr)
+        return;
+
+      control_block->abandon();
+      control_block = nullptr;
 
       // reclaim as much nodes as possible
       process_local_nodes();

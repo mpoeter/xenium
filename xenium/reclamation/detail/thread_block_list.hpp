@@ -41,6 +41,7 @@ public:
     }
 
     void abandon() {
+      assert(is_active());
       // (1) - this release-store synchronizes-with the acquire-CAS (2)
       //       or any acquire-fence that is sequenced-after calling is_active.
       state.store(entry_state::free, std::memory_order_release);

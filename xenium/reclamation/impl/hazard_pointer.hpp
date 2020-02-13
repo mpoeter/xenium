@@ -405,10 +405,13 @@ namespace xenium { namespace reclamation {
         scan();
         if (retire_list != nullptr)
           global_thread_block_list.abandon_retired_nodes(retire_list);
+        retire_list = nullptr;
       }
 
-      if (control_block != nullptr)
+      if (control_block != nullptr) {
         global_thread_block_list.release_entry(control_block);
+        control_block = nullptr;
+      }
     }
 
     HP alloc_hazard_pointer()
