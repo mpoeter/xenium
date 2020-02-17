@@ -63,6 +63,7 @@ Chase and Lev \[[CL05](#ref-chase-2005)\].
 This implementation is heavily inspired by the version proposed by Vyukov \[[Vyu08](#ref-vyukov-2008)\].
 * `left_right` - a generic implementation of the LeftRight algorithm proposed by Ramalhete and Correia
 \[[RC15](#ref-ramalhete-2015)\].
+* `seqlock` - an implementation of the sequence lock (also often referred to as "sequential lock").
 
 ## Reclamation Schemes
 
