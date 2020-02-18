@@ -5,18 +5,28 @@ stages:
         displayName: 'Build Linux'
         pool:
           vmImage: 'ubuntu-18.04'
+
+        strategy:
+          matrix:
+            gcc8-Release:
+              compiler: g++-8
+              buildConfiguration: Release
+            gcc8-Debug:
+              compiler: g++-8
+              buildConfiguration: Debug
+
         steps:
         - script: |
             sudo apt-get update -y
             sudo apt-get install -y g++-8
           displayName: Install GCC 8
+          condition: eq(variables['compiler'], 'g++-8')
 
         - script: |
             git submodule update --init --recursive
             mkdir $(Build.BinariesDirectory)/build
             cd $(Build.BinariesDirectory)/build
-            g++ --version
-            cmake $(Build.SourcesDirectory) -DCMAKE_CXX_COMPILER=g++-8
+            cmake $(Build.SourcesDirectory) -DCMAKE_CXX_COMPILER=$(compiler) -DCMAKE_BUILD_TYPE=$(buildConfiguration) -DCMAKE_CXX_FLAGS="-fsanitize=thread"
           displayName: 'Prepare build'
 
         - script: make -j 4
