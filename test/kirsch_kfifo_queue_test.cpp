@@ -82,7 +82,7 @@ TYPED_TEST(KirschKFifoQueue, push_two_items_pop_them_in_FIFO_order)
 
 TYPED_TEST(KirschKFifoQueue, push_large_number_of_entries_pop_them_in_FIFO_order)
 {
-  typename TypeParam::region_guard{};
+  [[maybe_unused]] typename TypeParam::region_guard guard{};
   xenium::kirsch_kfifo_queue<int*, xenium::policy::reclaimer<TypeParam>> queue(1);
   for (int i = 0; i < 1000; ++i)
     queue.push(new int(i));
@@ -111,7 +111,7 @@ TYPED_TEST(KirschKFifoQueue, parallel_usage)
     #endif
       for (int j = 0; j < MaxIterations; ++j)
       {
-        typename Reclaimer::region_guard{};
+        [[maybe_unused]] typename Reclaimer::region_guard guard{};
         for (int k = 0; k < 10; ++k) {
           queue.push(new int(i));
           int* elem = nullptr;

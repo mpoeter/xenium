@@ -462,7 +462,7 @@ TYPED_TEST(VyukovHashMap, parallel_usage)
     {
       for (int k = i * keys_per_thread; k < (i + 1) * keys_per_thread; ++k) {
         for (int j = 0; j < MaxIterations / keys_per_thread; ++j) {
-          typename Reclaimer::region_guard{};
+          [[maybe_unused]] typename Reclaimer::region_guard gaurd{};
           EXPECT_TRUE(map.emplace(k, k));
           for (int x = 0; x < 10; ++x) {
             typename hash_map::accessor acc;
@@ -512,7 +512,7 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_nontrivial_types)
       for (int k = i * keys_per_thread; k < (i + 1) * keys_per_thread; ++k) {
         for (int j = 0; j < (MaxIterations / keys_per_thread) / 2; ++j) {
           std::string key = std::to_string(k);
-          typename Reclaimer::region_guard{};
+          [[maybe_unused]] typename Reclaimer::region_guard guard{};
           EXPECT_TRUE(map.emplace(key, key));
           for (int x = 0; x < 10; ++x) {
             typename hash_map::accessor acc;
@@ -561,7 +561,7 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_same_values)
         for (int i = 0; i < 10; ++i)
         {
           int k = i;
-          typename Reclaimer::region_guard{};
+          [[maybe_unused]] typename Reclaimer::region_guard guard{};
           map.emplace(k, i);
           typename hash_map::accessor acc;
           if (map.try_get_value(k, acc)) {

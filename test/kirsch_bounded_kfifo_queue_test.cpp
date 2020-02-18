@@ -91,6 +91,9 @@ TEST(KirschBoundedKFifoQueue, parallel_usage)
   {
     threads.push_back(std::thread([i, &queue, max_threads]
     {
+      // oh my... MSVC complains if this variable is NOT captured; clang complains if it IS captured.
+      (void)max_threads;
+      
     #ifdef DEBUG
       const int MaxIterations = 10000;
     #else

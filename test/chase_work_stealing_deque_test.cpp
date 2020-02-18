@@ -112,6 +112,10 @@ namespace {
     {
       threads[i] = std::thread([i, &start, &queues, num_threads, MaxIterations]()
         {
+          // oh my... MSVC complains if these variables are NOT captured; clang complains if they ARE captured.
+          (void)num_threads;
+          (void)MaxIterations;
+
           std::mt19937 rand;
           rand.seed(i);
           node* n = nullptr;

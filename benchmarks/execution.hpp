@@ -38,6 +38,7 @@ struct execution;
  
 struct execution_thread {
   execution_thread(std::uint32_t id, const execution& exec);
+  virtual ~execution_thread() = default;
   virtual void setup(const boost::property_tree::ptree& config);
   virtual void run() = 0;
   virtual void initialize(std::uint32_t /*num_threads*/) {}

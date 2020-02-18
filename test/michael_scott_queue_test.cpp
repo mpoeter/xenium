@@ -79,7 +79,7 @@ TYPED_TEST(MichaelScottQueue, parallel_usage)
     #endif
       for (int j = 0; j < MaxIterations; ++j)
       {
-        typename Reclaimer::region_guard{};
+        [[maybe_unused]] typename Reclaimer::region_guard guard{};
         queue.push(i);
         int v;
         EXPECT_TRUE(queue.try_pop(v));

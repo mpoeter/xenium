@@ -25,7 +25,7 @@ namespace xenium { namespace detail {
 
     constexpr bool can_grow() const { return false; }
 
-    void grow(std::size_t bottom, std::size_t top) {
+    void grow(std::size_t, std::size_t) {
       throw std::runtime_error("cannot grow fixed_size_circular_array");
     }
   private:

@@ -47,6 +47,9 @@ TEST(LeftRight, parallel_usage)
   {
     threads.push_back(std::thread([i, &lr, MaxIterations]
     {
+      // oh my... MSVC complains if this variable is NOT captured; clang complains if it IS captured.
+      (void)MaxIterations;
+
       std::mt19937 rand;
       rand.seed(i);
 

@@ -6,7 +6,7 @@ namespace {
  
 struct Foo {
   int x;
-  static constexpr int number_of_mark_bits = 0;
+  [[maybe_unused]] static constexpr int number_of_mark_bits = 0;
 };
 
 TEST(marked_ptr, get_returns_correct_pointer)

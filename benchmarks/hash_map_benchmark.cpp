@@ -41,7 +41,7 @@ struct benchmark_thread : execution_thread {
   }
   virtual void initialize(std::uint32_t num_threads) override;
   virtual void run() override;
-  virtual thread_report report() const {
+  virtual thread_report report() const override {
     boost::property_tree::ptree data;
     data.put("runtime", _runtime.count());
     data.put("insert", insert_operations);
@@ -102,7 +102,7 @@ void benchmark_thread<T>::initialize(std::uint32_t num_threads) {
   auto id = this->id() & execution::thread_id_mask;
   std::uint64_t cnt = _benchmark.prefill.get_thread_quota(id, num_threads);
 
-  region_guard_t<T>{};
+  [[maybe_unused]] region_guard_t<T> guard{};
   auto step_size = _benchmark.key_range / _benchmark.prefill.count;
   std::uint64_t key = id * step_size + _benchmark.key_offset;
   step_size *= num_threads;
@@ -123,7 +123,7 @@ void benchmark_thread<T>::run() {
   std::uint32_t remove = 0;
   std::uint32_t get = 0;
 
-  region_guard_t<T>{};
+  [[maybe_unused]] region_guard_t<T> guard{};
   for (std::uint32_t i = 0; i < n; ++i) {
     auto r = _randomizer();
     auto key = static_cast<unsigned>((r % _key_range) + _key_offset);

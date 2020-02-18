@@ -227,7 +227,7 @@ namespace xenium { namespace impl {
       friend struct vyukov_hash_map_traits;
     };
 
-    static void reset(accessor&& acc) {}
+    static void reset(accessor&&) {}
     static accessor acquire(storage_value_type& v, std::memory_order order) { return accessor(v, order); }
 
     template <bool AcquireAccessor>

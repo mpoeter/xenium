@@ -180,7 +180,7 @@ namespace xenium { namespace reclamation {
     using era_t = uint64_t;
     inline static std::atomic<era_t> era_clock{1};
     inline static detail::thread_block_list<thread_control_block, detail::deletable_object_with_eras> global_thread_block_list{};
-    inline static thread_local thread_data local_thread_data{};
+    static thread_data& local_thread_data();
 
     ALLOCATION_TRACKING_FUNCTIONS;
   };
@@ -262,8 +262,16 @@ namespace xenium { namespace reclamation {
       template <class>
       friend class hazard_eras;
 
+#ifdef __clang__
+#pragma clang diagnostic push
+// clang does not support dependent nested types for friend class declaration
+#pragma clang diagnostic ignored "-Wunsupported-friend"
+#endif
       template <class T>
       friend struct hazard_eras<T>::thread_data;
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
     };
   }
 }}

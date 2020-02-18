@@ -8,6 +8,7 @@
 #include <boost/property_tree/ptree_fwd.hpp>
 
 struct workload_simulator {
+  virtual ~workload_simulator() = default;
   virtual void simulate() = 0;
 };
 

@@ -26,8 +26,6 @@ struct LockFreeRefCount : testing::Test
 
 TEST_F(LockFreeRefCount, inital_ref_count_value_is_one)
 {
-  guard_ptr<Foo> g;
-  marked_ptr<Foo> m(g);
   EXPECT_EQ(1u, foo->refs());
 }
 

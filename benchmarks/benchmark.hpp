@@ -22,7 +22,7 @@ namespace config {
 
 struct benchmark
 {
-  virtual ~benchmark() {}
+  virtual ~benchmark() = default;
   virtual void setup(const boost::property_tree::ptree& config) = 0;
   virtual std::unique_ptr<execution_thread> create_thread(
     std::uint32_t id,
@@ -31,6 +31,7 @@ struct benchmark
 };
 
 struct benchmark_builder {
+  virtual ~benchmark_builder() = default;
   // returns a ptree describing the configuration of this benchmark
   virtual boost::property_tree::ptree get_descriptor() = 0;
   virtual std::shared_ptr<benchmark> build() = 0;

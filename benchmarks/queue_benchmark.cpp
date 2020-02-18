@@ -20,7 +20,7 @@ struct benchmark_thread : execution_thread {
   {}
   virtual void initialize(std::uint32_t num_threads) override;
   virtual void run() override;
-  virtual thread_report report() const {
+  virtual thread_report report() const override {
     boost::property_tree::ptree data;
     data.put("runtime", _runtime.count());
     data.put("push", push_operations);
@@ -103,7 +103,7 @@ void benchmark_thread<T>::initialize(std::uint32_t num_threads) {
   auto id = this->id() & execution::thread_id_mask;
   std::uint64_t cnt = _benchmark.prefill.get_thread_quota(id, num_threads);
 
-  region_guard_t<T>{};
+  [[maybe_unused]] region_guard_t<T> guard{};
   for (std::uint64_t i = 0, j = 0; i < cnt; ++i, j += 2) {
     if (!try_push(*_benchmark.queue, static_cast<unsigned>(j)))
       throw initialization_failure();
@@ -120,7 +120,7 @@ void benchmark_thread<T>::run() {
   unsigned push = 0;
   unsigned pop = 0;
 
-  region_guard_t<T>{};
+  [[maybe_unused]] region_guard_t<T> guard{};
   for (std::uint32_t i = 0; i < n; ++i) {
     auto r = _randomizer();
     auto action = r & ((1 << ratio_bits) - 1);

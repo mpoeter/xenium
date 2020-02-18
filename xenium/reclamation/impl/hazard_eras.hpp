@@ -31,7 +31,7 @@ namespace xenium { namespace reclamation {
     if (this->ptr.get() != nullptr)
     {
       auto era = era_clock.load(std::memory_order_relaxed);
-      he = local_thread_data.alloc_hazard_era(era);
+      he = local_thread_data().alloc_hazard_era(era);
     }
   }
 
@@ -126,7 +126,7 @@ namespace xenium { namespace reclamation {
         }
       }
       assert(he == nullptr);
-      he = local_thread_data.alloc_hazard_era(era);
+      he = local_thread_data().alloc_hazard_era(era);
       prev_era = era;
     }
   }
@@ -160,7 +160,7 @@ namespace xenium { namespace reclamation {
       if (he != nullptr)
         he->release_guard();
 
-      he = local_thread_data.alloc_hazard_era(era);
+      he = local_thread_data().alloc_hazard_era(era);
     }
 
     this->ptr = p.load(std::memory_order_relaxed);
@@ -176,7 +176,7 @@ namespace xenium { namespace reclamation {
   template <class T, class MarkedPtr>
   void hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::reset() noexcept
   {
-    local_thread_data.release_hazard_era(he);
+    local_thread_data().release_hazard_era(he);
     assert(this->he == nullptr);
     this->ptr.reset();
   }
@@ -198,8 +198,8 @@ namespace xenium { namespace reclamation {
     // (3) - this release fetch-add synchronizes-with the seq-cst fence (5)
     p->retirement_era = era_clock.fetch_add(1, std::memory_order_release);
 
-    if (local_thread_data.add_retired_node(p) >= allocation_strategy::retired_nodes_threshold())
-      local_thread_data.scan();
+    if (local_thread_data().add_retired_node(p) >= allocation_strategy::retired_nodes_threshold())
+      local_thread_data().scan();
   }
 
   namespace detail {
@@ -322,18 +322,16 @@ namespace xenium { namespace reclamation {
 
       void release_hazard_era(hazard_era*& he, hint& hint)
       {
-        if (he != nullptr)
+        assert(he != nullptr);
+        if (he->release_guard() == 0)
         {
-          if (he->release_guard() == 0)
-          {
-            if (he == last_hazard_era)
-              last_hazard_era = nullptr;
+          if (he == last_hazard_era)
+            last_hazard_era = nullptr;
 
-            he->set_link(hint);
-            hint = he;
-          }
-          he = nullptr;
+          he->set_link(hint);
+          hint = he;
         }
+        he = nullptr;
       }
 
     protected:
@@ -504,7 +502,10 @@ namespace xenium { namespace reclamation {
 
     void release_hazard_era(HE& he)
     {
-      control_block->release_hazard_era(he, hint);
+      if (he) {
+        assert(control_block != nullptr);
+        control_block->release_hazard_era(he, hint);
+      }
     }
 
     std::size_t add_retired_node(detail::deletable_object_with_eras* p)
@@ -585,14 +586,22 @@ namespace xenium { namespace reclamation {
     ALLOCATION_COUNTER(hazard_eras);
   };
 
+  template <class Traits>
+  inline typename hazard_eras<Traits>::thread_data& hazard_eras<Traits>::local_thread_data()
+  {
+    // workaround for a Clang-8 issue that causes multiple re-initializations of thread_local variables
+    static thread_local thread_data local_thread_data;
+    return local_thread_data;
+  }
+
 #ifdef TRACK_ALLOCATIONS
   template <class Traits>
   inline void hazard_eras<Traits>::count_allocation()
-  { local_thread_data.allocation_counter.count_allocation(); }
+  { local_thread_data().allocation_counter.count_allocation(); }
 
   template <class Traits>
   inline void hazard_eras<Traits>::count_reclamation()
-  { local_thread_data.allocation_counter.count_reclamation(); }
+  { local_thread_data().allocation_counter.count_reclamation(); }
 #endif
 }}
 
