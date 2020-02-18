@@ -14,6 +14,18 @@ stages:
             gcc8-Debug:
               compiler: g++-8
               buildConfiguration: Debug
+            clang8-Release:
+              compiler: clang++-8
+              buildConfiguration: Release
+            clang8-Debug:
+              compiler: clang++-8
+              buildConfiguration: Debug
+            clang9-Release:
+              compiler: clang++-9
+              buildConfiguration: Release
+            clang9-Debug:
+              compiler: clang++-9
+              buildConfiguration: Debug
 
         steps:
         - script: |
