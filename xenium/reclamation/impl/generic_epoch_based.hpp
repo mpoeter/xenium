@@ -332,7 +332,8 @@ namespace xenium { namespace reclamation {
     {
       assert(!control_block->is_in_critical_region.load(std::memory_order_relaxed));
       control_block->is_in_critical_region.store(true, std::memory_order_relaxed);
-      // (3) - this seq_cst-fence enforces a total order with itself
+      // (3) - this seq_cst-fence enforces a total order with itself, and 
+      //       synchronizes-with the acquire-fence (6)
       std::atomic_thread_fence(std::memory_order_seq_cst);
     }
 
@@ -389,7 +390,10 @@ namespace xenium { namespace reclamation {
 
       const auto old_epoch = control_block->local_epoch.load(std::memory_order_relaxed);
       assert(new_epoch > old_epoch);
-      control_block->local_epoch.store(new_epoch, std::memory_order_relaxed);
+      // TSan does not support explicit fences, so we cannot rely on the fences (3) and (6)
+      // but have to perform a release-store here to avoid false positives.
+      constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_release, std::memory_order_relaxed);
+      control_block->local_epoch.store(new_epoch, memory_order);
 
       auto diff = std::min<int>(static_cast<int>(number_epochs), static_cast<int>(new_epoch - old_epoch));
       epoch_t epoch_idx = local_epoch_idx;
@@ -408,7 +412,8 @@ namespace xenium { namespace reclamation {
     {
       if (global_epoch.load(std::memory_order_relaxed) == curr_epoch)
       {
-        // (6) - this acquire-fence synchronizes-with the release-store (4)
+        // (6) - due to the load operations in scan, this acquire-fence synchronizes-with the release-store (4)
+        //       and the seq-cst fence (3)
         std::atomic_thread_fence(std::memory_order_acquire);
 
         // (7) - this release-CAS synchronizes-with the acquire-load (5)
