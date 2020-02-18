@@ -6,10 +6,10 @@
 #ifndef XENIUM_BACKOFF_HPP
 #define XENIUM_BACKOFF_HPP
 
-#include <boost/predef.h>
+#include <xenium/detail/port.hpp>
 #include <algorithm>
 
-#if BOOST_ARCH_X86
+#ifdef XENIUM_ARCH_X86
 #include <emmintrin.h>
 #else
 #include <thread>
@@ -36,7 +36,7 @@ struct exponential_backoff {
 
 private:
   void do_backoff() {
-#if BOOST_ARCH_X86
+#ifdef XENIUM_ARCH_X86
     _mm_pause();
 #else
     #warning "No backoff implementation available."

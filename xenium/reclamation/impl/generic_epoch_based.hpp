@@ -8,7 +8,6 @@
 #endif
 
 #include <xenium/detail/port.hpp>
-#include <boost/config.hpp>
 #include <array>
 
 #ifdef _MSC_VER
@@ -314,11 +313,11 @@ namespace xenium { namespace reclamation {
   private:
     void ensure_has_control_block()
     {
-      if (BOOST_UNLIKELY(control_block == nullptr))
+      if (XENIUM_UNLIKELY(control_block == nullptr))
         acquire_control_block();
     }
 
-    BOOST_NOINLINE void acquire_control_block()
+    XENIUM_NOINLINE void acquire_control_block()
     {
       assert(control_block == nullptr);
       control_block = global_thread_block_list.acquire_entry();
@@ -416,7 +415,7 @@ namespace xenium { namespace reclamation {
         bool success = global_epoch.compare_exchange_strong(curr_epoch, new_epoch,
                                                             std::memory_order_release,
                                                             std::memory_order_relaxed);
-        if (BOOST_LIKELY(success))
+        if (XENIUM_LIKELY(success))
           reclaim_orphans(new_epoch);
       }
       return new_epoch;
