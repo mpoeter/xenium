@@ -350,11 +350,9 @@ namespace xenium { namespace reclamation {
         for (auto it = begin; it != end;)
         {
           auto next = it + 1;
-          new(it) hazard_era;
           it->set_link(next);
           it = next;
         }
-        new(end) hazard_era();
         end->set_link(block.initialize_next_block());
         return begin;
       }
@@ -412,7 +410,11 @@ namespace xenium { namespace reclamation {
     private:
       struct alignas(64) hazard_eras_block : aligned_object<hazard_eras_block>
       {
-        hazard_eras_block(size_t size) : size(size) {}
+        hazard_eras_block(size_t size) : size(size) {
+          for (auto it = begin(); it != end(); ++it) {
+            new(it) hazard_era;
+          }
+        }
 
         hazard_era* begin() { return reinterpret_cast<hazard_era*>(this + 1); }
         hazard_era* end() { return begin() + size; }
