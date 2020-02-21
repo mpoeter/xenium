@@ -84,7 +84,7 @@ bool chase_work_stealing_deque<T, Policies...>::try_push(value_type item) {
 
   items.put(b, item, std::memory_order_relaxed);
 
-  // (1) - this release-store synchronizes-with the seq-cst-load (3)
+  // (1) - this release-store synchronizes-with the seq-cst-load (4)
   bottom.store(b + 1, std::memory_order_release);
   return true;
 }
@@ -96,12 +96,17 @@ bool chase_work_stealing_deque<T, Policies...>::try_pop(value_type &result) {
   if (b == t)
     return false;
 
+  // We have to use seq-cst order for operations on bottom as well as top to ensure
+  // that when two threads compete for the last item either one sees the updated bottom
+  // (pop wins), or one sees the updated top (steal wins).
+
   --b;
-  // (2) - this seq-cst-store enforces a total order with the seq-cst-load (3)
+  // (2) - this seq-cst-store enforces a total order with the seq-cst-load (4)
   bottom.store(b, std::memory_order_seq_cst);
 
   auto item = items.get(b, std::memory_order_relaxed);
-  t = top.load(std::memory_order_relaxed);
+  // (3) - this seq-cst-load enforces a total order with the seq-cst-CAS (5)
+  t = top.load(std::memory_order_seq_cst);
   if (b > t) {
     result = item;
     return true;
@@ -127,7 +132,7 @@ template <class T, class... Policies>
 bool chase_work_stealing_deque<T, Policies...>::try_steal(value_type &result) {
   auto t = top.load(std::memory_order_relaxed);
 
-  // (3) - this seq-cst-load enforces a total order with the seq-cst-store (2)
+  // (4) - this seq-cst-load enforces a total order with the seq-cst-store (2)
   //       and synchronizes-with the release-store (1)
   auto b = bottom.load(std::memory_order_seq_cst);
   auto size = (int)b - (int)t;
@@ -135,7 +140,8 @@ bool chase_work_stealing_deque<T, Policies...>::try_steal(value_type &result) {
     return false;
 
   auto item = items.get(t, std::memory_order_relaxed);
-  if (top.compare_exchange_strong(t, t + 1, std::memory_order_relaxed)) {
+  // (5) - this seq-cst-CAS enforces a total order with the seq-cst-load (3)
+  if (top.compare_exchange_strong(t, t + 1, std::memory_order_seq_cst, std::memory_order_relaxed)) {
     result = item;
     return true;
   }

@@ -102,7 +102,7 @@ namespace {
 
     for (unsigned i = 0; i < num_nodes; ++i) {
       nodes[i] = std::make_unique<node>();
-      nodes[i]->v = 0;
+      nodes[i]->v = 1;
       queues[i % num_threads].try_push(nodes[i].get());
     }
 
@@ -110,14 +110,14 @@ namespace {
 
     for (unsigned i = 0; i < num_threads; ++i)
     {
-      threads[i] = std::thread([i, &start, &queues, num_threads, MaxIterations]()
+      threads[i] = std::thread([thread_idx = i, &start, &queues, num_threads, MaxIterations]()
         {
           // oh my... MSVC complains if these variables are NOT captured; clang complains if they ARE captured.
           (void)num_threads;
           (void)MaxIterations;
 
           std::mt19937 rand;
-          rand.seed(i);
+          rand.seed(thread_idx);
           node* n = nullptr;
 
           while (!start.load()) ; // wait for start signal
@@ -125,17 +125,22 @@ namespace {
           for (int j = 0; j < MaxIterations; ++j) {
             if (n != nullptr) {
               ++n->v;
-              EXPECT_TRUE(queues[i].try_push(n));
+              EXPECT_EQ(1, n->v);
+              EXPECT_TRUE(queues[thread_idx].try_push(n));
               n = nullptr;
             } else {
               auto idx = rand() % num_threads;
-              if (idx == i && queues[i].size() > 0) {
+              if (idx == thread_idx && queues[thread_idx].size() > 0) {
                 if (queues[idx].try_pop(n)) {
                   EXPECT_NE(nullptr, n);
+                  --n->v;
+                  EXPECT_EQ(0, n->v);
                 }
               } else {
                 if (queues[idx].try_steal(n)) {
                   EXPECT_NE(nullptr, n);
+                  --n->v;
+                  EXPECT_EQ(0, n->v);
                 }
               }
             }
@@ -143,7 +148,7 @@ namespace {
 
           if (n != nullptr) {
             ++n->v;
-            queues[i].try_push(n);
+            queues[thread_idx].try_push(n);
           }
         });
     }
