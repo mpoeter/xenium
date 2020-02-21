@@ -228,7 +228,7 @@ private:
   {
     info.prev = start;
     if (start) {
-      // (2) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 12)
+      // (2) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 13)
       info.cur.acquire(*start, std::memory_order_acquire);
     }
   }
@@ -257,7 +257,7 @@ auto harris_michael_list_based_set<Key, Policies...>::iterator::operator++() -> 
   assert(info.cur.get() != nullptr);
   auto next = info.cur->next.load(std::memory_order_relaxed);
   guard_ptr tmp_guard;
-  // (1) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 12)
+  // (1) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 13)
   if (next.mark() == 0 && tmp_guard.acquire_if_equal(info.cur->next, next, std::memory_order_acquire))
   {
     info.prev = &info.cur->next;
@@ -290,11 +290,11 @@ template <class Key, class... Policies>
 harris_michael_list_based_set<Key, Policies...>::~harris_michael_list_based_set()
 {
   // delete all remaining nodes
-  // (3) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 12)
+  // (3) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 13)
   auto p = head.load(std::memory_order_acquire);
   while (p)
   {
-    // (4) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 12)
+    // (4) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 13)
     auto next = p->next.load(std::memory_order_acquire);
     delete p.get();
     p = next;
@@ -320,7 +320,7 @@ retry:
 
   for (;;)
   {
-    // (5) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 12)
+    // (5) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 13)
     if (!info.cur.acquire_if_equal(*info.prev, info.next, std::memory_order_acquire))
       goto retry;
 
@@ -332,14 +332,14 @@ retry:
     {
       // Node *cur is marked for deletion -> update the link and retire the element
 
-      // (6) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 12)
+      // (6) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 13)
       info.next = info.cur->next.load(std::memory_order_acquire).get();
 
       // Try to splice out node
       marked_ptr expected = info.cur.get();
-      // (7) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6)
-      //       and the require-CAS (9, 11)
-      //       it is the head of a potential release sequence containing (9, 11)
+      // (7) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6, 11)
+      //       and the require-CAS (9, 12)
+      //       it is the head of a potential release sequence containing (9, 12)
       if (!info.prev->compare_exchange_weak(expected, info.next,
                                             std::memory_order_release,
                                             std::memory_order_relaxed))
@@ -354,7 +354,7 @@ retry:
       if (info.prev->load(std::memory_order_relaxed) != info.cur.get())
         goto retry; // cur might be cut from list.
 
-      Key ckey = info.cur->key;
+      const Key& ckey = info.cur->key;
       compare compare;
       if (compare(ckey, key) == false)
         return compare(key, ckey) == false;
@@ -405,19 +405,21 @@ auto harris_michael_list_based_set<Key, Policies...>::emplace_or_get(Args&&... a
       delete n;
       return {iterator(*this, std::move(info)), false};
     }
-    // Try to install new node
-    marked_ptr cur = info.cur.get();
-    info.cur.reset();
-    info.cur = guard_ptr(n);
-    n->next.store(cur, std::memory_order_relaxed);
 
-    // (8) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6)
-    //       and the acquire-CAS (9, 11)
-    //       it is the head of a potential release sequence containing (9, 11)
-    if (info.prev->compare_exchange_weak(cur, n,
+    // Try to install new node
+    marked_ptr expected = info.cur.get();    
+    n->next.store(expected, std::memory_order_relaxed);
+    guard_ptr new_guard(n);
+
+    // (8) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6, 11)
+    //       and the acquire-CAS (9, 12)
+    //       it is the head of a potential release sequence containing (9, 12)
+    if (info.prev->compare_exchange_weak(expected, n,
                                          std::memory_order_release,
-                                         std::memory_order_relaxed))
+                                         std::memory_order_relaxed)) {
+      info.cur = std::move(new_guard);
       return {iterator(*this, std::move(info)), true};
+    }
 
     backoff();
   }
@@ -434,7 +436,7 @@ bool harris_michael_list_based_set<Key, Policies...>::erase(const Key& key)
     if (!find(key, info, backoff))
       return false; // No such node in the list
 
-    // (9) - this acquire-CAS synchronizes with the release-CAS (7, 8, 10, 12)
+    // (9) - this acquire-CAS synchronizes with the release-CAS (7, 8, 10, 13)
     //       and is part of a release sequence headed by those operations
     if (info.cur->next.compare_exchange_weak(info.next,
                                              marked_ptr(info.next.get(), 1),
@@ -450,9 +452,9 @@ bool harris_michael_list_based_set<Key, Policies...>::erase(const Key& key)
 
   // Try to splice out node
   marked_ptr expected = info.cur;
-  // (10) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6)
-  //        and the acquire-CAS (9, 11)
-  //        it is the head of a potential release sequence containing (9, 11)
+  // (10) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6, 11)
+  //        and the acquire-CAS (9, 12)
+  //        it is the head of a potential release sequence containing (9, 12)
   if (info.prev->compare_exchange_weak(expected, info.next,
                                        std::memory_order_release,
                                        std::memory_order_relaxed))
@@ -468,15 +470,15 @@ template <class Key, class... Policies>
 auto harris_michael_list_based_set<Key, Policies...>::erase(iterator pos) -> iterator
 {
   backoff backoff;
-  auto next = pos.info.cur->next.load(std::memory_order_relaxed);
+  // (11) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 13)
+  auto next = pos.info.cur->next.load(std::memory_order_acquire);
   while (next.mark() == 0)
   {
-    // (11) - this acquire-CAS synchronizes-with the release-CAS (7, 8, 10, 12)
+    // (12) - this acquire-CAS synchronizes-with the release-CAS (7, 8, 10, 13)
     //        and is part of a release sequence headed by those operations
     if (pos.info.cur->next.compare_exchange_weak(next,
                                             marked_ptr(next.get(), 1),
-                                            std::memory_order_acquire,
-                                            std::memory_order_relaxed))
+                                            std::memory_order_acquire))
       break;
 
     backoff();
@@ -487,9 +489,9 @@ auto harris_michael_list_based_set<Key, Policies...>::erase(iterator pos) -> ite
 
   // Try to splice out node
   marked_ptr expected = pos.info.cur;
-  // (12) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6)
-  //        and the acquire-CAS (9, 11)
-  //        it is the head of a potential release sequence containing (9, 11)
+  // (13) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6, 11)
+  //        and the acquire-CAS (9, 12)
+  //        it is the head of a potential release sequence containing (9, 12)
   if (pos.info.prev->compare_exchange_weak(expected, next_guard,
                                       std::memory_order_release,
                                       std::memory_order_relaxed)) {
