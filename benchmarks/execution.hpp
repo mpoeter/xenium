@@ -4,7 +4,7 @@
 #include "report.hpp"
 #include "workload.hpp"
 
-#include <boost/property_tree/ptree_fwd.hpp>
+#include <tao/config/value.hpp>
 
 #include <atomic>
 #include <cstdint>
@@ -39,7 +39,7 @@ struct execution;
 struct execution_thread {
   execution_thread(std::uint32_t id, const execution& exec);
   virtual ~execution_thread() = default;
-  virtual void setup(const boost::property_tree::ptree& config);
+  virtual void setup(const tao::config::value& config);
   virtual void run() = 0;
   virtual void initialize(std::uint32_t /*num_threads*/) {}
   virtual thread_report report() const { return { boost::property_tree::ptree{}, 0 }; }
@@ -69,7 +69,7 @@ struct execution {
 
   execution(std::uint32_t round, std::uint32_t runtime, std::shared_ptr<benchmark> benchmark);
   ~execution();
-  void create_threads(const boost::property_tree::ptree& config);
+  void create_threads(const tao::config::value& config);
   round_report run();
   execution_state state(std::memory_order order = std::memory_order_relaxed) const;
   std::uint32_t num_threads() const { return static_cast<std::uint32_t>(_threads.size()); }

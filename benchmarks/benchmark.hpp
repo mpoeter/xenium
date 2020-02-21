@@ -2,7 +2,7 @@
 
 #include "descriptor.hpp"
 
-#include <boost/property_tree/ptree_fwd.hpp>
+#include <tao/config/value.hpp>
 
 #include <unordered_map>
 #include <vector>
@@ -15,7 +15,7 @@ namespace config {
   struct prefill {
     bool serial = false;
     std::uint64_t count = 0;
-    void setup(const boost::property_tree::ptree& config, std::uint64_t default_count);
+    void setup(const tao::config::value& config, std::uint64_t default_count);
     std::uint64_t get_thread_quota(std::uint32_t thread_id, std::uint32_t num_threads);
   };
 }
@@ -23,7 +23,7 @@ namespace config {
 struct benchmark
 {
   virtual ~benchmark() = default;
-  virtual void setup(const boost::property_tree::ptree& config) = 0;
+  virtual void setup(const tao::config::value& config) = 0;
   virtual std::unique_ptr<execution_thread> create_thread(
     std::uint32_t id,
     const execution& exec,
@@ -32,14 +32,14 @@ struct benchmark
 
 struct benchmark_builder {
   virtual ~benchmark_builder() = default;
-  // returns a ptree describing the configuration of this benchmark
-  virtual boost::property_tree::ptree get_descriptor() = 0;
+  // returns a json object describing the configuration of this benchmark
+  virtual tao::json::value get_descriptor() = 0;
   virtual std::shared_ptr<benchmark> build() = 0;
 };
 
 template <class T, template <class> class Benchmark>
 struct typed_benchmark_builder : benchmark_builder {
-  boost::property_tree::ptree get_descriptor() override { return descriptor<T>::generate(); }
+  tao::json::value get_descriptor() override { return descriptor<T>::generate(); }
   std::shared_ptr<benchmark> build() override { return std::make_shared<Benchmark<T>>(); }
 };
 

@@ -7,7 +7,7 @@
 #include <iostream>
 #include <vector>
 
-using boost::property_tree::ptree;
+using config_t = tao::config::value;
 
 template <class T>
 struct queue_benchmark;
@@ -45,9 +45,9 @@ struct push_thread : benchmark_thread<T> {
   push_thread(queue_benchmark<T>& benchmark, std::uint32_t id, const execution& exec) :
     benchmark_thread<T>(benchmark, id, exec)
   {}
-  virtual void setup(const boost::property_tree::ptree& config) override {
+  virtual void setup(const config_t& config) override {
     benchmark_thread<T>::setup(config);
-    auto ratio = config.get<double>("pop_ratio", 0.0);
+    auto ratio = config.optional<double>("pop_ratio").value_or(0.0);
     if (ratio > 1.0 || ratio < 0.0)
       throw std::runtime_error("Invalid pop_ratio value");
     this->set_pop_ratio(ratio);
@@ -59,9 +59,9 @@ struct pop_thread : benchmark_thread<T> {
   pop_thread(queue_benchmark<T>& benchmark, std::uint32_t id, const execution& exec) :
     benchmark_thread<T>(benchmark, id, exec)
   {}
-  virtual void setup(const boost::property_tree::ptree& config) override {
+  virtual void setup(const config_t& config) override {
     benchmark_thread<T>::setup(config);
-    auto ratio = config.get<double>("push_ratio", 0.0);
+    auto ratio = config.optional<double>("push_ratio").value_or(0.0);
     if (ratio > 1.0 || ratio < 0.0)
       throw std::runtime_error("Invalid push_ratio value");
     this->set_pop_ratio(1.0 - ratio);
@@ -70,7 +70,7 @@ struct pop_thread : benchmark_thread<T> {
 
 template <class T>
 struct queue_benchmark : benchmark {
-  virtual void setup(const boost::property_tree::ptree& config) override;
+  virtual void setup(const config_t& config) override;
 
   virtual std::unique_ptr<execution_thread> create_thread(
     std::uint32_t id,
@@ -92,9 +92,9 @@ struct queue_benchmark : benchmark {
 };
 
 template <class T>
-void queue_benchmark<T>::setup(const boost::property_tree::ptree& config) {
-  queue = queue_builder<T>::create(config.get_child("ds"));
-  batch_size = config.get<std::uint32_t>("batch_size", 100);
+void queue_benchmark<T>::setup(const config_t& config) {
+  queue = queue_builder<T>::create(config.at("ds"));
+  batch_size = config.optional<std::uint32_t>("batch_size").value_or(100);
   prefill.setup(config, 100);
 }
 

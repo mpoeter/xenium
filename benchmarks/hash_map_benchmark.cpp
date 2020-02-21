@@ -6,7 +6,7 @@
 #include <iostream>
 #include <vector>
 
-using boost::property_tree::ptree;
+using config_t = tao::config::value;
 
 template <class T>
 struct hash_map_benchmark;
@@ -17,17 +17,17 @@ struct benchmark_thread : execution_thread {
     execution_thread(id, exec),
     _benchmark(benchmark)
   {}
-  virtual void setup(const boost::property_tree::ptree& config) override {
+  virtual void setup(const config_t& config) override {
     execution_thread::setup(config);
 
-    _key_range = config.get<std::uint64_t>("key_range", _benchmark.key_range);
-    _key_offset = config.get<std::uint64_t>("key_offset", _benchmark.key_offset);
+    _key_range = config.optional<std::uint64_t>("key_range").value_or(_benchmark.key_range);
+    _key_offset = config.optional<std::uint64_t>("key_offset").value_or(_benchmark.key_offset);
     
-    auto remove_ratio = config.get<double>("remove_ratio", 0.2);
+    auto remove_ratio = config.optional<double>("remove_ratio").value_or(0.2);
     if (remove_ratio < 0.0 || remove_ratio > 1.0)
       throw std::runtime_error("remove_ratio must be >= 0.0 and <= 1.0");
 
-    auto insert_ratio = config.get<double>("insert_ratio", 0.2);
+    auto insert_ratio = config.optional<double>("insert_ratio").value_or(0.2);
     if (insert_ratio < 0.0 || insert_ratio > 1.0)
       throw std::runtime_error("insert_ratio must be >= 0.0 and <= 1.0");
 
@@ -64,7 +64,7 @@ private:
 
 template <class T>
 struct hash_map_benchmark : benchmark {
-  virtual void setup(const boost::property_tree::ptree& config) override;
+  virtual void setup(const config_t& config) override;
 
   virtual std::unique_ptr<execution_thread> create_thread(
     std::uint32_t id,
@@ -85,11 +85,11 @@ struct hash_map_benchmark : benchmark {
 };
 
 template <class T>
-void hash_map_benchmark<T>::setup(const boost::property_tree::ptree& config) {
-  hash_map = hash_map_builder<T>::create(config.get_child("ds"));
-  batch_size = config.get<std::uint32_t>("batch_size", 100);
-  key_range = config.get<std::uint64_t>("key_range", 2048);
-  key_offset = config.get<std::uint64_t>("key_offset", 0);
+void hash_map_benchmark<T>::setup(const tao::config::value& config) {
+  hash_map = hash_map_builder<T>::create(config.at("ds"));
+  batch_size = config.optional<std::uint32_t>("batch_size").value_or(100);
+  key_range = config.optional<std::uint64_t>("key_range").value_or(2048);
+  key_offset = config.optional<std::uint64_t>("key_offset").value_or(0);
   
   // by default we prefill 10% of the configured key-range
   prefill.setup(config, key_range / 10);

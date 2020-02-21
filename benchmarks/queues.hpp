@@ -4,7 +4,7 @@
 
 template <class T>
 struct queue_builder {
-  static auto create(const boost::property_tree::ptree&) { return std::make_unique<T>(); }
+  static auto create(const tao::config::value&) { return std::make_unique<T>(); }
 };
 
 #ifdef WITH_RAMALHETE_QUEUE
@@ -12,12 +12,12 @@ struct queue_builder {
 
 template <class T, class... Policies>
 struct descriptor<xenium::ramalhete_queue<T, Policies...>> {
-  static boost::property_tree::ptree generate() {
+  static tao::json::value generate() {
     using queue = xenium::ramalhete_queue<T, Policies...>;
-    boost::property_tree::ptree pt;
-    pt.put("type", "ramalhete_queue");
-    pt.put_child("reclaimer", descriptor<typename queue::reclaimer>::generate());
-    return pt;
+    return {
+      {"type", "ramalhete_queue"},
+      {"reclaimer", descriptor<typename queue::reclaimer>::generate()}
+    };
   }
 };
 
@@ -46,12 +46,12 @@ namespace {
 
 template <class T, class... Policies>
 struct descriptor<xenium::michael_scott_queue<T, Policies...>> {
-  static boost::property_tree::ptree generate() {
+  static tao::json::value generate() {
     using queue = xenium::michael_scott_queue<T, Policies...>;
-    boost::property_tree::ptree pt;
-    pt.put("type", "michael_scott_queue");
-    pt.put_child("reclaimer", descriptor<typename queue::reclaimer>::generate());
-    return pt;
+    return {
+      {"type", "michael_scott_queue"},
+      {"reclaimer", descriptor<typename queue::reclaimer>::generate()}
+    };
   }
 };
 
@@ -74,22 +74,20 @@ namespace {
 
 template <class T, class... Policies>
 struct descriptor<xenium::vyukov_bounded_queue<T, Policies...>> {
-  static boost::property_tree::ptree generate() {
+  static tao::json::value generate() {
     using queue = xenium::vyukov_bounded_queue<T, Policies...>;
-    boost::property_tree::ptree pt;
-    pt.put("type", "vyukov_bounded_queue");
-    // for some reason GCC does not like it if `queue::default_to_weak` is passed directly...
-    constexpr bool weak = queue::default_to_weak;
-    pt.put("weak", weak);
-    pt.put("size", DYNAMIC_PARAM);
-    return pt;
+    return {
+      {"type", "vyukov_bounded_queue"},
+      {"weak", queue::default_to_weak},
+      {"size", DYNAMIC_PARAM}
+    };
   }
 };
 
 template <class T, class... Policies>
 struct queue_builder<xenium::vyukov_bounded_queue<T, Policies...>> {
-  static auto create(const boost::property_tree::ptree& config) {
-    auto size = config.get<size_t>("size");
+  static auto create(const tao::config::value& config) {
+    auto size = config.as<size_t>("size");
     if (!xenium::utils::is_power_of_two(size))
       throw std::runtime_error("vyukov_bounded_queue size must be a power of two");
     return std::make_unique<xenium::vyukov_bounded_queue<T, Policies...>>(size);
@@ -121,20 +119,20 @@ namespace {
 
 template <class T, class... Policies>
 struct descriptor<xenium::kirsch_kfifo_queue<T, Policies...>> {
-  static boost::property_tree::ptree generate() {
+  static tao::json::value generate() {
     using queue = xenium::kirsch_kfifo_queue<T, Policies...>;
-    boost::property_tree::ptree pt;
-    pt.put("type", "kirsch_kfifo_queue");
-    pt.put("k", DYNAMIC_PARAM);
-    pt.put_child("reclaimer", descriptor<typename queue::reclaimer>::generate());
-    return pt;
+    return {
+      {"type", "kirsch_kfifo_queue"},
+      {"k", DYNAMIC_PARAM},
+      {"reclaimer", descriptor<typename queue::reclaimer>::generate()}
+    };
   }
 };
 
 template <class T, class... Policies>
 struct queue_builder<xenium::kirsch_kfifo_queue<T, Policies...>> {
-  static auto create(const boost::property_tree::ptree& config) {
-    auto k = config.get<size_t>("k");
+  static auto create(const tao::config::value& config) {
+    auto k = config.as<size_t>("k");
     return std::make_unique<xenium::kirsch_kfifo_queue<T, Policies...>>(k);
   }
 };
@@ -164,22 +162,22 @@ namespace {
 
 template <class T, class... Policies>
 struct descriptor<xenium::kirsch_bounded_kfifo_queue<T, Policies...>> {
-  static boost::property_tree::ptree generate() {
+  static tao::json::value generate() {
     // TODO - consider padding parameter
-    // using queue = xenium::kirsch_bounded_kfifo_queue<T, Policies...>;
-    boost::property_tree::ptree pt;
-    pt.put("type", "kirsch_bounded_kfifo_queue");
-    pt.put("k", DYNAMIC_PARAM);
-    pt.put("segments", DYNAMIC_PARAM);
-    return pt;
+    //using queue = xenium::kirsch_bounded_kfifo_queue<T, Policies...>;
+    return {
+      {"type", "kirsch_bounded_kfifo_queue"},
+      {"k", DYNAMIC_PARAM},
+      {"segments", DYNAMIC_PARAM}
+    };
   }
 };
 
 template <class T, class... Policies>
 struct queue_builder<xenium::kirsch_bounded_kfifo_queue<T, Policies...>> {
-  static auto create(const boost::property_tree::ptree& config) {
-    auto k = config.get<size_t>("k");
-    auto segments = config.get<size_t>("segments");
+  static auto create(const tao::config::value& config) {
+    auto k = config.as<size_t>("k");
+    auto segments = config.as<size_t>("segments");
     return std::make_unique<xenium::kirsch_bounded_kfifo_queue<T, Policies...>>(k, segments);
   }
 };
@@ -232,11 +230,11 @@ template<> struct garbage_collector<cds::gc::nogc> {
 
 template <class GC, class T, class Traits>
 struct descriptor<cds::container::MSQueue<GC, T, Traits>> {
-  static boost::property_tree::ptree generate() {
-    boost::property_tree::ptree pt;
-    pt.put("type", "cds::MSQueue");
-    pt.put("gc", garbage_collector<GC>::type());
-    return pt;
+  static tao::json::value generate() {
+    return {
+      {"type", "cds::MSQueue"},
+      {"gc", garbage_collector<GC>::type()}
+    };
   }
 };
 
@@ -267,11 +265,11 @@ namespace {
 
 template <class GC, class T, class Traits>
 struct descriptor<cds::container::BasketQueue<GC, T, Traits>> {
-  static boost::property_tree::ptree generate() {
-    boost::property_tree::ptree pt;
-    pt.put("type", "cds::BasketQueue");
-    pt.put("gc", garbage_collector<GC>::type());
-    return pt;
+  static tao::json::value generate() {
+    return {
+      {"type", "cds::BasketQueue"},
+      {"gc", garbage_collector<GC>::type()}
+    };
   }
 };
 
@@ -299,20 +297,20 @@ namespace {
 
 template <class GC, class T, class Traits>
 struct queue_builder<cds::container::SegmentedQueue<GC, T, Traits>> {
-  static auto create(const boost::property_tree::ptree& config) {
-    auto nQuasiFactor = config.get<size_t>("nQuasiFactor");
+  static auto create(const tao::config::value& config) {
+    auto nQuasiFactor = config.as<size_t>("nQuasiFactor");
     return std::make_unique<cds::container::SegmentedQueue<GC, T, Traits>>(nQuasiFactor);
   }
 };
 
 template <class GC, class T, class Traits>
 struct descriptor<cds::container::SegmentedQueue<GC, T, Traits>> {
-  static boost::property_tree::ptree generate() {
-    boost::property_tree::ptree pt;
-    pt.put("type", "cds::SegmentedQueue");
-    pt.put("gc", garbage_collector<GC>::type());
-    pt.put("nQuasiFactor", DYNAMIC_PARAM);
-    return pt;
+  static tao::json::value generate() {
+    return {
+      {"type", "cds::SegmentedQueue"},
+      {"gc", garbage_collector<GC>::type()},
+      {"nQuasiFactor", DYNAMIC_PARAM}
+    };
   }
 };
 

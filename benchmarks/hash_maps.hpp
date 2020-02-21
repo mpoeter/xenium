@@ -4,7 +4,7 @@
 
 template <class T>
 struct hash_map_builder {
-  static auto create(const boost::property_tree::ptree&) { return std::make_unique<T>(); }
+  static auto create(const tao::config::value&) { return std::make_unique<T>(); }
 };
 
 #ifdef WITH_VYUKOV_HASH_MAP
@@ -12,8 +12,8 @@ struct hash_map_builder {
 
 template <class Key, class Value, class... Policies>
 struct hash_map_builder<xenium::vyukov_hash_map<Key, Value, Policies...>> {
-  static auto create(const boost::property_tree::ptree& config) {
-    auto initial_capacity = config.get<size_t>("initial_capacity", 128);
+  static auto create(const tao::config::value& config) {
+    auto initial_capacity = config.optional<size_t>("initial_capacity").value_or(128);
     return std::make_unique<xenium::vyukov_hash_map<Key, Value, Policies...>>(initial_capacity);
   }
 };
@@ -42,14 +42,13 @@ namespace {
 
 template <class Key, class Value, class... Policies>
 struct descriptor<xenium::harris_michael_hash_map<Key, Value, Policies...>> {
-  static boost::property_tree::ptree generate() {
+  static tao::json::value generate() {
     using hash_map = xenium::harris_michael_hash_map<Key, Value, Policies...>;
-    boost::property_tree::ptree pt;
-    pt.put("type", "harris_michael_hash_map");
-    auto buckets = hash_map::num_buckets;
-    pt.put("buckets", buckets);
-    pt.put_child("reclaimer", descriptor<typename hash_map::reclaimer>::generate());
-    return pt;
+    return {
+      {"type", "harris_michael_hash_map"},
+      {"buckets", hash_map::num_buckets},
+      {"reclaimer", descriptor<typename hash_map::reclaimer>::generate()}
+    };
   }
 };
 
@@ -83,20 +82,20 @@ namespace {
 
 template <class GC, class List, class Traits>
 struct descriptor<cds::container::MichaelHashMap<GC, List, Traits>> {
-  static boost::property_tree::ptree generate() {
-    boost::property_tree::ptree pt;
-    pt.put("type", "cds::MichaelMap");
-    pt.put("nMaxItemCount", DYNAMIC_PARAM);
-    pt.put("nLoadFactor", DYNAMIC_PARAM);  
-    return pt;
+  static tao::json::value generate() {
+    return {
+      {"type", "cds::MichaelMap"},
+      {"nMaxItemCount", DYNAMIC_PARAM},
+      {"nLoadFactor", DYNAMIC_PARAM}
+    };
   }
 };
 
 template <class GC, class List, class Traits>
 struct hash_map_builder<cds::container::MichaelHashMap<GC, List, Traits>> {
-  static auto create(const boost::property_tree::ptree& config) {
-    auto nMaxItemCount = config.get<size_t>("nMaxItemCount");
-    auto nLoadFactor = config.get<size_t>("nLoadFactor");
+  static auto create(const tao::config::value& config) {
+    auto nMaxItemCount = config.as<size_t>("nMaxItemCount");
+    auto nLoadFactor = config.as<size_t>("nLoadFactor");
     return std::make_unique<cds::container::MichaelHashMap<GC, List, Traits>>(nMaxItemCount, nLoadFactor);
   }
 };
@@ -131,10 +130,8 @@ namespace {
 
 template <class GC, class Key, class T, class Traits>
 struct descriptor<cds::container::FeldmanHashMap<GC, Key, T, Traits>> {
-  static boost::property_tree::ptree generate() {
-    boost::property_tree::ptree pt;
-    pt.put("type", "cds::FeldmanHashMap");
-    return pt;
+  static tao::json::value generate() {
+    return {{"type", "cds::FeldmanHashMap"}};
   }
 };
 

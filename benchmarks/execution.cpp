@@ -1,6 +1,6 @@
 #include "execution.hpp"
 
-#include <boost/property_tree/ptree.hpp>
+#include <tao/config/value.hpp>
 
 #ifdef WITH_LIBCDS
 #include <cds/gc/hp.h>
@@ -8,7 +8,7 @@
 
 #include <iostream>
 
-using boost::property_tree::ptree;
+using config_t = tao::config::value;
 
 execution::execution(std::uint32_t round, std::uint32_t runtime, std::shared_ptr<benchmark> benchmark) :
   _state(execution_state::starting),
@@ -24,18 +24,18 @@ execution::~execution() {
       thread->_thread.join();
 }
 
-void execution::create_threads(const ptree& config) {
+void execution::create_threads(const config_t& config) {
   std::uint32_t total_count = 0;
-  for (auto& it : config)
-    total_count += it.second.get<std::uint32_t>("count", 1);
+  for (auto& it : config.get_object())
+    total_count += it.second.optional<std::uint32_t>("count").value_or(1);
 
   _threads.reserve(total_count);
 
   std::uint32_t cnt = 0;
-  for (auto& it : config) {
-    auto count = it.second.get<std::uint32_t>("count", 1);
+  for (auto& it : config.get_object()) {
+    auto count = it.second.optional<std::uint32_t>("count").value_or(1);
     for (std::uint32_t i = 0; i < count; ++i, ++cnt) {
-      auto type = it.second.get<std::string>("type", it.first);
+      auto type = it.second.optional<std::string>("type").value_or(it.first);
       auto id = (_round << thread_id_bits) | cnt;
       auto thread = _benchmark->create_thread(id, *this, type);
       _threads.push_back(std::move(thread));
@@ -144,13 +144,13 @@ void execution_thread::do_run() {
   _runtime = std::chrono::high_resolution_clock::now() - start;
 }
 
-void execution_thread::setup(const boost::property_tree::ptree& config) {
+void execution_thread::setup(const config_t& config) {
   auto workload = config.find("workload");
-  if (workload == config.not_found())
+  if (!workload)
     return;
   
   workload_factory factory;
-  _workload = factory(workload->second);
+  _workload = factory(*workload);
 }
 
 void execution_thread::simulate_workload() {

@@ -1,20 +1,20 @@
 #include "benchmark.hpp"
 #include "execution.hpp"
 
-#include <boost/property_tree/ptree.hpp>
+#include <tao/config.hpp>
 
-using boost::property_tree::ptree;
+using config_t = tao::config::value;
 
 namespace config {
-  void prefill::setup(const ptree& config, std::uint64_t default_count) {
+  void prefill::setup(const config_t& config, std::uint64_t default_count) {
     count = default_count;
     auto node = config.find("prefill");
-    if (node != config.not_found()) {
-      if (node->second.empty()) {
-        count = node->second.get_value<std::uint64_t>();
+    if (node) {
+      if (node->is_integer()) {
+        count = node->get_unsigned();
       } else {
-        serial = node->second.get<bool>("serial", false);
-        count = node->second.get<std::uint64_t>("count", count);
+        serial = node->optional<bool>("serial").value_or(false);
+        count = node->optional<std::uint64_t>("count").value_or(count);
       }
     }
   }

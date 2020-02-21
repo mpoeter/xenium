@@ -4,6 +4,10 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
+#include <tao/config/value.hpp>
+#include <tao/config/schema.hpp>
+#include <tao/config/internal/configurator.hpp>
+
 #include "execution.hpp"
 
 #ifdef WITH_LIBCDS
@@ -30,6 +34,11 @@ private:
 
 registered_benchmarks benchmarks;
 
+template <template <typename...> class Traits>
+void print_config(const tao::json::basic_value<Traits>& config) {
+  std::cout << tao::json::to_string(config, 2) << std::endl;
+}
+
 void print_config(const ptree& config, size_t indent) {
   if (config.empty()) {
     std::cout << config.get_value<std::string>() << '\n';
@@ -44,15 +53,6 @@ void print_config(const ptree& config, size_t indent) {
   }
 }
 
-void print_config(const ptree& config) {
-  print_config(config, 0);
-  std::cout << "-----\n";
-}
-
-double sqr(double v) {
-  return v*v;
-}
-
 void print_summary(const report& report) {
   std::vector<double> throughput;
   throughput.reserve(report.rounds.size());
@@ -62,6 +62,7 @@ void print_summary(const report& report) {
   auto min = *std::min_element(throughput.begin(), throughput.end());
   auto max = *std::max_element(throughput.begin(), throughput.end());
   auto avg = std::accumulate(throughput.begin(), throughput.end(), 0.0) / throughput.size();
+  auto sqr = [](double v) { return v*v; };
   double var = 0;
   for (auto v : throughput) {
     var += sqr(v - avg);  
@@ -75,23 +76,52 @@ void print_summary(const report& report) {
     "  stddev: " << sqrt(var) << std::endl;
 }
 
-bool config_matches(const ptree& config, const ptree& descriptor) {
+bool configs_match(const tao::config::value& config, const tao::json::value& descriptor);
+
+bool objects_match(const tao::config::value::object_t& config, const tao::json::value::object_t& descriptor) {
   for (auto& entry : config) {
     auto it = descriptor.find(entry.first);
-    if (it == descriptor.not_found()) {
+    if (it == descriptor.end()) {
       return false;
     }
-    
-    if (entry.second.empty()) {
-      if (it->second.get_value<std::string>() == DYNAMIC_PARAM)
-        continue;
 
-      if (entry.second != it->second)
-        return false;
-    } else if (!config_matches(entry.second, it->second))
+    if (it->second.is_string() && it->second.get_string() == DYNAMIC_PARAM)
+      continue;
+
+    if (!configs_match(entry.second, it->second)) {
       return false;
+    }
   }
   return true;
+}
+
+bool scalars_match(const tao::config::value& config, const tao::json::value& descriptor) {
+  if (config.is_string() != descriptor.is_string() ||
+      config.is_integer() != descriptor.is_integer()) {
+    return false;
+  }
+
+  if (config.is_integer())
+    return config.as<std::int64_t>() == descriptor.as<std::int64_t>();
+
+  if (config.is_string())
+    return config.get_string() == descriptor.get_string();
+
+  // TODO - unsupported type
+
+  return false;
+}
+
+bool configs_match(const tao::config::value& config, const tao::json::value& descriptor) {
+  if (config.is_object() != descriptor.is_object())
+    return false;
+
+  if (config.is_object())
+    return objects_match(config.get_object(), descriptor.get_object());
+
+  // TODO - arrays
+
+  return scalars_match(config, descriptor);
 }
 
 struct options {
@@ -126,7 +156,7 @@ private:
   round_report exec_round(std::uint32_t runtime);
   std::shared_ptr<benchmark_builder> find_matching_builder(const benchmark_builders& benchmarks);
 
-  ptree _config;
+  tao::config::value _config;
   std::shared_ptr<benchmark_builder> _builder;
   std::string _reportfile;
   std::uint32_t _current_round = 0;
@@ -135,18 +165,22 @@ private:
 runner::runner(const options& opts) :
   _reportfile(opts.report)
 {
-  std::ifstream stream(opts.configfile);
-  boost::property_tree::json_parser::read_json(stream, _config);
+  tao::config::internal::configurator configurator;
+  configurator.parse(tao::config::pegtl::file_input(opts.configfile));
+
   for (auto& param : opts.params) {
-    auto arg = split_key_value(param);
-    _config.put(arg.key, arg.value);
+    // TODO - error handling
+    std::cout << "param: " << param << std::endl;
+    configurator.parse(tao::config::pegtl_input_t(param, "command line param"));
   }
-  
+
+  _config = configurator.process<tao::config::traits>(tao::config::schema::builtin());
+
   load_config();
 }
 
 void runner::load_config() {
-  auto type = _config.get<std::string>("type");
+  auto type = _config.as<std::string>("type");
   auto it = benchmarks.find(type);
   if (it == benchmarks.end())
     throw std::runtime_error("Invalid benchmark type " + type);
@@ -159,13 +193,13 @@ void runner::load_config() {
 
 std::shared_ptr<benchmark_builder> runner::find_matching_builder(const benchmark_builders& builders)
 {
-  auto& ds_config = _config.get_child("ds");
+  auto& ds_config = _config["ds"];
   std::cout << "Given data structure config:\n";
   print_config(ds_config);
   std::vector<std::shared_ptr<benchmark_builder>> matches;
   for(auto& var : builders) {
     auto descriptor = var->get_descriptor();
-    if (config_matches(ds_config, descriptor)) {
+    if (configs_match(ds_config, descriptor)) {
       matches.push_back(var);
     }
   }
@@ -177,7 +211,7 @@ std::shared_ptr<benchmark_builder> runner::find_matching_builder(const benchmark
     std::cout << "Could not find a benchmark that matches the given configuration. Available configurations are:\n";
     for (auto& var : builders) {
       print_config(var->get_descriptor());
-      std::cout << '\n';
+      std::cout << "---\n";
     }
     return nullptr;
   }
@@ -221,8 +255,8 @@ void runner::write_report(const report& report) {
 }
 
 void runner::warmup() {
-  auto rounds = _config.get<std::uint32_t>("warmup.rounds", 0);
-  auto runtime = _config.get<std::uint32_t>("warmup.runtime", 5000);
+  auto rounds = _config.optional<std::uint32_t>("warmup.rounds").value_or(0);
+  auto runtime = _config.optional<std::uint32_t>("warmup.runtime").value_or(5000);
   for (std::uint32_t i = 0; i < rounds; ++i) {
     std::cout << "warmup round " << i << std::endl;
     auto report = exec_round(runtime);
@@ -231,8 +265,8 @@ void runner::warmup() {
 }
 
 report runner::run_benchmark() {
-  auto rounds = _config.get<std::uint32_t>("rounds", 10);
-  auto runtime = _config.get<std::uint32_t>("runtime", 10000);
+  auto rounds = _config.optional<std::uint32_t>("rounds").value_or(10);
+  auto runtime = _config.optional<std::uint32_t>("runtime").value_or(10000);
   auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
     std::chrono::system_clock::now().time_since_epoch());
 
@@ -246,9 +280,9 @@ report runner::run_benchmark() {
   }
 
   return {
-    _config.get<std::string>("name", _config.get<std::string>("type")),
+    _config.optional<std::string>("name").value_or(_config.as<std::string>("type")),
     timestamp.count(),
-    _config,
+    ptree{},//_config,
     round_reports
   };
 }
@@ -259,7 +293,7 @@ round_report runner::exec_round(std::uint32_t runtime) {
   benchmark->setup(_config);
 
   execution exec(_current_round, runtime, benchmark);
-  exec.create_threads(_config.get_child("threads"));
+  exec.create_threads(_config["threads"]);
   return exec.run();
 }
 
@@ -275,8 +309,10 @@ void print_available_benchmarks() {
   std::cout << "\nAvailable benchmark configurations:\n";
   for (auto& benchmark : benchmarks) {
     std::cout << "=== " << benchmark.first << " ===\n";
-    for (auto& config : benchmark.second) 
+    for (auto& config : benchmark.second) {
       print_config(config->get_descriptor());
+      std::cout << "---\n";
+    }
     std::cout << std::endl;
   }
 }

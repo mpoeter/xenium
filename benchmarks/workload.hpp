@@ -4,8 +4,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-
-#include <boost/property_tree/ptree_fwd.hpp>
+#include <tao/config/value.hpp>
 
 struct workload_simulator {
   virtual ~workload_simulator() = default;
@@ -15,9 +14,8 @@ struct workload_simulator {
 class workload_factory {
 public:
   workload_factory();
-  std::shared_ptr<workload_simulator> operator()(const boost::property_tree::ptree& config);
-  using builder = std::function<
-    std::shared_ptr<workload_simulator>(const boost::property_tree::ptree&)>;
+  std::shared_ptr<workload_simulator> operator()(const tao::config::value& config);
+  using builder = std::function<std::shared_ptr<workload_simulator>(const tao::config::value&)>;
   void register_workload(std::string type, builder func);
 private:
   std::unordered_map<std::string, builder> _builders;

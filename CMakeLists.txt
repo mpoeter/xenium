@@ -20,7 +20,13 @@ file(GLOB_RECURSE TEST_FILES test/*.cpp)
 
 file(GLOB_RECURSE BENCHMARK_FILES benchmarks/*.cpp)
 
-include_directories(. ${Boost_INCLUDE_DIR} ${GTEST_INCLUDE_DIRS})
+include_directories(
+	.
+	${Boost_INCLUDE_DIR}
+	${GTEST_INCLUDE_DIRS}
+	./3rdParty/json/include
+	./3rdParty/config/include
+)
 
 add_executable(gtest ${TEST_FILES} ${XENIUM_FILES})
 
