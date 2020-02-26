@@ -84,8 +84,8 @@ namespace xenium { namespace reclamation {
     using Deleter = typename T::Deleter;
   public:
     // Guard a marked ptr.
-    guard_ptr(const MarkedPtr& p = MarkedPtr()) noexcept;
-    explicit guard_ptr(const guard_ptr& p) noexcept;
+    explicit guard_ptr(const MarkedPtr& p = MarkedPtr()) noexcept;
+    guard_ptr(const guard_ptr& p) noexcept;
     guard_ptr(guard_ptr&& p) noexcept;
 
     guard_ptr& operator=(const guard_ptr& p) noexcept;

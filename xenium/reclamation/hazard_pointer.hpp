@@ -205,8 +205,8 @@ namespace xenium { namespace reclamation {
     guard_ptr() noexcept = default;
 
     // Guard a marked ptr.
-    guard_ptr(const MarkedPtr& p);
-    explicit guard_ptr(const guard_ptr& p);
+    explicit guard_ptr(const MarkedPtr& p);
+    guard_ptr(const guard_ptr& p);
     guard_ptr(guard_ptr&& p) noexcept;
 
     guard_ptr& operator=(const guard_ptr& p) noexcept;

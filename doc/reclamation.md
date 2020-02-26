@@ -273,9 +273,9 @@ public:
   ~guard_ptr();
     
   // Guard a marked ptr.
-  guard_ptr(const marked_ptr& p);
+  explicit guard_ptr(const marked_ptr& p);
   
-  explicit guard_ptr(const guard_ptr& p);
+  guard_ptr(const guard_ptr& p);
   guard_ptr(guard_ptr&& p) noexcept;
 
   guard_ptr& operator=(const guard_ptr& p) noexcept;
