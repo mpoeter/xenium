@@ -56,7 +56,7 @@ namespace policy {
  *    power of two. (*optional*; defaults to 512)
  *  * `xenium::policy::pop_retries`<br>
  *    Defines the number of iterations to spin on a queue entry while waiting for a pending
- *    push operation to finish. (*optional*; defaults to 10)
+ *    push operation to finish. (*optional*; defaults to 1000)
  *
  * @tparam T
  * @tparam Policies list of policies to customize the behaviour
@@ -71,7 +71,7 @@ public:
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
   static constexpr unsigned entries_per_node = parameter::value_param_t<unsigned, policy::entries_per_node, 512, Policies...>::value;
-  static constexpr unsigned pop_retries = parameter::value_param_t<unsigned, policy::pop_retries, 10, Policies...>::value;;
+  static constexpr unsigned pop_retries = parameter::value_param_t<unsigned, policy::pop_retries, 1000, Policies...>::value;;
 
   static_assert(entries_per_node > 0, "entries_per_node must be greater than zero");
   static_assert(parameter::is_set<reclaimer>::value, "reclaimer policy must be specified");
@@ -223,7 +223,7 @@ void ramalhete_queue<T, Policies...>::push(value_type value)
     idx %= entries_per_node;
 
     marked_value expected = nullptr;
-    // (8) - this release-CAS synchronizes-with the acquire-exchange (14)
+    // (8) - this release-CAS synchronizes-with the acquire-load (14) and the acquire-exchange (15)
     if (t->entries[idx].value.compare_exchange_strong(expected, raw_val, std::memory_order_release, std::memory_order_relaxed)) {
       traits::release(value);
       return;
@@ -270,18 +270,28 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
     }
     idx %= entries_per_node;
 
+    auto value = h->entries[idx].value.load(std::memory_order_relaxed);
     if constexpr(pop_retries > 0) {
       unsigned cnt = 0;
       ramalhete_queue::backoff retry_backoff;
-      while (h->entries[idx].value.load(std::memory_order_relaxed) == nullptr && ++cnt <= pop_retries)
-        retry_backoff(); // TODO - use a backoff tpye that can be configured separately
+      while (value == nullptr && ++cnt <= pop_retries) {
+        value = h->entries[idx].value.load(std::memory_order_relaxed);
+        retry_backoff(); // TODO - use a backoff type that can be configured separately
+      }
     }
 
-    // (14) - this acquire-exchange synchronizes-with the release-CAS (8)
-    auto value = h->entries[idx].value.exchange(marked_value(nullptr, 1), std::memory_order_acquire);
     if (value != nullptr) {
+      // (14) - this acquire-load synchronizes-with the release-CAS (8)
+      h->entries[idx].value.load(std::memory_order_acquire);
       traits::store(result, value.get());
       return true;
+    } else {
+      // (15) - this acquire-exchange synchronizes-with the release-CAS (8)
+      auto value = h->entries[idx].value.exchange(marked_value(nullptr, 1), std::memory_order_acquire);
+      if (value != nullptr) {
+        traits::store(result, value.get());
+        return true;
+      }
     }
 
     backoff();
