@@ -8,7 +8,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 enable_testing()
 
-find_package(Boost 1.61.0 REQUIRED)
 find_package(Threads REQUIRED)
 find_package(Doxygen)
 
@@ -22,7 +21,6 @@ file(GLOB_RECURSE BENCHMARK_FILES benchmarks/*.cpp)
 
 include_directories(
 	.
-	${Boost_INCLUDE_DIR}
 	${GTEST_INCLUDE_DIRS}
 	./3rdParty/json/include
 	./3rdParty/config/include
