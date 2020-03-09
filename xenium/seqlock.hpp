@@ -148,7 +148,7 @@ private:
 template <class T, class... Policies>
 T seqlock<T, Policies...>::load() const {
   T result;
-  // (3) - this acquire-load synchronizes-with the release-store (2)
+  // (1) - this acquire-load synchronizes-with the release-store (5)
   sequence_t seq = _seq.load(std::memory_order_acquire);
   for (;;) {
     unsigned idx;
@@ -157,7 +157,7 @@ T seqlock<T, Policies...>::load() const {
       // this is only necessary if we have a single slot, since otherwise we let
       // reader and writer operate on separate slots.
       while (is_write_pending(seq)) {
-        // (4) - this acquire-load synchronizes-with the release-store (2)
+        // (2) - this acquire-load synchronizes-with the release-store (5)
         seq = _seq.load(std::memory_order_acquire);
       }
       idx = 0;
@@ -167,7 +167,7 @@ T seqlock<T, Policies...>::load() const {
 
     read_data(result, _data[idx]);
 
-    // (5) - this seq-cst-load enforces a total order with the seq-cst-CAS (1)
+    // (3) - this seq-cst-load enforces a total order with the seq-cst-CAS (4)
     auto seq2 = _seq.load(std::memory_order_seq_cst);
     if (seq2 - seq < (2 * slots - 1))
       break;
@@ -204,8 +204,8 @@ auto seqlock<T, Policies...>::acquire_lock() -> sequence_t {
       seq = _seq.load(std::memory_order_relaxed);
 
     assert(is_write_pending(seq) == false);
-    // (1) - this seq-cst-CAS synchronizes with the release-store (2)
-    //       and enforces a total order with the seq-cst-load (5)
+    // (4) - this seq-cst-CAS synchronizes with the release-store (5)
+    //       and enforces a total order with the seq-cst-load (3)
     if (_seq.compare_exchange_weak(seq, seq + 1, std::memory_order_seq_cst, std::memory_order_relaxed))
       return seq + 1;
   }
@@ -215,8 +215,8 @@ template <class T, class... Policies>
 void seqlock<T, Policies...>::release_lock(sequence_t seq) {
   assert(seq == _seq.load(std::memory_order_relaxed));
   assert(is_write_pending(seq));
-  // (2) - this release-store synchronizes-with the seq-cst-CAS (1)
-  //       and the acquire-read (3, 4)
+  // (5) - this release-store synchronizes-with the seq-cst-CAS (4)
+  //       and the acquire-read (1, 2)
   _seq.store(seq + 1, std::memory_order_release);
 }
 
