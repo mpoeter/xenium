@@ -42,11 +42,12 @@ struct benchmark_thread : execution_thread {
   virtual void initialize(std::uint32_t num_threads) override;
   virtual void run() override;
   virtual thread_report report() const override {
-    boost::property_tree::ptree data;
-    data.put("runtime", _runtime.count());
-    data.put("insert", insert_operations);
-    data.put("remove", remove_operations);
-    data.put("get", get_operations);
+    tao::json::value data {
+      {"runtime", _runtime.count()},
+      {"insert", insert_operations},
+      {"remove", remove_operations},
+      {"get", get_operations},
+    };
     return { data, insert_operations + remove_operations + get_operations };
   }
 protected:

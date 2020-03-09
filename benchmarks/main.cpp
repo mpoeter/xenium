@@ -1,9 +1,8 @@
 #include <iostream>
+#include <fstream>
 #include <numeric>
 
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
-
+#include <tao/json/from_stream.hpp>
 #include <tao/config/value.hpp>
 #include <tao/config/schema.hpp>
 #include <tao/config/internal/configurator.hpp>
@@ -15,8 +14,6 @@
 #include <cds/gc/hp.h>
 #include <cds/gc/dhp.h>
 #endif
-
-using boost::property_tree::ptree;
 
 extern void register_queue_benchmark(registered_benchmarks&);
 extern void register_hash_map_benchmark(registered_benchmarks&);
@@ -37,20 +34,6 @@ registered_benchmarks benchmarks;
 template <template <typename...> class Traits>
 void print_config(const tao::json::basic_value<Traits>& config) {
   std::cout << tao::json::to_string(config, 2) << std::endl;
-}
-
-void print_config(const ptree& config, size_t indent) {
-  if (config.empty()) {
-    std::cout << config.get_value<std::string>() << '\n';
-  } else {
-    for (auto& it : config) {
-      std::cout << std::string(2 * (indent + 1), ' ');
-      std::cout << it.first << ": ";
-      if (!it.second.empty())
-        std::cout << '\n';
-      print_config(it.second, indent + 1);
-    }
-  }
 }
 
 void print_summary(const report& report) {
@@ -107,9 +90,7 @@ bool scalars_match(const tao::config::value& config, const tao::json::value& des
   if (config.is_string())
     return config.get_string() == descriptor.get_string();
 
-  // TODO - unsupported type
-
-  return false;
+  throw std::runtime_error("Found unexpected type in config.");
 }
 
 bool configs_match(const tao::config::value& config, const tao::json::value& descriptor) {
@@ -118,8 +99,6 @@ bool configs_match(const tao::config::value& config, const tao::json::value& des
 
   if (config.is_object())
     return objects_match(config.get_object(), descriptor.get_object());
-
-  // TODO - arrays
 
   return scalars_match(config, descriptor);
 }
@@ -236,22 +215,21 @@ void runner::write_report(const report& report) {
   if (_reportfile.empty())
     return;
 
-  boost::property_tree::ptree ptree;
+  tao::json::value json;
   try {
     std::ifstream stream(_reportfile);
     if (stream) {
-      boost::property_tree::json_parser::read_json(stream, ptree);
+      json = tao::json::from_stream(stream, _reportfile);
     }
-  } catch(const boost::property_tree::json_parser_error&) {
+  } catch(...) {
     std::cerr << "Failed to parse existing report file \"" << _reportfile << "\"" <<
       " - skipping report generation!" << std::endl;
   }
   
-  auto reports = ptree.get_child("reports", {});
-  std::ofstream stream(_reportfile);
-  reports.push_back(std::make_pair("", report.as_ptree()));
-  ptree.put_child("reports", reports);
-  boost::property_tree::json_parser::write_json(stream, ptree);
+  auto& reports = json["reports"];
+  std::ofstream ostream(_reportfile);
+  reports.push_back(report.as_json());
+  tao::json::to_stream(ostream, json, 2);
 }
 
 void runner::warmup() {
@@ -282,7 +260,7 @@ report runner::run_benchmark() {
   return {
     _config.optional<std::string>("name").value_or(_config.as<std::string>("type")),
     timestamp.count(),
-    ptree{},//_config,
+    _config,
     round_reports
   };
 }

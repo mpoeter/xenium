@@ -8,30 +8,34 @@ std::uint64_t round_report::operations() const {
   return result;
 }
 
-boost::property_tree::ptree round_report::as_ptree() const {
-  boost::property_tree::ptree result;
-  boost::property_tree::ptree thread_data;
+tao::json::value round_report::as_json() const {
+  tao::json::value result {
+    {"runtime", runtime},
+    {"operations", operations()},
+  };
+
+  tao::json::value thread_data;
   for (const auto& thread : threads) {
-    thread_data.push_back(std::make_pair("", thread.data));
+    thread_data.push_back(thread.data);
   }
 
-  result.put("runtime", runtime);
-  result.put("operations", operations());
-  result.put_child("threads", thread_data);
+  result.try_emplace("threads", std::move(thread_data));
   
   return result;
 }
 
-boost::property_tree::ptree report::as_ptree() const {
-  boost::property_tree::ptree result;
-  result.put("name", name);
-  result.put("timestamp", timestamp);
-  result.put_child("config", config);
+tao::json::value report::as_json() const {
+  tao::json::value result{
+    {"name", name},
+    {"timestamp", timestamp},
+    {"config", tao::json::from_string(tao::json::to_string(config))}
+  };
 
-  boost::property_tree::ptree round_reports;
-  for (const auto& round : rounds)
-    round_reports.push_back(std::make_pair("", round.as_ptree()));
+  tao::json::value round_reports;
+  for (const auto& round : rounds) {
+    round_reports.push_back(round.as_json());
+  }
 
-  result.put_child("rounds", round_reports);
+  result.try_emplace("rounds", std::move(round_reports));
   return result;
 }

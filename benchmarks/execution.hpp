@@ -42,7 +42,7 @@ struct execution_thread {
   virtual void setup(const tao::config::value& config);
   virtual void run() = 0;
   virtual void initialize(std::uint32_t /*num_threads*/) {}
-  virtual thread_report report() const { return { boost::property_tree::ptree{}, 0 }; }
+  virtual thread_report report() const { return { {}, 0 }; }
   std::uint32_t id() const { return _id; }
 private:
   const execution& _execution;

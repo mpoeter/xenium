@@ -1,6 +1,7 @@
 #pragma once
 
-#include <boost/property_tree/ptree.hpp>
+#include <tao/json/value.hpp>
+#include <tao/config/value.hpp>
 
 #include <string>
 #include <vector>
@@ -22,8 +23,8 @@
 */
 
 struct thread_report {
-  // a property tree containing arbitrary result data for this thread
-  boost::property_tree::ptree data;
+  // a JSON value containing arbitrary result data for this thread
+  tao::json::value data;
   // total number of operations performed by this thread
   std::uint64_t operations;
 };
@@ -34,14 +35,14 @@ struct round_report {
   std::uint64_t operations() const;
   double throughput() const { return operations() / runtime; }
 
-  boost::property_tree::ptree as_ptree() const;
+  tao::json::value as_json() const;
 };
 
 struct report {
   std::string name;
   std::int64_t timestamp;
-  boost::property_tree::ptree config;
+  tao::config::value config;
   std::vector<round_report> rounds;
 
-  boost::property_tree::ptree as_ptree() const;
+  tao::json::value as_json() const;
 };
