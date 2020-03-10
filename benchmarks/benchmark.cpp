@@ -1,7 +1,7 @@
 #include "benchmark.hpp"
 #include "execution.hpp"
 
-#include <tao/config.hpp>
+#include <tao/config/value.hpp>
 
 using config_t = tao::config::value;
 

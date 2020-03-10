@@ -2,6 +2,11 @@
 #include <fstream>
 #include <numeric>
 
+#ifdef _MSC_VER
+// taocpp config internally uses 128-bit arithmetic to check for overflows,
+// but this is not supported by MSVC -> revert to 64-bit.
+#define __int128_t std::int64_t
+#endif
 #include <tao/json/from_stream.hpp>
 #include <tao/config/value.hpp>
 #include <tao/config/schema.hpp>
