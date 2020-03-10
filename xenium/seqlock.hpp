@@ -31,8 +31,8 @@ namespace policy {
  * writes. In contrast to classic read-write-locks, readers to not have to have to announce the read
  * operation and can therefore not block a write operation. Instead, a read operation that overlaps
  * with a write operation will have to be retried in order to obtain a consistent snapshot.
- * However, this imposes additional limitations on the type T, which must be default constructible
- * and trivially copyable.
+ * However, this imposes additional limitations on the type T, which must be default constructible,
+ * trivially copyable and trivially destructible.
  * 
  * *Note:* T should not contain pointers that may get deleted due to an update of the stored
  * instance. The `seqlock` can only provide a consistent snapshot of the stored T instance, but
@@ -53,14 +53,16 @@ namespace policy {
  *    lock-free and can reduce the number of retries due to concurrent updates.
  *    (optional; defaults to 1)
  * 
- * @tparam T type of the stored element; T must be default constructible and trivially copyable.
+ * @tparam T type of the stored element; T must be default constructible, trivially copyable
+ *   and trivially destructible.
  */
 template<class T, class... Policies>
 struct seqlock {
   using value_type = T;
   
-  static_assert(std::is_default_constructible<T>::value, "T must be default constructible");
-  static_assert(std::is_trivially_copyable<T>::value, "T must be trivially copyable");
+  static_assert(std::is_default_constructible_v<T>, "T must be default constructible");
+  static_assert(std::is_trivially_destructible_v<T>, "T must be trivially destructible");
+  static_assert(std::is_trivially_copyable_v<T>, "T must be trivially copyable");
   static_assert(sizeof(T) > sizeof(std::uintptr_t),
     "For types T with a size less or equal to a pointer use an atomic<T> with a compare_exchange update loop.");
 
