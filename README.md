@@ -82,6 +82,28 @@ ways. For simplicity, the following aliases are predefined for the corresponding
   * `debra` \[[Bro15](#ref-brown-2015)\]
 * `stamp_it` \[[PT18a](#ref-pöter-2018), [PT18b](#ref-pöter-2018-tr)\]
 
+## Building
+
+xenium is a header only library, so in order to use it, it is sufficient to include the xenium folder
+in your list of include directories. No other 3rd party libraries are required. However, the implementation
+uses C++17 features, so a compiler with sufficient C++17 support is required. The following compilers are
+used in the CI builds and are therefore known to be supported:
+  * gcc8
+  * clang9
+  * Visual Studio 2017
+
+The unit test require `googletest` and the benchmarks require `taocpp/json` and `taocpp/config`. These
+dependencies are included as submodules, so the unit tests and/or the bencmarks can be built as follows:
+```
+git clone https://github.com/mpoeter/xenium.git && cd xenium
+git submodule update --init --recursive
+mkdir build && cd build
+cmake ..
+make gtest
+make benchmark
+```
+
+
 ### References
 
 <table style="border:0px">
