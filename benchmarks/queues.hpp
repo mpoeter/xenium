@@ -332,3 +332,42 @@ namespace {
   }
 }
 #endif
+
+#ifdef WITH_BOOST_LOCKFREE_QUEUE
+#include <boost/lockfree/queue.hpp>
+
+template <class T, class... Policies>
+struct queue_builder<boost::lockfree::queue<T, Policies...>> {
+  static auto create(const tao::config::value& config) {
+    auto size = config.as<size_t>("size");
+    return std::make_unique<boost::lockfree::queue<T, Policies...>>(size);
+  }
+};
+
+template <class T, class... Policies>
+struct descriptor<boost::lockfree::queue<T, Policies...>> {
+  static tao::json::value generate() {
+    return {
+      {"type", "boost::lockfree::queue"},
+      {"size", DYNAMIC_PARAM}
+    };
+  }
+};
+
+template <class T, class... Policies>
+struct region_guard<boost::lockfree::queue<T, Policies...>> {
+  struct type{};
+};
+
+namespace {
+  template <class T, class... Policies>
+  bool try_push(boost::lockfree::queue<T, Policies...>& queue, T item) {
+    return queue.push(std::move(item));
+  }
+
+  template <class T, class... Policies>
+  bool try_pop(boost::lockfree::queue<T, Policies...>& queue, T& item) {
+    return queue.pop(item);
+  }
+}
+#endif

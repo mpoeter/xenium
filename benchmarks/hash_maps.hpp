@@ -11,6 +11,18 @@ struct hash_map_builder {
 #include <xenium/vyukov_hash_map.hpp>
 
 template <class Key, class Value, class... Policies>
+struct descriptor<xenium::vyukov_hash_map<Key, Value, Policies...>> {
+  static tao::json::value generate() {
+    using hash_map = xenium::vyukov_hash_map<Key, Value, Policies...>;
+    return {
+      {"type", "vyukov_hash_map"},
+      {"initial_capacity", DYNAMIC_PARAM},
+      {"reclaimer", descriptor<typename hash_map::reclaimer>::generate()}
+    };
+  }
+};
+
+template <class Key, class Value, class... Policies>
 struct hash_map_builder<xenium::vyukov_hash_map<Key, Value, Policies...>> {
   static auto create(const tao::config::value& config) {
     auto initial_capacity = config.optional<size_t>("initial_capacity").value_or(128);

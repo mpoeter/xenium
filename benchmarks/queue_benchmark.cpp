@@ -236,6 +236,10 @@ namespace {
 #ifdef WITH_CDS_SEGMENTED_QUEUE
       make_benchmark_builder<cds::container::SegmentedQueue<cds::gc::HP, QUEUE_ITEM>>(),
 #endif
+
+#ifdef WITH_BOOST_LOCKFREE_QUEUE
+      make_benchmark_builder<boost::lockfree::queue<QUEUE_ITEM>>(),
+#endif
     };
   }
 }

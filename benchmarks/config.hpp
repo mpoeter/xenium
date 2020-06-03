@@ -30,3 +30,7 @@
   #define WITH_CDS_MICHAEL_MAP
   #define WITH_CDS_FELDMAN_HASHMAP
 #endif
+
+#ifdef WITH_BOOST
+  #define WITH_BOOST_LOCKFREE_QUEUE
+#endif

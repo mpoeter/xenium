@@ -124,18 +124,3 @@ struct descriptor<xenium::reclamation::hp_allocation::static_strategy<K, A, B>> 
   }
 };
 #endif
-
-#ifdef WITH_VYUKOV_HASH_MAP
-#include <xenium/vyukov_hash_map.hpp>
-template <class Key, class Value, class... Policies>
-struct descriptor<xenium::vyukov_hash_map<Key, Value, Policies...>> {
-  static tao::json::value generate() {
-    using hash_map = xenium::vyukov_hash_map<Key, Value, Policies...>;
-    return {
-      {"type", "vyukov_hash_map"},
-      {"initial_capacity", DYNAMIC_PARAM},
-      {"reclaimer", descriptor<typename hash_map::reclaimer>::generate()}
-    };
-  }
-};
-#endif
