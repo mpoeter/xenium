@@ -7,6 +7,7 @@
 #define XENIUM_SEQLOCK
 
 #include <xenium/parameter.hpp>
+#include <xenium/detail/port.hpp>
 
 #include <atomic>
 #include <cassert>
@@ -169,8 +170,8 @@ T seqlock<T, Policies...>::load() const {
 
     read_data(result, _data[idx]);
 
-    // (3) - this seq-cst-load enforces a total order with the seq-cst-CAS (4)
-    auto seq2 = _seq.load(std::memory_order_seq_cst);
+    // (3) - this acquire-load synchronizes-with the release-store (5)
+    auto seq2 = _seq.load(std::memory_order_acquire);
     if (seq2 - seq < (2 * slots - 1))
       break;
     seq = seq2;
@@ -206,9 +207,8 @@ auto seqlock<T, Policies...>::acquire_lock() -> sequence_t {
       seq = _seq.load(std::memory_order_relaxed);
 
     assert(is_write_pending(seq) == false);
-    // (4) - this seq-cst-CAS synchronizes with the release-store (5)
-    //       and enforces a total order with the seq-cst-load (3)
-    if (_seq.compare_exchange_weak(seq, seq + 1, std::memory_order_seq_cst, std::memory_order_relaxed))
+    // (4) - this acquire-CAS synchronizes-with the release-store (5)
+    if (_seq.compare_exchange_weak(seq, seq + 1, std::memory_order_acquire, std::memory_order_relaxed))
       return seq + 1;
   }
 }
@@ -217,8 +217,8 @@ template <class T, class... Policies>
 void seqlock<T, Policies...>::release_lock(sequence_t seq) {
   assert(seq == _seq.load(std::memory_order_relaxed));
   assert(is_write_pending(seq));
-  // (5) - this release-store synchronizes-with the seq-cst-CAS (4)
-  //       and the acquire-read (1, 2)
+  // (5) - this release-store synchronizes-with acquire-CAS (4)
+  //       and the acquire-load (1, 2, 3)
   _seq.store(seq + 1, std::memory_order_release);
 }
 
@@ -230,10 +230,22 @@ void seqlock<T, Policies...>::read_data(T& dest, const storage_t& src) const {
   for (; pdest != pend; ++psrc, ++pdest) {
     *pdest = psrc->load(std::memory_order_relaxed);
   }
+  // (6) - this acquire-fence synchronizes-with the release-fence (7)
+  std::atomic_thread_fence(std::memory_order_acquire);
+
+  // Effectively this fence transforms the previous relaxed-loads into acquire-loads. This
+  // is necessary to enforce an order with the subsequent load of _seq, so that these
+  // relaxed-loads cannot be reordered with the load on _seq. This also implies that if
+  // one of these relaxed-loads returns a new value written by a concurrent update operation,
+  // the fences synchronize with each other, so it is guaranteed that the subsequent load on
+  // _seq "sees" the new sequence value and the load operation will perform a retry.
 }
 
 template <class T, class... Policies>
 void seqlock<T, Policies...>::store_data(const T& src, storage_t& dest) {
+  // (7) - this release-fence synchronizes-with the acquire-fence (6)
+  std::atomic_thread_fence(std::memory_order_release);
+
   const copy_t* psrc = reinterpret_cast<const copy_t*>(&src);
   const copy_t* pend = psrc + (sizeof(T) / sizeof(copy_t));
   std::atomic<copy_t>* pdest = reinterpret_cast<std::atomic<copy_t>*>(&dest);
