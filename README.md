@@ -1,6 +1,6 @@
 # xenium
 
-[![Build Status](https://dev.azure.com/mpoeter/xenium/_apis/build/status/mpoeter.xenium?branchName=master)](https://dev.azure.com/mpoeter/xenium/_build/latest?definitionId=1&branchName=master)
+[![Build Status](https://dev.azure.com/mpoeter/xenium/_apis/build/status/mpoeter.xenium?branchName=master)](https://dev.azure.com/mpoeter/xenium/_build?definitionId=1&branchName=master)
 [![MIT Licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Documentation](https://img.shields.io/badge/docs-doxygen-purple.svg)](https://mpoeter.github.io/xenium)
 
