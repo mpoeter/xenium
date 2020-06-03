@@ -1,0 +1,93 @@
+{
+  "reclaimers": {
+    "EBR": {
+      "type": "generic_epoch_based",
+      "scan_strategy": { "type": "all_threads" },
+      "region_extension": "none"
+    },
+    "NEBR": {
+      "type": "generic_epoch_based",
+      "scan_strategy": { "type": "all_threads" },
+      "region_extension": "eager"
+    },
+    "DEBRA": {
+      "type": "generic_epoch_based",
+      "scan_strategy": { "type": "one_threads" },
+      "region_extension": "eager"
+    },
+    "QSBR": {
+      "type": "quiescent_state_based"
+    },
+    "static-HP": {
+      "type": "hazard_pointer",
+      "allocation_strategy": { "type": "static"}
+    },
+    "dynamic-HP": {
+      "type": "hazard_pointer",
+      "allocation_strategy": { "type": "dynamic"}
+    },
+  },
+  "queues": {
+    "ramalhete" : {
+      "type": "ramalhete_queue",
+      "reclaimer": (reclaimers.EBR)
+    },
+    "michael_scott" : {
+      "type": "michael_scott_queue",
+      "reclaimer": (reclaimers.EBR)
+    },
+    "vyukov_bounded" : {
+      "type": "vyukov_bounded_queue",
+      "size": 256
+    },
+    "kirsch_kfifo" : {
+      "type": "kirsch_kfifo_queue",
+      "reclaimer": (reclaimers.EBR),
+      "k": 16
+    },
+    "kirsch_bounded_kfifo" : {
+      "type": "kirsch_bounded_kfifo_queue",
+      "k": 16,
+      "segments": 16
+    },
+    "cds-MSQueue" : {
+      "type": "cds::MSQueue",
+      "gc": "HP"
+    },
+    "cds-BasketQueue": {
+      "type": "cds::BasketQueue",
+      "gc": "HP"
+    },
+    "cds-SegmentedQueue": {
+      "type": "cds::SegmentedQueue",
+      "gc": "HP",
+      "nQuasiFactor": 8
+    },
+    "boost-lockfree-queue": {
+      "type": "boost::lockfree::queue",
+      "size": 64
+    }
+  },
+  "type": "queue",
+  "ds": (queues.ramalhete),
+  "prefill": 10,
+  "warmup": {
+    "rounds": 1,
+    "runtime": 200
+  },
+  "rounds": 4,
+  "runtime": 1000,
+  "threads": {
+    "producer": {
+      "count": 4,
+      "pop_ratio": 0.1,
+      "workload": 100
+    },
+    "myconsumer": {
+      "type": "consumer",
+      "count": 4,
+      "push_ratio": 0.1,
+      "workload": 100
+    }
+  }
+}
