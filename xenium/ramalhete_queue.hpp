@@ -24,16 +24,6 @@
 
 namespace xenium {
 
-namespace policy {
-  /**
-   * @brief Policy to configure the number of iterations to spin on a queue entry while waiting
-   * for a pending push operation to finish.
-   * @tparam Value
-   */
-  template <unsigned Value>
-  struct pop_retries;
-}
-
 /**
  * @brief A fast unbounded lock-free multi-producer/multi-consumer FIFO queue.
  * 
@@ -71,7 +61,7 @@ public:
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
   static constexpr unsigned entries_per_node = parameter::value_param_t<unsigned, policy::entries_per_node, 512, Policies...>::value;
-  static constexpr unsigned pop_retries = parameter::value_param_t<unsigned, policy::pop_retries, 1000, Policies...>::value;;
+  static constexpr unsigned pop_retries = parameter::value_param_t<unsigned, policy::pop_retries, 1000, Policies...>::value;
 
   static_assert(entries_per_node > 0, "entries_per_node must be greater than zero");
   static_assert(parameter::is_set<reclaimer>::value, "reclaimer policy must be specified");
