@@ -199,10 +199,10 @@ namespace {
   #endif
 #endif
 
-#ifdef WITH_CDS_MICHAEL_MAP
+#ifdef WITH_CDS_MICHAEL_HASHMAP
     make_benchmark_builder<
       cds::container::MichaelHashMap<cds::gc::HP,
-        cds::container::MichaelKVList< cds::gc::HP, int, int>>>(),
+        cds::container::MichaelKVList< cds::gc::HP, QUEUE_ITEM, QUEUE_ITEM>>>(),
 #endif
 
 #ifdef WITH_CDS_FELDMAN_HASHMAP

@@ -88,17 +88,18 @@ namespace {
 #include <cds/gc/dhp.h>
 #endif
 
-#ifdef WITH_CDS_MICHAEL_MAP
+#ifdef WITH_CDS_MICHAEL_HASHMAP
 #include <cds/container/michael_kvlist_hp.h>
 #include <cds/container/michael_map.h>
 
-template <class GC, class List, class Traits>
-struct descriptor<cds::container::MichaelHashMap<GC, List, Traits>> {
+template <class List, class Traits>
+struct descriptor<cds::container::MichaelHashMap<cds::gc::HP, List, Traits>> {
   static tao::json::value generate() {
     return {
-      {"type", "cds::MichaelMap"},
+      {"type", "cds::MichaelHashMap"},
       {"nMaxItemCount", DYNAMIC_PARAM},
-      {"nLoadFactor", DYNAMIC_PARAM}
+      {"nLoadFactor", DYNAMIC_PARAM},
+      {"gc", "HP"}
     };
   }
 };
@@ -140,10 +141,13 @@ namespace {
 #include <cds/container/feldman_hashmap_dhp.h>
 #include <cds/container/feldman_hashmap_rcu.h>
 
-template <class GC, class Key, class T, class Traits>
-struct descriptor<cds::container::FeldmanHashMap<GC, Key, T, Traits>> {
+template <class Key, class T, class Traits>
+struct descriptor<cds::container::FeldmanHashMap<cds::gc::HP, Key, T, Traits>> {
   static tao::json::value generate() {
-    return {{"type", "cds::FeldmanHashMap"}};
+    return {
+      {"type", "cds::FeldmanHashMap"},
+      {"gc", "HP"}
+    };
   }
 };
 

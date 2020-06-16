@@ -1,0 +1,63 @@
+{
+  "reclaimers": {
+    "EBR": {
+      "type": "generic_epoch_based",
+      "scan_strategy": { "type": "all_threads" },
+      "region_extension": "none"
+    },
+    "NEBR": {
+      "type": "generic_epoch_based",
+      "scan_strategy": { "type": "all_threads" },
+      "region_extension": "eager"
+    },
+    "DEBRA": {
+      "type": "generic_epoch_based",
+      "scan_strategy": { "type": "one_threads" },
+      "region_extension": "eager"
+    },
+    "QSBR": {
+      "type": "quiescent_state_based"
+    },
+    "static-HP": {
+      "type": "hazard_pointer",
+      "allocation_strategy": { "type": "static"}
+    },
+    "dynamic-HP": {
+      "type": "hazard_pointer",
+      "allocation_strategy": { "type": "dynamic"}
+    },
+  },
+  "hash_maps": {
+    "vyukov": {
+      "type": "vyukov_hash_map",
+      "reclaimer": (reclaimers.EBR)
+    },
+    "harris_michael" : {
+      "type": "harris_michael_hash_map",
+      "reclaimer": (reclaimers.EBR)
+    },
+    "cds-MichaelHashMap" : {
+      "type": "cds::MichaelHashMap",
+      "gc": "HP",
+      "nMaxItemCount": 512,
+      "nLoadFactor": 1
+    },
+    "cds-FeldmanHashMap": {
+      "type": "cds::FeldmanHashMap",
+      "gc": "HP"
+    }
+  },
+  "type": "hash_map",
+  "ds": (hash_maps.vyukov),
+  "warmup": {
+    "rounds": 1,
+    "runtime": 200
+  },
+  "rounds": 4,
+  "runtime": 1000,
+  "threads": {
+    "mixed": {
+      "count": 4
+    }
+  }
+}
