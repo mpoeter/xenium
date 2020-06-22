@@ -213,7 +213,8 @@ public:
   pointer operator->() const noexcept { return &info.cur->key; }
 
   /**
-   * @brief Resets the iterator; this is equivalent to assigning to `end()` it.
+   * @brief Resets the iterator; this is equivalent to assigning `end()` to it.
+   *
    * This operation can be handy in situations where an iterator is no longer needed and you want
    * to ensure that the internal `guard_ptr` instances are reset.
    */
