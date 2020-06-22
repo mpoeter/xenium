@@ -19,8 +19,12 @@ namespace xenium {
   /**
    * @brief A bounded lock-free multi-producer/multi-consumer queue.
    * 
-   * This implementation is based on the bounded MPMC queue proposed by Nikolaev.
+   * This implementation is based on the bounded MPMC queue proposed by Nikolaev
+   * \[[Nik19](index.html#ref-nikolaev-2019)\].
    * 
+   * The nikoleav_bounded_queue provides lock-free progress guarantee under the condition that
+  *  the number of threads concurrently operating on the queue is less than the queue's capacity.
+   *
    * Supported policies:
    *  * `xenium::policy::pop_retries`<br>
    *    Defines the number of iterations to spin on a queue entry while waiting for a pending
