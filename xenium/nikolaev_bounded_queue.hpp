@@ -86,15 +86,18 @@ namespace xenium {
     struct empty_tag{};
     struct full_tag{};
 
+    using index_t = std::uint64_t;
+    static constexpr std::size_t cacheline_size = 64;
+    static constexpr std::size_t indexes_per_cacheline = cacheline_size / sizeof(index_t);
+
     struct queue {
-      queue(std::size_t capacity, empty_tag);
-      queue(std::size_t capacity, full_tag);
+      queue(std::size_t capacity, std::size_t remap_shift, empty_tag);
+      queue(std::size_t capacity, std::size_t remap_shift, full_tag);
 
       // TODO - make nonempty checks configurable
-      void enqueue(std::uint64_t value, std::size_t capacity, bool nonempty);
-      bool dequeue(std::uint64_t& value, std::size_t capacity, bool nonempty);
+      void enqueue(std::uint64_t value, std::size_t capacity, std::size_t remap_shift, bool nonempty);
+      bool dequeue(std::uint64_t& value, std::size_t capacity, std::size_t remap_shift, bool nonempty);
     private:
-      using index_t = std::uint64_t;
       using indexdiff_t = std::int64_t;
       using value_t = std::uint64_t;
       void catchup(std::uint64_t tail, std::uint64_t head);
@@ -103,9 +106,9 @@ namespace xenium {
         return static_cast<indexdiff_t>(a - b);
       }
 
-      static inline index_t remap_index(index_t idx, std::size_t n) {
-        // TODO - remap to avoid false sharing
-        return idx & (n - 1);
+      static inline index_t remap_index(index_t idx, std::size_t remap_shift, std::size_t n) {
+        assert(remap_shift == 0 || (1 << remap_shift) * indexes_per_cacheline == n);
+        return ((idx & (n - 1)) >> remap_shift) | ((idx * indexes_per_cacheline) & (n - 1));
       }
 
       // index values are structured as follows
@@ -119,7 +122,13 @@ namespace xenium {
       alignas(64) std::unique_ptr<std::atomic<std::uint64_t>[]> _data;
     };
 
+    static std::size_t calc_remap_shift(std::size_t capacity) {
+      assert(utils::is_power_of_two(capacity));
+      return utils::find_last_bit_set(capacity / indexes_per_cacheline);
+    }
+
     const std::size_t _capacity;
+    const std::size_t _remap_shift;
     std::unique_ptr<T[]> _data;
     queue _allocated_queue;
     queue _free_queue;
@@ -128,37 +137,41 @@ namespace xenium {
   template <class T, class... Policies>
   nikolaev_bounded_queue<T, Policies...>::nikolaev_bounded_queue(std::size_t capacity) :
     _capacity(utils::next_power_of_two(capacity)),
+    _remap_shift(calc_remap_shift(_capacity)),
     _data(new T[_capacity]),
-    _allocated_queue(_capacity, empty_tag{}),
-    _free_queue(_capacity, full_tag{})
-  {}
+    _allocated_queue(_capacity, _remap_shift, empty_tag{}),
+    _free_queue(_capacity, _remap_shift, full_tag{})
+  {
+    assert(capacity > 0);
+    assert(_capacity <= indexes_per_cacheline || _remap_shift > 0);
+  }
   
   template <class T, class... Policies>
   bool nikolaev_bounded_queue<T, Policies...>::try_push(value_type value) {
     std::size_t eidx;
-    if (!_free_queue.dequeue(eidx, _capacity, false))
+    if (!_free_queue.dequeue(eidx, _capacity, _remap_shift, false))
       return false;
 
     assert(eidx < _capacity);
     _data[eidx] = std::move(value);
-    _allocated_queue.enqueue(eidx, _capacity, false);
+    _allocated_queue.enqueue(eidx, _capacity, _remap_shift, false);
     return true;
   }
 
   template <class T, class... Policies>
   bool nikolaev_bounded_queue<T, Policies...>::try_pop(value_type& result) {
     std::size_t eidx;
-    if (!_allocated_queue.dequeue(eidx, _capacity, false))
+    if (!_allocated_queue.dequeue(eidx, _capacity, _remap_shift, false))
       return false;
 
     assert(eidx < _capacity);
     result = std::move(_data[eidx]);
-    _free_queue.enqueue(eidx, _capacity, false);
+    _free_queue.enqueue(eidx, _capacity, _remap_shift, false);
     return true;
   }
 
   template <class T, class... Policies>
-  nikolaev_bounded_queue<T, Policies...>::queue::queue(std::size_t capacity, empty_tag) :
+  nikolaev_bounded_queue<T, Policies...>::queue::queue(std::size_t capacity, std::size_t remap_shift, empty_tag) :
     _head(0),
     _threshold(-1),
     _tail(0),
@@ -166,11 +179,11 @@ namespace xenium {
   {
     const auto n = capacity * 2;
     for (std::size_t i = 0; i < n; ++i)
-      _data[remap_index(i, n)].store(-1, std::memory_order_relaxed);
+      _data[remap_index(i, remap_shift, n)].store(-1, std::memory_order_relaxed);
   }
 
   template <class T, class... Policies>
-  nikolaev_bounded_queue<T, Policies...>::queue::queue(std::size_t capacity, full_tag) :
+  nikolaev_bounded_queue<T, Policies...>::queue::queue(std::size_t capacity, std::size_t remap_shift, full_tag) :
     _head(0),
     _threshold(capacity * 3 - 1),
     _tail(capacity),
@@ -178,13 +191,14 @@ namespace xenium {
   {
     const auto n = capacity * 2;    
     for (std::size_t i = 0; i < capacity; ++i)
-      _data[remap_index(i, n)].store(n + i, std::memory_order_relaxed);
+      _data[remap_index(i, remap_shift, n)].store(n + i, std::memory_order_relaxed);
     for (std::size_t i = capacity; i < n; ++i)
-      _data[remap_index(i, n)].store(-1, std::memory_order_relaxed);
+      _data[remap_index(i, remap_shift, n)].store(-1, std::memory_order_relaxed);
   }
 
   template <class T, class... Policies>
-  void nikolaev_bounded_queue<T, Policies...>::queue::enqueue(std::uint64_t value, std::size_t capacity, bool nonempty) {
+  void nikolaev_bounded_queue<T, Policies...>::queue::enqueue(std::uint64_t value,
+      std::size_t capacity, std::size_t remap_shift, bool nonempty) {
     assert(value < capacity);
     const std::size_t n = capacity * 2;
     const std::size_t is_safe_and_value_mask = 2 * n -1;
@@ -194,7 +208,7 @@ namespace xenium {
     for (;;) {
       const auto tail = _tail.fetch_add(1, std::memory_order_relaxed);
       const auto tail_cycle = (tail << 1) | is_safe_and_value_mask;
-      const auto tidx = remap_index(tail, n);
+      const auto tidx = remap_index(tail, remap_shift, n);
       // (1) - this acquire-load synchronizes-with the release-fetch_or (4) and the release-CAS (5)
       auto entry = _data[tidx].load(std::memory_order_acquire);
 
@@ -219,7 +233,8 @@ namespace xenium {
   }
 
   template <class T, class... Policies>
-  bool nikolaev_bounded_queue<T, Policies...>::queue::dequeue(std::uint64_t& value, std::size_t capacity, bool nonempty) {
+  bool nikolaev_bounded_queue<T, Policies...>::queue::dequeue(std::uint64_t& value,
+      std::size_t capacity,  std::size_t remap_shift, bool nonempty) {
     if (!nonempty && _threshold.load(std::memory_order_relaxed) < 0) {
       return false;
     }
@@ -231,7 +246,7 @@ namespace xenium {
     for (;;) {
       const auto head = _head.fetch_add(1, std::memory_order_relaxed);
       const auto head_cycle = (head << 1) | is_safe_and_value_mask;
-      const auto hidx = remap_index(head, n);
+      const auto hidx = remap_index(head, remap_shift, n);
       std::size_t attempt = 0;
       std::uint64_t entry_cycle;
       std::uint64_t entry_new;

@@ -59,6 +59,20 @@ TEST(NikolaevBoundedQueue, supports_move_only_types)
   EXPECT_EQ(42, *elem.second);
 }
 
+TEST(NikolaevBoundedQueue, push_pop_in_fifo_order_with_remapped_indexes)
+{
+  constexpr int capacity = 32;
+  xenium::nikolaev_bounded_queue<int> queue(capacity);
+  for (int i = 0; i < capacity; ++i)
+    ASSERT_TRUE(queue.try_push(i));
+
+  for (int i = 0; i < capacity; ++i) {
+    int value;
+    ASSERT_TRUE(queue.try_pop(value));
+    EXPECT_EQ(i, value);
+  }
+}
+
 #ifdef DEBUG
   const int MaxIterations = 40000;
 #else
