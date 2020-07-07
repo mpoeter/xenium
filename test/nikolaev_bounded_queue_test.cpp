@@ -10,6 +10,11 @@ namespace {
 
 struct NikolaevBoundedQueue : testing::Test {};
 
+struct non_default_constructible {
+  explicit non_default_constructible(int x): x(x) {}
+  int x;
+};
+
 TEST(NikolaevBoundedQueue, push_try_pop_returns_pushed_element)
 {
   xenium::nikolaev_bounded_queue<int> queue(2);
@@ -57,6 +62,17 @@ TEST(NikolaevBoundedQueue, supports_move_only_types)
   EXPECT_EQ(41, elem.first);
   ASSERT_NE(nullptr, elem.second);
   EXPECT_EQ(42, *elem.second);
+}
+
+
+TEST(NikolaevBoundedQueue, supports_non_default_constructible_types)
+{
+  xenium::nikolaev_bounded_queue<non_default_constructible> queue(2);
+  queue.try_push(non_default_constructible(42));
+
+  non_default_constructible elem(0);
+  ASSERT_TRUE(queue.try_pop(elem));
+  EXPECT_EQ(42, elem.x);
 }
 
 TEST(NikolaevBoundedQueue, push_pop_in_fifo_order_with_remapped_indexes)

@@ -48,7 +48,7 @@ namespace xenium {
      * @param capacity max number of elements in the queue; If this is not a power of two,
      * it will be rounded to the next power of two
      */
-    nikolaev_bounded_queue(std::size_t capacity);
+    explicit nikolaev_bounded_queue(std::size_t capacity);
     ~nikolaev_bounded_queue() = default;
 
     nikolaev_bounded_queue(const nikolaev_bounded_queue&) = delete;
@@ -127,9 +127,10 @@ namespace xenium {
       return utils::find_last_bit_set(capacity / indexes_per_cacheline);
     }
 
+    using storage_t = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
     const std::size_t _capacity;
     const std::size_t _remap_shift;
-    std::unique_ptr<T[]> _data;
+    std::unique_ptr<storage_t[]> _storage;
     queue _allocated_queue;
     queue _free_queue;
   };
@@ -138,7 +139,7 @@ namespace xenium {
   nikolaev_bounded_queue<T, Policies...>::nikolaev_bounded_queue(std::size_t capacity) :
     _capacity(utils::next_power_of_two(capacity)),
     _remap_shift(calc_remap_shift(_capacity)),
-    _data(new T[_capacity]),
+    _storage(new storage_t[_capacity]),
     _allocated_queue(_capacity, _remap_shift, empty_tag{}),
     _free_queue(_capacity, _remap_shift, full_tag{})
   {
@@ -153,7 +154,7 @@ namespace xenium {
       return false;
 
     assert(eidx < _capacity);
-    _data[eidx] = std::move(value);
+    new(&_storage[eidx]) T(std::move(value));
     _allocated_queue.enqueue(eidx, _capacity, _remap_shift, false);
     return true;
   }
@@ -165,7 +166,9 @@ namespace xenium {
       return false;
 
     assert(eidx < _capacity);
-    result = std::move(_data[eidx]);
+    T& data = reinterpret_cast<T&>(_storage[eidx]);
+    result = std::move(data);
+    data.~T();
     _free_queue.enqueue(eidx, _capacity, _remap_shift, false);
     return true;
   }
@@ -306,8 +309,5 @@ namespace xenium {
     }
   }
 }
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 #endif
