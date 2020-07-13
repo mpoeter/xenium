@@ -49,6 +49,10 @@ stages:
           workingDirectory: $(Build.BinariesDirectory)/build
           displayName: 'Run tests'
 
+        - publish: $(Build.BinariesDirectory)/build/benchmark
+          artifact: benchmark
+          condition: and(eq(variables.compiler, 'g++-8'), eq(variables.buildConfiguration, 'Release'))
+
         - task: PublishTestResults@2
           inputs:
             testResultsFormat: 'JUnit'
@@ -99,6 +103,34 @@ stages:
 
 ############################################################
 
+  - stage: BenchmarkSmokeTest
+    condition: succeeded()
+    jobs:
+    - job: BenchmarkSmokeTest
+      displayName: 'Benchmark smoke tests'
+      pool:
+        vmImage: 'Ubuntu-16.04'
+      steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          artifact: benchmark
+          path: benchmarks/examples
+      - script: |
+          cd benchmarks/examples
+          chmod +x benchmark
+          set -e
+          for QUEUE in ramalhete michael_scott vyukov_bounded kirsch_kfifo kirsch_bounded_kfifo; do
+            ./benchmark queue.json -- "ds=(queues.$QUEUE)" warmup.rounds=0 rounds=1 runtime=500
+          done
+          for RECLAIMER in EBR NEBR DEBRA QSBR static-HP dynamic-HP; do
+            ./benchmark queue.json -- "ds.reclaimer=(reclaimers.$RECLAIMER)" warmup.rounds=0 rounds=1 runtime=500
+          done
+          for HASHMAP in vyukov harris_michael; do
+            ./benchmark hash_map.json -- "ds=(hash_maps.$HASHMAP)" warmup.rounds=0 rounds=1 runtime=500
+          done
+
+############################################################
+
   - stage: Documentation
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     jobs:
@@ -115,7 +147,7 @@ stages:
           doxygen
         displayName: build doxygen
       - script: |
-          cd doc/html
+         cd doc/html
           git init
           git checkout --orphan gh-pages
           git add .

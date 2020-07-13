@@ -85,7 +85,8 @@ bool objects_match(const tao::config::value::object_t& config, const tao::json::
 
 bool scalars_match(const tao::config::value& config, const tao::json::value& descriptor) {
   if (config.is_string() != descriptor.is_string() ||
-      config.is_integer() != descriptor.is_integer()) {
+      config.is_integer() != descriptor.is_integer() ||
+      config.is_boolean() != descriptor.is_boolean()) {
     return false;
   }
 
@@ -94,6 +95,9 @@ bool scalars_match(const tao::config::value& config, const tao::json::value& des
 
   if (config.is_string())
     return config.get_string() == descriptor.get_string();
+
+  if (config.is_boolean())
+    return config.get_boolean() == descriptor.get_boolean();
 
   throw std::runtime_error("Found unexpected type in config.");
 }

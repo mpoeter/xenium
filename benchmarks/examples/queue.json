@@ -12,8 +12,8 @@
     },
     "DEBRA": {
       "type": "generic_epoch_based",
-      "scan_strategy": { "type": "one_threads" },
-      "region_extension": "eager"
+      "scan_strategy": { "type": "one_thread" },
+      "region_extension": "none"
     },
     "QSBR": {
       "type": "quiescent_state_based"
@@ -38,7 +38,8 @@
     },
     "vyukov_bounded" : {
       "type": "vyukov_bounded_queue",
-      "size": 256
+      "size": 256,
+      "weak": false
     },
     "kirsch_kfifo" : {
       "type": "kirsch_kfifo_queue",
