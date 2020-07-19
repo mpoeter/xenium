@@ -3,30 +3,44 @@ stages:
     jobs:
       - job: BuildLinux
         displayName: 'Build Linux'
-        pool:
-          vmImage: 'ubuntu-18.04'
 
         strategy:
           matrix:
             gcc8-Release:
               compiler: g++-8
               buildConfiguration: Release
+              image: 'ubuntu-18.04'
             gcc8-Debug:
               compiler: g++-8
               buildConfiguration: Debug
+              image: 'ubuntu-18.04'
             clang8-Release:
               compiler: clang++-8
               buildConfiguration: Release
+              image: 'ubuntu-18.04'
             clang8-Debug:
               compiler: clang++-8
               buildConfiguration: Debug
+              image: 'ubuntu-18.04'
             clang9-Release:
               compiler: clang++-9
               buildConfiguration: Release
+              image: 'ubuntu-18.04'
             clang9-Debug:
               compiler: clang++-9
               buildConfiguration: Debug
+              image: 'ubuntu-18.04'
+            clang10-Mac-Debug:
+              compiler: clang++
+              buildConfiguration: Debug
+              image: macOS-10.15
+            clang10-Mac-Release:
+              compiler: clang++
+              buildConfiguration: Release
+              image: macOS-10.15
 
+        pool:
+          vmImage: $(image)
         steps:
         - script: |
             sudo apt-get update -y
@@ -35,10 +49,11 @@ stages:
           condition: eq(variables['compiler'], 'g++-8')
 
         - script: |
+            $(compiler) --version
             git submodule update --init --recursive
             mkdir $(Build.BinariesDirectory)/build
             cd $(Build.BinariesDirectory)/build
-            cmake $(Build.SourcesDirectory) -DCMAKE_CXX_COMPILER=$(compiler) -DCMAKE_BUILD_TYPE=$(buildConfiguration) -DCMAKE_CXX_FLAGS="-fsanitize=thread"
+            cmake $(Build.SourcesDirectory) -DCMAKE_CXX_COMPILER=$(compiler) -DCMAKE_CXX_STANDARD=17 -DCMAKE_BUILD_TYPE=$(buildConfiguration) -DCMAKE_CXX_FLAGS="-fsanitize=thread"
           displayName: 'Prepare build'
 
         - script: make -j 4

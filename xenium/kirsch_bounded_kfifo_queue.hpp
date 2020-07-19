@@ -13,6 +13,7 @@
 
 #include <xenium/detail/pointer_queue_traits.hpp>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
 
@@ -99,16 +100,16 @@ namespace xenium {
   private:
     struct marked_idx {
       marked_idx() = default;
-      marked_idx(uint64_t val, uint64_t mark) { val_ = val | (mark << bits); }
+      marked_idx(uint64_t val, uint64_t mark) noexcept { val_ = val | (mark << bits); }
 
-      uint64_t get() const { return val_ & val_mask; }
-      uint64_t mark() const { return val_ >> bits; }
-      bool operator==(const marked_idx& other) const { return this->val_ == other.val_; }
-      bool operator!=(const marked_idx& other) const { return this->val_ != other.val_; }
+      uint64_t get() const noexcept { return val_ & val_mask; }
+      uint64_t mark() const noexcept { return val_ >> bits; }
+      bool operator==(const marked_idx& other) const noexcept { return this->val_ == other.val_; }
+      bool operator!=(const marked_idx& other) const noexcept { return this->val_ != other.val_; }
     private:
       static constexpr unsigned bits = 16;
       static constexpr uint64_t val_mask = (static_cast<uint64_t>(1) << bits) - 1;
-      uint64_t val_;
+      uint64_t val_ = 0;
     };
     
     template <bool Empty>
@@ -134,7 +135,7 @@ namespace xenium {
     k_(k),
     head_(),
     tail_(),
-    queue_(new entry[k * num_segments])
+    queue_(new entry[k * num_segments]())
   {}
 
   template <class T, class... Policies>

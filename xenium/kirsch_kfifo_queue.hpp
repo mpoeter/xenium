@@ -13,6 +13,7 @@
 
 #include <xenium/detail/pointer_queue_traits.hpp>
 
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
 
