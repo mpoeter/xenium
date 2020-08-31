@@ -131,8 +131,8 @@ namespace xenium { namespace detail {
           if (_threshold.load(std::memory_order_relaxed) != threshold) {
             _threshold.store(threshold, std::memory_order_relaxed);
           }
-          return true;
         }
+        return true;
       }
     }
     return true;
