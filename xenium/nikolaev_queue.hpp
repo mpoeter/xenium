@@ -55,7 +55,7 @@ namespace xenium {
     using with = nikolaev_queue<T, NewPolicies..., Policies...>;
 
     nikolaev_queue();
-    ~nikolaev_queue() = default;
+    ~nikolaev_queue();
 
     nikolaev_queue(const nikolaev_queue&) = delete;
     nikolaev_queue(nikolaev_queue&&) = delete;
@@ -101,9 +101,19 @@ namespace xenium {
         _free_queue(entries_per_node, remap_shift, detail::nikolaev_scq::full_tag{})
       {}
       
-      void init(value_type&& value) {
-        // TODO - improve
-        try_push(std::move(value));
+      node(value_type&& value) :
+        _storage(new storage_t[entries_per_node]),
+        _allocated_queue(entries_per_node, remap_shift, detail::nikolaev_scq::first_used_tag{}),
+        _free_queue(entries_per_node, remap_shift, detail::nikolaev_scq::first_empty_tag{})
+      {
+        new(&_storage[0]) T(std::move(value));
+      }
+
+      ~node() {
+        std::size_t eidx;
+        while (_allocated_queue.dequeue<false, pop_retries>(eidx, entries_per_node, remap_shift)) {
+          reinterpret_cast<T&>(_storage[eidx]).~T();
+        }
       }
 
       void steal_init_value(value_type& value) {
@@ -154,11 +164,20 @@ namespace xenium {
   };
 
   template <class T, class... Policies>
-  nikolaev_queue<T, Policies...>::nikolaev_queue()
-  {
+  nikolaev_queue<T, Policies...>::nikolaev_queue() {
     auto n = new node();
     _tail.store(n, std::memory_order_relaxed);
     _head.store(n, std::memory_order_relaxed);
+  }
+
+  template <class T, class... Policies>
+  nikolaev_queue<T, Policies...>::~nikolaev_queue() {
+    auto h = _head.load(std::memory_order_relaxed).get();
+    while (h != nullptr) {
+      auto next = h->_next.load(std::memory_order_relaxed).get();
+      delete h;
+      h = next;
+    }
   }
   
   template <class T, class... Policies>
@@ -179,8 +198,7 @@ namespace xenium {
       if (n->try_push(std::move(value)))
         return;
 
-      auto next = new node();
-      next->init(std::move(value)); // TODO - improve
+      auto next = new node(std::move(value));
       marked_ptr expected{nullptr};
       // (4) - this release-CAS synchronizes-with the acquire-load (2, 7)
       if (n->_next.compare_exchange_strong(expected, next, std::memory_order_release, std::memory_order_relaxed)) {

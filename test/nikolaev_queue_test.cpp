@@ -77,7 +77,6 @@ TYPED_TEST(NikolaevQueue, supports_move_only_types)
   EXPECT_EQ(42, *elem.second);
 }
 
-
 TYPED_TEST(NikolaevQueue, supports_non_default_constructible_types)
 {
   xenium::nikolaev_queue<non_default_constructible, xenium::policy::reclaimer<TypeParam>> queue;
@@ -88,16 +87,33 @@ TYPED_TEST(NikolaevQueue, supports_non_default_constructible_types)
   EXPECT_EQ(42, elem.x);
 }
 
+TYPED_TEST(NikolaevQueue, deletes_remaining_entries)
+{
+  unsigned delete_count = 0;
+  struct dummy {
+    unsigned& delete_count;
+    dummy(unsigned& delete_count) : delete_count(delete_count) {}
+    ~dummy() { ++delete_count; }
+  };
+  {
+    xenium::nikolaev_queue<std::unique_ptr<dummy>, xenium::policy::reclaimer<TypeParam>> queue;
+    queue.push(std::make_unique<dummy>(delete_count));
+  }
+  EXPECT_EQ(1u, delete_count);
+}
+
 TYPED_TEST(NikolaevQueue, push_pop_in_fifo_order_with_remapped_indexes)
 {
-  constexpr int capacity = 32;
-  xenium::nikolaev_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
+  constexpr int capacity = 11;
+  xenium::nikolaev_queue<int,
+    xenium::policy::entries_per_node<8>,
+    xenium::policy::reclaimer<TypeParam>> queue;
   for (int i = 0; i < capacity; ++i)
     queue.push(i);
 
   for (int i = 0; i < capacity; ++i) {
     int value;
-    ASSERT_TRUE(queue.try_pop(value));
+    ASSERT_TRUE(queue.try_pop(value)) << "iteration " << i;
     EXPECT_EQ(i, value);
   }
 }
@@ -113,18 +129,26 @@ TYPED_TEST(NikolaevQueue, parallel_usage)
   using Reclaimer = TypeParam;
   xenium::nikolaev_queue<int, xenium::policy::reclaimer<TypeParam>, xenium::policy::entries_per_node<8>> queue;
 
+  constexpr int num_threads = 4;
+  constexpr int thread_mask = num_threads - 1;
+
   std::vector<std::thread> threads;
-  for (int i = 0; i < 4; ++i)
+  for (int i = 0; i < num_threads; ++i)
   {
     threads.push_back(std::thread([i, &queue]
     {
+      std::vector<int> last_seen(num_threads);
+      int counter = 0;
       for (int j = 0; j < MaxIterations; ++j)
       {
         [[maybe_unused]] typename Reclaimer::region_guard guard{};
-        queue.push(i);
+        queue.push((++counter << 8) | i);
         int elem = 0;
         ASSERT_TRUE(queue.try_pop(elem));
-        EXPECT_TRUE(elem >= 0 && elem <= 4);
+        int thread = elem & thread_mask;
+        elem >>= 8;
+        EXPECT_GT(elem, last_seen[thread]);
+        last_seen[thread] = elem;
       }
     }));
   }

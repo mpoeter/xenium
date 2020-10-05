@@ -51,7 +51,7 @@ namespace xenium {
      * it will be rounded to the next power of two
      */
     explicit nikolaev_bounded_queue(std::size_t capacity);
-    ~nikolaev_bounded_queue() = default;
+    ~nikolaev_bounded_queue();
 
     nikolaev_bounded_queue(const nikolaev_bounded_queue&) = delete;
     nikolaev_bounded_queue(nikolaev_bounded_queue&&) = delete;
@@ -104,6 +104,14 @@ namespace xenium {
     assert(capacity > 0);
   }
   
+  template <class T, class... Policies>
+  nikolaev_bounded_queue<T, Policies...>::~nikolaev_bounded_queue() {
+    std::size_t eidx;
+    while (_allocated_queue.dequeue<false, pop_retries>(eidx, _capacity, _remap_shift)) {
+      reinterpret_cast<T&>(_storage[eidx]).~T();
+    } 
+  }
+
   template <class T, class... Policies>
   bool nikolaev_bounded_queue<T, Policies...>::try_push(value_type value) {
     std::size_t eidx;
