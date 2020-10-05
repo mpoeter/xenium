@@ -25,9 +25,15 @@ namespace xenium {
    * \[[Nik19](index.html#ref-nikolaev-2019)\].
    * 
    * The nikoleav_queue provides lock-free progress guarantee under the condition that the
-   * number of threads concurrently operating on the queue is less than the queue's capacity.
+   * number of threads concurrently operating on the queue is less than the capacity of a node
+   * (see `entries_per_node` policy).
    *
    * Supported policies:
+   *  * `xenium::policy::reclaimer`<br>
+   *    Defines the reclamation scheme to be used for internal nodes. (**required**)
+   *  * `xenium::policy::entries_per_node`<br>
+   *    Defines the number of entries for each internal node. This must be a power of two.
+   *    (*optional*; defaults to 512)
    *  * `xenium::policy::pop_retries`<br>
    *    Defines the number of iterations to spin on a queue entry while waiting for a pending
    *    push operation to finish. (*optional*; defaults to 1000)

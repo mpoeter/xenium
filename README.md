@@ -52,6 +52,7 @@ Ramalhete \[[Ram16](#ref-ramalhete-2016)\].
 * `vyukov_bounded_queue` - a bounded multi-producer/multi-consumer FIFO queue based on the version proposed by Vyukov \[[Vyu10 ](#ref-vyukov-2010)\].
 * `kirsch_kfifo_queue` - an unbounded multi-producer/multi-consumer k-FIFO queue proposed by Kirsch et al. \[[KLP13](#ref-kirsch-2013)\].
 * `kirsch_bounded_kfifo_queue` - a bounded multi-producer/multi-consumer k-FIFO queue proposed by Kirsch et al. \[[KLP13](#ref-kirsch-2013)\].
+* `nikolaev_queue` - an unbounded multi-producer/multi-consumer queue proposed by Nikolaev \[[Nik19](#ref-nikolaev-2019)\].
 * `nikolaev_bounded_queue` - a bounded multi-producer/multi-consumer queue proposed by Nikolaev \[[Nik19](#ref-nikolaev-2019)\].
 * `harris_michael_list_based_set` - a lock-free container that contains a sorted set of unique objects.
 This data structure is based on the solution proposed by Michael \[[Mic02](#ref-michael-2002)\] which builds
