@@ -3,7 +3,7 @@
 #include <tao/config/value.hpp>
 
 #ifdef WITH_LIBCDS
-#include <cds/gc/hp.h>
+  #include <cds/gc/hp.h>
 #endif
 
 #include <iostream>
@@ -11,11 +11,10 @@
 using config_t = tao::config::value;
 
 execution::execution(std::uint32_t round, std::uint32_t runtime, std::shared_ptr<benchmark> benchmark) :
-  _state(execution_state::starting),
-  _round(round),
-  _runtime(runtime),
-  _benchmark(std::move(benchmark))
-{}
+    _state(execution_state::starting),
+    _round(round),
+    _runtime(runtime),
+    _benchmark(std::move(benchmark)) {}
 
 execution::~execution() {
   _state.store(execution_state::stopped);
@@ -74,13 +73,13 @@ round_report execution::run() {
 round_report execution::build_report(double runtime) {
   for (auto& thread : _threads)
     thread->_thread.join();
-  
+
   std::vector<thread_report> thread_reports;
   thread_reports.reserve(_threads.size());
   for (unsigned i = 0; i < _threads.size(); ++i) {
     thread_reports.push_back(_threads[i]->report());
   }
-  return { thread_reports, runtime };
+  return {thread_reports, runtime};
 }
 
 void execution::wait_until_all_threads_are(thread_state state) {
@@ -98,13 +97,11 @@ void execution::wait_until_thread_state_is(const execution_thread& thread, threa
 }
 
 execution_thread::execution_thread(std::uint32_t id, const execution& exec) :
-  _execution(exec),
-  _id(id),
-  _thread(&execution_thread::thread_func, this)
-{}
+    _execution(exec),
+    _id(id),
+    _thread(&execution_thread::thread_func, this) {}
 
 void execution_thread::thread_func() {
-
 #ifdef WITH_LIBCDS
   cds::threading::Manager::attachThread();
 #endif
@@ -148,7 +145,7 @@ void execution_thread::setup(const config_t& config) {
   auto workload = config.find("workload");
   if (!workload)
     return;
-  
+
   workload_factory factory;
   _workload = factory(*workload);
 }

@@ -6,11 +6,11 @@
 #ifndef XENIUM_QUIESCENT_STATE_BASED_HPP
 #define XENIUM_QUIESCENT_STATE_BASED_HPP
 
-#include <xenium/reclamation/detail/concurrent_ptr.hpp>
-#include <xenium/reclamation/detail/guard_ptr.hpp>
-#include <xenium/reclamation/detail/deletable_object.hpp>
-#include <xenium/reclamation/detail/thread_block_list.hpp>
 #include <xenium/reclamation/detail/allocation_tracker.hpp>
+#include <xenium/reclamation/detail/concurrent_ptr.hpp>
+#include <xenium/reclamation/detail/deletable_object.hpp>
+#include <xenium/reclamation/detail/guard_ptr.hpp>
+#include <xenium/reclamation/detail/thread_block_list.hpp>
 
 #include <xenium/acquire_guard.hpp>
 
@@ -19,8 +19,7 @@ namespace xenium { namespace reclamation {
   /**
    * @brief Quiescent state based reclamation
    */
-  class quiescent_state_based
-  {
+  class quiescent_state_based {
     template <class T, class MarkedPtr>
     class guard_ptr;
 
@@ -28,8 +27,7 @@ namespace xenium { namespace reclamation {
     template <class T, std::size_t N = 0, class Deleter = std::default_delete<T>>
     class enable_concurrent_ptr;
 
-    struct region_guard
-    {
+    struct region_guard {
       region_guard() noexcept;
       ~region_guard() noexcept;
 
@@ -43,6 +41,7 @@ namespace xenium { namespace reclamation {
     using concurrent_ptr = detail::concurrent_ptr<T, N, guard_ptr>;
 
     ALLOCATION_TRACKER;
+
   private:
     static constexpr unsigned number_epochs = 3;
 
@@ -58,11 +57,11 @@ namespace xenium { namespace reclamation {
 
   template <class T, std::size_t N, class Deleter>
   class quiescent_state_based::enable_concurrent_ptr :
-    private detail::deletable_object_impl<T, Deleter>,
-    private detail::tracked_object<quiescent_state_based>
-  {
+      private detail::deletable_object_impl<T, Deleter>,
+      private detail::tracked_object<quiescent_state_based> {
   public:
     static constexpr std::size_t number_of_mark_bits = N;
+
   protected:
     enable_concurrent_ptr() noexcept = default;
     enable_concurrent_ptr(const enable_concurrent_ptr&) noexcept = default;
@@ -70,6 +69,7 @@ namespace xenium { namespace reclamation {
     enable_concurrent_ptr& operator=(const enable_concurrent_ptr&) noexcept = default;
     enable_concurrent_ptr& operator=(enable_concurrent_ptr&&) noexcept = default;
     ~enable_concurrent_ptr() noexcept = default;
+
   private:
     friend detail::deletable_object_impl<T, Deleter>;
 
@@ -78,10 +78,10 @@ namespace xenium { namespace reclamation {
   };
 
   template <class T, class MarkedPtr>
-  class quiescent_state_based::guard_ptr : public detail::guard_ptr<T, MarkedPtr, guard_ptr<T, MarkedPtr>>
-  {
+  class quiescent_state_based::guard_ptr : public detail::guard_ptr<T, MarkedPtr, guard_ptr<T, MarkedPtr>> {
     using base = detail::guard_ptr<T, MarkedPtr, guard_ptr>;
     using Deleter = typename T::Deleter;
+
   public:
     // Guard a marked ptr.
     explicit guard_ptr(const MarkedPtr& p = MarkedPtr()) noexcept;
@@ -105,7 +105,7 @@ namespace xenium { namespace reclamation {
     // Reset. Deleter d will be applied some time after all owners release their ownership.
     void reclaim(Deleter d = Deleter()) noexcept;
   };
-}}
+}} // namespace xenium::reclamation
 
 #define QUIESCENT_STATE_BASED_IMPL
 #include <xenium/reclamation/impl/quiescent_state_based.hpp>

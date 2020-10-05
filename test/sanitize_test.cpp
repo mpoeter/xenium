@@ -9,45 +9,43 @@
 
 #ifdef __SANITIZE_THREAD__
 
-#include <xenium/reclamation/lock_free_ref_count.hpp>
-#include <xenium/reclamation/hazard_pointer.hpp>
-#include <xenium/reclamation/hazard_eras.hpp>
-#include <xenium/reclamation/generic_epoch_based.hpp>
-#include <xenium/reclamation/quiescent_state_based.hpp>
-#include <xenium/reclamation/stamp_it.hpp>
+  #include <xenium/reclamation/generic_epoch_based.hpp>
+  #include <xenium/reclamation/hazard_eras.hpp>
+  #include <xenium/reclamation/hazard_pointer.hpp>
+  #include <xenium/reclamation/lock_free_ref_count.hpp>
+  #include <xenium/reclamation/quiescent_state_based.hpp>
+  #include <xenium/reclamation/stamp_it.hpp>
 
-#include <gtest/gtest.h>
+  #include <gtest/gtest.h>
 
-#include <array>
-#include <thread>
+  #include <array>
+  #include <thread>
 
 namespace {
 
 template <typename Reclaimer>
 struct Sanitize : testing::Test {};
 
-using Reclaimers = ::testing::Types<
-  xenium::reclamation::lock_free_ref_count<>,
-  xenium::reclamation::hazard_pointer<>::with<
-    xenium::policy::allocation_strategy<xenium::reclamation::hp_allocation::static_strategy<3, 2, 1>>>,
-  xenium::reclamation::hazard_eras<>::with<
-    xenium::policy::allocation_strategy<xenium::reclamation::he_allocation::static_strategy<3, 2, 1>>>,
-  xenium::reclamation::debra<>::with<xenium::policy::scan_frequency<1>>,
-  xenium::reclamation::epoch_based<>::with<xenium::policy::scan_frequency<1>>,
-  xenium::reclamation::new_epoch_based<>::with<xenium::policy::scan_frequency<1>>,
-  xenium::reclamation::quiescent_state_based,
-  xenium::reclamation::stamp_it
->;
+using Reclaimers =
+  ::testing::Types<xenium::reclamation::lock_free_ref_count<>,
+                   xenium::reclamation::hazard_pointer<>::with<
+                     xenium::policy::allocation_strategy<xenium::reclamation::hp_allocation::static_strategy<3, 2, 1>>>,
+                   xenium::reclamation::hazard_eras<>::with<
+                     xenium::policy::allocation_strategy<xenium::reclamation::he_allocation::static_strategy<3, 2, 1>>>,
+                   xenium::reclamation::debra<>::with<xenium::policy::scan_frequency<1>>,
+                   xenium::reclamation::epoch_based<>::with<xenium::policy::scan_frequency<1>>,
+                   xenium::reclamation::new_epoch_based<>::with<xenium::policy::scan_frequency<1>>,
+                   xenium::reclamation::quiescent_state_based,
+                   xenium::reclamation::stamp_it>;
 TYPED_TEST_CASE(Sanitize, Reclaimers);
 
-#ifdef DEBUG
-  const int MaxIterations = 1000;
-#else
-  const int MaxIterations = 10000;
-#endif
+  #ifdef DEBUG
+const int MaxIterations = 1000;
+  #else
+const int MaxIterations = 10000;
+  #endif
 
-TYPED_TEST(Sanitize, guard_ptrs)
-{
+TYPED_TEST(Sanitize, guard_ptrs) {
   struct node : TypeParam::template enable_concurrent_ptr<node, 1> {
     int dummy;
   };
@@ -103,5 +101,5 @@ TYPED_TEST(Sanitize, guard_ptrs)
   }
 }
 
-}
+} // namespace
 #endif

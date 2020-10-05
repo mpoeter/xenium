@@ -6,13 +6,9 @@ using config_t = tao::config::value;
 
 namespace {
 
-struct dummy_workload_simulator : workload_simulator{
-  dummy_workload_simulator(std::uint32_t iterations) :
-    _iterations(iterations)
-  {}
-  dummy_workload_simulator(const config_t& config) :
-    _iterations(config.as<std::uint32_t>("iterations"))
-  {}
+struct dummy_workload_simulator : workload_simulator {
+  dummy_workload_simulator(std::uint32_t iterations) : _iterations(iterations) {}
+  dummy_workload_simulator(const config_t& config) : _iterations(config.as<std::uint32_t>("iterations")) {}
 
   void simulate() override {
     // use volatile here to prevent the compiler from eliminating the empty loop
@@ -22,18 +18,17 @@ struct dummy_workload_simulator : workload_simulator{
       }
     }
   }
+
 private:
   std::uint32_t _iterations;
 };
 
 template <class T>
 workload_factory::builder make_builder() {
-  return [](const config_t& config) -> std::shared_ptr<workload_simulator> {
-    return std::make_shared<T>(config);
-  };
+  return [](const config_t& config) -> std::shared_ptr<workload_simulator> { return std::make_shared<T>(config); };
 }
 
-}
+} // namespace
 
 workload_factory::workload_factory() {
   register_workload("dummy", make_builder<dummy_workload_simulator>());

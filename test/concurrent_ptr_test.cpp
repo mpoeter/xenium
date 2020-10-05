@@ -3,15 +3,14 @@
 #include <gtest/gtest.h>
 
 namespace {
- 
+
 struct Foo {
   int x;
   static constexpr int number_of_mark_bits = 2;
 };
 
 template <class T, class MarkedPtr>
-struct my_guard_ptr
-{
+struct my_guard_ptr {
   my_guard_ptr(const MarkedPtr& p = MarkedPtr()) : p(p) {}
   MarkedPtr p;
 
@@ -23,8 +22,7 @@ struct my_guard_ptr
 template <typename T>
 using concurrent_ptr = xenium::reclamation::detail::concurrent_ptr<T, T::number_of_mark_bits, my_guard_ptr>;
 
-TEST(concurrent_ptr, get_returns_pointer_that_was_passed_to_constructor)
-{
+TEST(concurrent_ptr, get_returns_pointer_that_was_passed_to_constructor) {
   Foo f;
   concurrent_ptr<Foo>::marked_ptr mp(&f);
   concurrent_ptr<Foo> p(mp);
@@ -32,8 +30,7 @@ TEST(concurrent_ptr, get_returns_pointer_that_was_passed_to_constructor)
   EXPECT_EQ(&f, p.load().get());
 }
 
-TEST(concurrent_ptr, get_returns_pointer_that_was_passed_to_store)
-{
+TEST(concurrent_ptr, get_returns_pointer_that_was_passed_to_store) {
   Foo f;
   concurrent_ptr<Foo>::marked_ptr mp(&f);
   concurrent_ptr<Foo> p;
@@ -42,8 +39,7 @@ TEST(concurrent_ptr, get_returns_pointer_that_was_passed_to_store)
   EXPECT_EQ(&f, p.load().get());
 }
 
-TEST(concurrent_ptr, compare_exchange_weak_sets_value_and_returns_true_when_expected_value_matches)
-{
+TEST(concurrent_ptr, compare_exchange_weak_sets_value_and_returns_true_when_expected_value_matches) {
   Foo f1, f2;
   concurrent_ptr<Foo>::marked_ptr mp1(&f1);
   concurrent_ptr<Foo>::marked_ptr mp2(&f2);
@@ -54,8 +50,8 @@ TEST(concurrent_ptr, compare_exchange_weak_sets_value_and_returns_true_when_expe
   EXPECT_EQ(&f2, p.load().get());
 }
 
-TEST(concurrent_ptr, compare_exchange_weak_value_remains_unchanged_and_returns_false_when_expected_value_does_not_match)
-{
+TEST(concurrent_ptr,
+     compare_exchange_weak_value_remains_unchanged_and_returns_false_when_expected_value_does_not_match) {
   Foo f1, f2;
   concurrent_ptr<Foo>::marked_ptr mp1(&f1);
   concurrent_ptr<Foo>::marked_ptr mp2(&f2);
@@ -66,8 +62,7 @@ TEST(concurrent_ptr, compare_exchange_weak_value_remains_unchanged_and_returns_f
   EXPECT_EQ(&f1, p.load().get());
 }
 
-TEST(concurrent_ptr, compare_exchange_weak_with_guard_ptr)
-{
+TEST(concurrent_ptr, compare_exchange_weak_with_guard_ptr) {
   Foo f1, f2;
   concurrent_ptr<Foo>::marked_ptr mp(&f1);
   concurrent_ptr<Foo>::guard_ptr gp(&f2);
@@ -76,4 +71,4 @@ TEST(concurrent_ptr, compare_exchange_weak_with_guard_ptr)
 
   EXPECT_EQ(&f2, p.load().get());
 }
-}
+} // namespace

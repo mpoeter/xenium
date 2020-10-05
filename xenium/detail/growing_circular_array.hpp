@@ -12,7 +12,7 @@
 #include <cassert>
 #include <cstdint>
 
-namespace xenium { namespace  detail {
+namespace xenium { namespace detail {
   template <class T, std::size_t MinCapacity = 64, std::size_t MaxCapacity = static_cast<std::size_t>(1) << 31>
   struct growing_circular_array {
     static constexpr std::size_t min_capacity = MinCapacity;
@@ -42,6 +42,7 @@ namespace xenium { namespace  detail {
     bool can_grow() { return capacity() < max_capacity; }
 
     void grow(std::size_t bottom, std::size_t top);
+
   private:
     using entry = std::atomic<T*>;
 
@@ -63,13 +64,12 @@ namespace xenium { namespace  detail {
 
   template <class T, std::size_t MinCapacity, std::size_t Buckets>
   growing_circular_array<T, MinCapacity, Buckets>::growing_circular_array() :
-    _buckets(initial_buckets),
-    _capacity(MinCapacity),
-    _data()
-  {
+      _buckets(initial_buckets),
+      _capacity(MinCapacity),
+      _data() {
     entry* ptr = new entry[MinCapacity];
     _data[0] = ptr++;
-    for(std::size_t i = 1; i < _buckets; ++i) {
+    for (std::size_t i = 1; i < _buckets; ++i) {
       _data[i] = ptr;
       ptr += static_cast<std::size_t>(1) << (i - 1);
     }
@@ -78,7 +78,7 @@ namespace xenium { namespace  detail {
   template <class T, std::size_t MinCapacity, std::size_t Buckets>
   growing_circular_array<T, MinCapacity, Buckets>::~growing_circular_array() {
     delete[](_data[0]);
-    for(std::size_t i = initial_buckets; i < num_buckets; ++i)
+    for (std::size_t i = initial_buckets; i < num_buckets; ++i)
       delete[](_data[i]);
   }
 
@@ -97,15 +97,15 @@ namespace xenium { namespace  detail {
 
     auto start = top;
     auto start_mod = top & mod_mask;
-    if(start_mod == (top & new_mod_mask)) {
+    if (start_mod == (top & new_mod_mask)) {
       // Make sure we don't iterate through useless indices
       start += capacity - start_mod;
     }
 
-    for(std::size_t i = start; i < bottom; i++) {
+    for (std::size_t i = start; i < bottom; i++) {
       auto oldI = i & mod_mask;
       auto newI = i % new_mod_mask;
-      if(oldI != newI) {
+      if (oldI != newI) {
         auto oldBit = utils::find_last_bit_set(oldI);
         auto newBit = utils::find_last_bit_set(newI);
         auto v = _data[oldBit][oldI ^ ((1 << (oldBit)) >> 1)].load(std::memory_order_relaxed);
@@ -119,6 +119,6 @@ namespace xenium { namespace  detail {
     // (2) - this release-store synchronizes-with the acquire-load (1)
     _capacity.store(new_capacity, std::memory_order_release);
   }
-}}
+}} // namespace xenium::detail
 
 #endif

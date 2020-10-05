@@ -8,25 +8,25 @@
 
 #include <xenium/acquire_guard.hpp>
 #include <xenium/backoff.hpp>
+#include <xenium/detail/pointer_queue_traits.hpp>
 #include <xenium/marked_ptr.hpp>
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
-#include <xenium/detail/pointer_queue_traits.hpp>
 
 #include <algorithm>
 #include <atomic>
 #include <stdexcept>
 
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4324) // structure was padded due to alignment specifier
+  #pragma warning(push)
+  #pragma warning(disable : 4324) // structure was padded due to alignment specifier
 #endif
 
 namespace xenium {
 
 /**
  * @brief A fast unbounded lock-free multi-producer/multi-consumer FIFO queue.
- * 
+ *
  * This is an implementation of the `FAAArrayQueue` by Ramalhete and Correia \[[Ram16](index.html#ref-ramalhete-2016)\].
  *
  * It is faster and more efficient than the `michael_scott_queue`, but less generic as it can
@@ -56,12 +56,15 @@ class ramalhete_queue {
 private:
   using traits = detail::pointer_queue_traits_t<T, Policies...>;
   using raw_value_type = typename traits::raw_type;
+
 public:
   using value_type = T;
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
-  static constexpr unsigned entries_per_node = parameter::value_param_t<unsigned, policy::entries_per_node, 512, Policies...>::value;
-  static constexpr unsigned pop_retries = parameter::value_param_t<unsigned, policy::pop_retries, 1000, Policies...>::value;
+  static constexpr unsigned entries_per_node =
+    parameter::value_param_t<unsigned, policy::entries_per_node, 512, Policies...>::value;
+  static constexpr unsigned pop_retries =
+    parameter::value_param_t<unsigned, policy::pop_retries, 1000, Policies...>::value;
 
   static_assert(entries_per_node > 0, "entries_per_node must be greater than zero");
   static_assert(parameter::is_set<reclaimer>::value, "reclaimer policy must be specified");
@@ -74,7 +77,7 @@ public:
 
   /**
    * @brief Pushes the given value to the queue.
-   * 
+   *
    * This operation might have to allocate a new node.
    * Progress guarantees: lock-free (may perform a memory allocation)
    * @param value
@@ -83,12 +86,12 @@ public:
 
   /**
    * @brief Tries to pop an object from the queue.
-   * 
+   *
    * Progress guarantees: lock-free
    * @param result
    * @return `true` if the operation was successful, otherwise `false`
    */
-  [[nodiscard]] bool try_pop(value_type &result);
+  [[nodiscard]] bool try_pop(value_type& result);
 
 private:
   struct node;
@@ -103,7 +106,7 @@ private:
   struct entry {
     std::atomic<marked_value> value;
   };
-  
+
   // TODO - make this configurable via policy.
   static constexpr unsigned step_size = 11;
   static constexpr unsigned max_idx = step_size * entries_per_node;
@@ -117,11 +120,7 @@ private:
     concurrent_ptr next;
 
     // Start with the first entry pre-filled
-    node(raw_value_type item) :
-      pop_idx{0},
-      push_idx{step_size},
-      next{nullptr}
-    {
+    node(raw_value_type item) : pop_idx{0}, push_idx{step_size}, next{nullptr} {
       entries[0].value.store(item, std::memory_order_relaxed);
       for (unsigned i = 1; i < entries_per_node; i++)
         entries[i].value.store(nullptr, std::memory_order_relaxed);
@@ -139,8 +138,7 @@ private:
 };
 
 template <class T, class... Policies>
-ramalhete_queue<T, Policies...>::ramalhete_queue()
-{
+ramalhete_queue<T, Policies...>::ramalhete_queue() {
   auto n = new node(nullptr);
   n->push_idx.store(0, std::memory_order_relaxed);
   head.store(n, std::memory_order_relaxed);
@@ -148,12 +146,10 @@ ramalhete_queue<T, Policies...>::ramalhete_queue()
 }
 
 template <class T, class... Policies>
-ramalhete_queue<T, Policies...>::~ramalhete_queue()
-{
+ramalhete_queue<T, Policies...>::~ramalhete_queue() {
   // (1) - this acquire-load synchronizes-with the release-CAS (13)
   auto n = head.load(std::memory_order_acquire);
-  while (n)
-  {
+  while (n) {
     // (2) - this acquire-load synchronizes-with the release-CAS (4)
     auto next = n->next.load(std::memory_order_acquire);
     delete n.get();
@@ -162,8 +158,7 @@ ramalhete_queue<T, Policies...>::~ramalhete_queue()
 }
 
 template <class T, class... Policies>
-void ramalhete_queue<T, Policies...>::push(value_type value)
-{
+void ramalhete_queue<T, Policies...>::push(value_type value) {
   raw_value_type raw_val = traits::get_raw(value);
   if (raw_val == nullptr)
     throw std::invalid_argument("value can not be nullptr");
@@ -181,17 +176,13 @@ void ramalhete_queue<T, Policies...>::push(value_type value)
         continue; // some other thread already added a new node.
 
       auto next = t->next.load(std::memory_order_relaxed);
-      if (next == nullptr)
-      {
+      if (next == nullptr) {
         node* new_node = new node(raw_val);
         traits::release(value);
 
         marked_ptr expected = nullptr;
         // (4) - this release-CAS synchronizes-with the acquire-load (2, 6, 12)
-        if (t->next.compare_exchange_strong(expected, new_node,
-                                            std::memory_order_release,
-                                            std::memory_order_relaxed))
-        {
+        if (t->next.compare_exchange_strong(expected, new_node, std::memory_order_release, std::memory_order_relaxed)) {
           expected = t;
           // (5) - this release-CAS synchronizes-with the acquire-load (3)
           tail.compare_exchange_strong(expected, new_node, std::memory_order_release, std::memory_order_relaxed);
@@ -214,7 +205,8 @@ void ramalhete_queue<T, Policies...>::push(value_type value)
 
     marked_value expected = nullptr;
     // (8) - this release-CAS synchronizes-with the acquire-load (14) and the acquire-exchange (15)
-    if (t->entries[idx].value.compare_exchange_strong(expected, raw_val, std::memory_order_release, std::memory_order_relaxed)) {
+    if (t->entries[idx].value.compare_exchange_strong(
+          expected, raw_val, std::memory_order_release, std::memory_order_relaxed)) {
       traits::release(value);
       return;
     }
@@ -224,8 +216,7 @@ void ramalhete_queue<T, Policies...>::push(value_type value)
 }
 
 template <class T, class... Policies>
-bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
-{
+bool ramalhete_queue<T, Policies...>::try_pop(value_type& result) {
   backoff backoff;
 
   guard_ptr h;
@@ -238,8 +229,7 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
     // This synchronization is necessary to avoid a situation where we see an up-to-date
     // pop_idx, but an out-of-date push_idx and would (falsly) assume that the queue is empty.
     const auto push_idx = h->push_idx.load(std::memory_order_relaxed);
-    if (pop_idx >= push_idx &&
-        h->next.load(std::memory_order_relaxed) == nullptr)
+    if (pop_idx >= push_idx && h->next.load(std::memory_order_relaxed) == nullptr)
       break;
 
     // (11) - this release-fetch-add synchronizes with the acquire-load (10)
@@ -249,7 +239,7 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
       // (12) - this acquire-load synchronizes-with the release-CAS (4)
       auto next = h->next.load(std::memory_order_acquire);
       if (next == nullptr)
-        break;  // No more nodes in the queue
+        break; // No more nodes in the queue
 
       marked_ptr expected = h;
       // (13) - this release-CAS synchronizes-with the acquire-load (1, 9)
@@ -261,7 +251,7 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
     idx %= entries_per_node;
 
     auto value = h->entries[idx].value.load(std::memory_order_relaxed);
-    if constexpr(pop_retries > 0) {
+    if constexpr (pop_retries > 0) {
       unsigned cnt = 0;
       ramalhete_queue::backoff retry_backoff;
       while (value == nullptr && ++cnt <= pop_retries) {
@@ -289,10 +279,10 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
 
   return false;
 }
-}
+} // namespace xenium
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+  #pragma warning(pop)
 #endif
 
 #endif

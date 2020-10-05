@@ -1,130 +1,114 @@
-#include <xenium/reclamation/hazard_pointer.hpp>
-#include <xenium/reclamation/hazard_eras.hpp>
-#include <xenium/reclamation/quiescent_state_based.hpp>
 #include <xenium/reclamation/generic_epoch_based.hpp>
+#include <xenium/reclamation/hazard_eras.hpp>
+#include <xenium/reclamation/hazard_pointer.hpp>
+#include <xenium/reclamation/quiescent_state_based.hpp>
 #include <xenium/reclamation/stamp_it.hpp>
 #include <xenium/vyukov_hash_map.hpp>
 
 #include <gtest/gtest.h>
 
-#include <vector>
 #include <thread>
+#include <vector>
 
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4458) // declaration hides member
+  #pragma warning(push)
+  #pragma warning(disable : 4458) // declaration hides member
 #endif
 
 namespace {
-  // Simple solution to simulate exception beeing thrown in "compare_key". Such
-  // exceptions can be caused by the construction of guard_ptr instances (e.g.,
-  // when using hazard_pointer reclaimer).
-  struct throwing_key {
-    throwing_key(int v) noexcept : v(v) {}
-    int v;
-    bool operator==(const throwing_key&) const {
-      throw std::runtime_error("test exception");
-    }
-  };
-}
+// Simple solution to simulate exception beeing thrown in "compare_key". Such
+// exceptions can be caused by the construction of guard_ptr instances (e.g.,
+// when using hazard_pointer reclaimer).
+struct throwing_key {
+  throwing_key(int v) noexcept : v(v) {}
+  int v;
+  bool operator==(const throwing_key&) const { throw std::runtime_error("test exception"); }
+};
+} // namespace
 
 namespace xenium {
-  template <>
-  struct hash<throwing_key> {
-    hash_t operator()(const throwing_key& v) const { return v.v; }
-  };
-}
+template <>
+struct hash<throwing_key> {
+  hash_t operator()(const throwing_key& v) const { return v.v; }
+};
+} // namespace xenium
 
 namespace {
 
 template <typename Reclaimer>
-struct VyukovHashMap : ::testing::Test
-{
-  using hash_map = xenium::vyukov_hash_map<int, int,
-    xenium::policy::reclaimer<Reclaimer>>;
+struct VyukovHashMap : ::testing::Test {
+  using hash_map = xenium::vyukov_hash_map<int, int, xenium::policy::reclaimer<Reclaimer>>;
   hash_map map{8};
 };
 
-using Reclaimers = ::testing::Types<
-    xenium::reclamation::hazard_pointer<>::with<
-      xenium::policy::allocation_strategy<xenium::reclamation::hp_allocation::static_strategy<3>>>,
-    xenium::reclamation::hazard_eras<>::with<
-      xenium::policy::allocation_strategy<xenium::reclamation::he_allocation::static_strategy<3>>>,
-    xenium::reclamation::quiescent_state_based,
-    xenium::reclamation::stamp_it,
-    xenium::reclamation::epoch_based<>::with<xenium::policy::scan_frequency<10>>,
-    xenium::reclamation::new_epoch_based<>::with<xenium::policy::scan_frequency<10>>,
-    xenium::reclamation::debra<>::with<xenium::policy::scan_frequency<10>>
-  >;
+using Reclaimers =
+  ::testing::Types<xenium::reclamation::hazard_pointer<>::with<
+                     xenium::policy::allocation_strategy<xenium::reclamation::hp_allocation::static_strategy<3>>>,
+                   xenium::reclamation::hazard_eras<>::with<
+                     xenium::policy::allocation_strategy<xenium::reclamation::he_allocation::static_strategy<3>>>,
+                   xenium::reclamation::quiescent_state_based,
+                   xenium::reclamation::stamp_it,
+                   xenium::reclamation::epoch_based<>::with<xenium::policy::scan_frequency<10>>,
+                   xenium::reclamation::new_epoch_based<>::with<xenium::policy::scan_frequency<10>>,
+                   xenium::reclamation::debra<>::with<xenium::policy::scan_frequency<10>>>;
 TYPED_TEST_CASE(VyukovHashMap, Reclaimers);
 
-TYPED_TEST(VyukovHashMap, emplace_returns_true_for_successful_insert)
-{
+TYPED_TEST(VyukovHashMap, emplace_returns_true_for_successful_insert) {
   EXPECT_TRUE(this->map.emplace(42, 42));
 }
 
-TYPED_TEST(VyukovHashMap, emplace_returns_false_for_failed_insert)
-{
+TYPED_TEST(VyukovHashMap, emplace_returns_false_for_failed_insert) {
   this->map.emplace(42, 42);
   EXPECT_FALSE(this->map.emplace(42, 43));
 }
 
-TYPED_TEST(VyukovHashMap, get_or_emplace_returns_accessor_to_newly_inserted_element)
-{
+TYPED_TEST(VyukovHashMap, get_or_emplace_returns_accessor_to_newly_inserted_element) {
   auto result = this->map.get_or_emplace(42, 43);
   EXPECT_TRUE(result.second);
   EXPECT_EQ(43, *result.first);
 }
 
-TYPED_TEST(VyukovHashMap, get_or_emplace_returns_accessor_to_existing_element)
-{
+TYPED_TEST(VyukovHashMap, get_or_emplace_returns_accessor_to_existing_element) {
   this->map.emplace(42, 41);
   auto result = this->map.get_or_emplace(42, 43);
   EXPECT_FALSE(result.second);
   EXPECT_EQ(41, *result.first);
 }
 
-TYPED_TEST(VyukovHashMap, get_or_emplace_lazy_calls_factory_and_returns_accessor_to_newly_inserted_element)
-{
+TYPED_TEST(VyukovHashMap, get_or_emplace_lazy_calls_factory_and_returns_accessor_to_newly_inserted_element) {
   bool called_factory = false;
-  auto result = this->map.get_or_emplace_lazy(42,
-    [&](){
-      called_factory = true;
-      return 43;
-    });
+  auto result = this->map.get_or_emplace_lazy(42, [&]() {
+    called_factory = true;
+    return 43;
+  });
   EXPECT_TRUE(result.second);
   EXPECT_EQ(43, *result.first);
 }
 
-TYPED_TEST(VyukovHashMap, get_or_emplace_lazy_does_not_call_factory_and_returns_accessor_to_existing_element)
-{
+TYPED_TEST(VyukovHashMap, get_or_emplace_lazy_does_not_call_factory_and_returns_accessor_to_existing_element) {
   bool called_factory = false;
   this->map.emplace(42, 41);
-  auto result = this->map.get_or_emplace_lazy(42,
-                                              [&](){
-                                                called_factory = true;
-                                                return 43;
-                                              });
+  auto result = this->map.get_or_emplace_lazy(42, [&]() {
+    called_factory = true;
+    return 43;
+  });
   EXPECT_FALSE(result.second);
   EXPECT_EQ(41, *result.first);
 }
 
-TYPED_TEST(VyukovHashMap, try_get_value_returns_false_key_is_not_found)
-{
+TYPED_TEST(VyukovHashMap, try_get_value_returns_false_key_is_not_found) {
   typename VyukovHashMap<TypeParam>::hash_map::accessor acc;
   EXPECT_FALSE(this->map.try_get_value(42, acc));
 }
 
-TYPED_TEST(VyukovHashMap, try_get_value_returns_true_and_sets_result_if_matching_entry_exists)
-{
+TYPED_TEST(VyukovHashMap, try_get_value_returns_true_and_sets_result_if_matching_entry_exists) {
   this->map.emplace(42, 43);
   typename VyukovHashMap<TypeParam>::hash_map::accessor acc;
   EXPECT_TRUE(this->map.try_get_value(42, acc));
   EXPECT_EQ(43, *acc);
 }
 
-TYPED_TEST(VyukovHashMap, find_returns_iterator_to_existing_element)
-{
+TYPED_TEST(VyukovHashMap, find_returns_iterator_to_existing_element) {
   // We use a for loop to ensure that we cover cases where entries are
   // stored in normal buckets as well as extension buckets.
   for (int i = 0; i < 200; ++i) {
@@ -136,8 +120,7 @@ TYPED_TEST(VyukovHashMap, find_returns_iterator_to_existing_element)
   }
 }
 
-TYPED_TEST(VyukovHashMap, find_returns_end_iterator_for_non_existing_element)
-{
+TYPED_TEST(VyukovHashMap, find_returns_end_iterator_for_non_existing_element) {
   for (int i = 0; i < 200; ++i) {
     if (i != 42)
       this->map.emplace(i, i);
@@ -145,21 +128,17 @@ TYPED_TEST(VyukovHashMap, find_returns_end_iterator_for_non_existing_element)
   EXPECT_EQ(this->map.end(), this->map.find(42));
 }
 
-
-TYPED_TEST(VyukovHashMap, erase_nonexisting_element_returns_false)
-{
+TYPED_TEST(VyukovHashMap, erase_nonexisting_element_returns_false) {
   EXPECT_FALSE(this->map.erase(42));
 }
 
-TYPED_TEST(VyukovHashMap, erase_existing_element_returns_true_and_removes_element)
-{
+TYPED_TEST(VyukovHashMap, erase_existing_element_returns_true_and_removes_element) {
   this->map.emplace(42, 43);
   EXPECT_TRUE(this->map.erase(42));
   EXPECT_FALSE(this->map.erase(42));
 }
 
-TYPED_TEST(VyukovHashMap, extract_existing_element_returns_true_and_removes_element_and_returns_old_value)
-{
+TYPED_TEST(VyukovHashMap, extract_existing_element_returns_true_and_removes_element_and_returns_old_value) {
   this->map.emplace(42, 43);
   typename VyukovHashMap<TypeParam>::hash_map::accessor acc;
   EXPECT_TRUE(this->map.extract(42, acc));
@@ -167,21 +146,19 @@ TYPED_TEST(VyukovHashMap, extract_existing_element_returns_true_and_removes_elem
   EXPECT_FALSE(this->map.erase(42));
 }
 
-TYPED_TEST(VyukovHashMap, map_grows_if_needed)
-{
+TYPED_TEST(VyukovHashMap, map_grows_if_needed) {
   for (int i = 0; i < 10000; ++i)
     EXPECT_TRUE(this->map.emplace(i, i));
 }
 
-TYPED_TEST(VyukovHashMap, with_managed_pointer_value)
-{
+TYPED_TEST(VyukovHashMap, with_managed_pointer_value) {
   struct node : TypeParam::template enable_concurrent_ptr<node> {
-    node(int v): v(v) {}
+    node(int v) : v(v) {}
     int v;
   };
 
-  using hash_map = xenium::vyukov_hash_map<int, xenium::managed_ptr<node, TypeParam>,
-    xenium::policy::reclaimer<TypeParam>>;
+  using hash_map =
+    xenium::vyukov_hash_map<int, xenium::managed_ptr<node, TypeParam>, xenium::policy::reclaimer<TypeParam>>;
   hash_map map;
 
   EXPECT_TRUE(map.emplace(42, new node(43)));
@@ -197,7 +174,7 @@ TYPED_TEST(VyukovHashMap, with_managed_pointer_value)
   EXPECT_EQ(42, (*it).first);
   EXPECT_EQ(n, (*it).second);
   it.reset();
-  
+
   for (auto v : map) {
     EXPECT_EQ(42, v.first);
     EXPECT_EQ(n, v.second);
@@ -215,8 +192,7 @@ TYPED_TEST(VyukovHashMap, with_managed_pointer_value)
   acc.reclaim();
 }
 
-TYPED_TEST(VyukovHashMap, with_string_value)
-{
+TYPED_TEST(VyukovHashMap, with_string_value) {
   using hash_map = xenium::vyukov_hash_map<int, std::string, xenium::policy::reclaimer<TypeParam>>;
   hash_map map;
 
@@ -237,7 +213,7 @@ TYPED_TEST(VyukovHashMap, with_string_value)
     EXPECT_EQ(42, v.first);
     EXPECT_EQ("bar", v.second);
   }
-  
+
   acc.reset();
   bool inserted;
   std::tie(acc, inserted) = map.get_or_emplace(42, "xyz");
@@ -248,8 +224,7 @@ TYPED_TEST(VyukovHashMap, with_string_value)
   EXPECT_EQ("bar", *acc);
 }
 
-TYPED_TEST(VyukovHashMap, with_string_key)
-{
+TYPED_TEST(VyukovHashMap, with_string_key) {
   using hash_map = xenium::vyukov_hash_map<std::string, int, xenium::policy::reclaimer<TypeParam>>;
   hash_map map;
 
@@ -282,15 +257,14 @@ TYPED_TEST(VyukovHashMap, with_string_key)
   EXPECT_EQ(43, *acc);
 }
 
-TYPED_TEST(VyukovHashMap, with_string_key_and_managed_ptr_value)
-{
+TYPED_TEST(VyukovHashMap, with_string_key_and_managed_ptr_value) {
   struct node : TypeParam::template enable_concurrent_ptr<node> {
-    node(int v): v(v) {}
+    node(int v) : v(v) {}
     int v;
   };
 
-  using hash_map = xenium::vyukov_hash_map<std::string, xenium::managed_ptr<node, TypeParam>,
-    xenium::policy::reclaimer<TypeParam>>;
+  using hash_map =
+    xenium::vyukov_hash_map<std::string, xenium::managed_ptr<node, TypeParam>, xenium::policy::reclaimer<TypeParam>>;
 
   hash_map map;
 
@@ -328,35 +302,30 @@ TYPED_TEST(VyukovHashMap, with_string_key_and_managed_ptr_value)
   EXPECT_EQ(43, acc->v);
 }
 
-TYPED_TEST(VyukovHashMap, emplace_unlocks_bucket_in_case_of_exception)
-{
+TYPED_TEST(VyukovHashMap, emplace_unlocks_bucket_in_case_of_exception) {
   this->map.emplace(42, 42);
-  EXPECT_THROW(
-    this->map.get_or_emplace_lazy(43, []() -> int { throw std::runtime_error("test exception"); }),
-    std::runtime_error
-  );
+  EXPECT_THROW(this->map.get_or_emplace_lazy(43, []() -> int { throw std::runtime_error("test exception"); }),
+               std::runtime_error);
   EXPECT_TRUE(this->map.erase(42));
 }
 
-TYPED_TEST(VyukovHashMap, erase_unlocks_bucket_in_case_of_exception)
-{
+TYPED_TEST(VyukovHashMap, erase_unlocks_bucket_in_case_of_exception) {
   using hash_map = xenium::vyukov_hash_map<throwing_key, int, xenium::policy::reclaimer<TypeParam>>;
   hash_map map;
-  
+
   map.emplace(throwing_key{42}, 42);
   EXPECT_THROW(map.erase(throwing_key{42}), std::runtime_error);
   auto it = map.begin();
   EXPECT_EQ(42, (*it).first.v);
 }
 
-TYPED_TEST(VyukovHashMap, correctly_handles_hash_collisions_of_nontrivial_keys)
-{
+TYPED_TEST(VyukovHashMap, correctly_handles_hash_collisions_of_nontrivial_keys) {
   struct dummy_hash {
     dummy_hash() = default;
     std::size_t operator()(const std::string&) { return 1; }
   };
-  using hash_map = xenium::vyukov_hash_map<std::string, int,
-    xenium::policy::reclaimer<TypeParam>, xenium::policy::hash<dummy_hash>>;
+  using hash_map =
+    xenium::vyukov_hash_map<std::string, int, xenium::policy::reclaimer<TypeParam>, xenium::policy::hash<dummy_hash>>;
   hash_map map;
 
   EXPECT_TRUE(map.emplace("foo", 42));
@@ -366,19 +335,17 @@ TYPED_TEST(VyukovHashMap, correctly_handles_hash_collisions_of_nontrivial_keys)
   EXPECT_EQ(42, *acc);
   EXPECT_TRUE(map.try_get_value("bar", acc));
   EXPECT_EQ(43, *acc);
-  
+
   EXPECT_TRUE(map.extract("foo", acc));
   EXPECT_EQ(42, *acc);
 }
 
-TYPED_TEST(VyukovHashMap, begin_returns_end_iterator_for_empty_map)
-{
+TYPED_TEST(VyukovHashMap, begin_returns_end_iterator_for_empty_map) {
   auto it = this->map.begin();
   ASSERT_EQ(this->map.end(), it);
 }
 
-TYPED_TEST(VyukovHashMap, begin_returns_iterator_to_first_entry)
-{
+TYPED_TEST(VyukovHashMap, begin_returns_iterator_to_first_entry) {
   this->map.emplace(42, 43);
   auto it = this->map.begin();
   ASSERT_NE(this->map.end(), it);
@@ -388,8 +355,7 @@ TYPED_TEST(VyukovHashMap, begin_returns_iterator_to_first_entry)
   ASSERT_EQ(this->map.end(), it);
 }
 
-TYPED_TEST(VyukovHashMap, drain_densely_populated_map_using_erase)
-{
+TYPED_TEST(VyukovHashMap, drain_densely_populated_map_using_erase) {
   for (int i = 0; i < 200; ++i)
     this->map.emplace(i, i);
 
@@ -400,8 +366,7 @@ TYPED_TEST(VyukovHashMap, drain_densely_populated_map_using_erase)
   EXPECT_EQ(this->map.end(), this->map.begin());
 }
 
-TYPED_TEST(VyukovHashMap, drain_sparsely_populated_map_using_erase)
-{
+TYPED_TEST(VyukovHashMap, drain_sparsely_populated_map_using_erase) {
   for (int i = 0; i < 4; ++i)
     this->map.emplace(i * 7, i);
 
@@ -412,8 +377,7 @@ TYPED_TEST(VyukovHashMap, drain_sparsely_populated_map_using_erase)
   EXPECT_EQ(this->map.end(), this->map.begin());
 }
 
-TYPED_TEST(VyukovHashMap, iterator_covers_all_entries_in_densely_populated_map)
-{
+TYPED_TEST(VyukovHashMap, iterator_covers_all_entries_in_densely_populated_map) {
   std::map<int, bool> values;
   for (int i = 0; i < 200; ++i) {
     values[i] = false;
@@ -425,8 +389,7 @@ TYPED_TEST(VyukovHashMap, iterator_covers_all_entries_in_densely_populated_map)
     EXPECT_TRUE(v.second) << v.first << " was not visited";
 }
 
-TYPED_TEST(VyukovHashMap, iterator_covers_all_entries_in_sparsely_populated_map)
-{
+TYPED_TEST(VyukovHashMap, iterator_covers_all_entries_in_sparsely_populated_map) {
   std::map<int, bool> values;
   for (int i = 0; i < 4; ++i) {
     values[i * 7] = false;
@@ -440,26 +403,22 @@ TYPED_TEST(VyukovHashMap, iterator_covers_all_entries_in_sparsely_populated_map)
 }
 
 #ifdef DEBUG
-  const int MaxIterations = 2000;
+const int MaxIterations = 2000;
 #else
-  const int MaxIterations = 8000;
+const int MaxIterations = 8000;
 #endif
 
-TYPED_TEST(VyukovHashMap, parallel_usage)
-{
+TYPED_TEST(VyukovHashMap, parallel_usage) {
   using Reclaimer = TypeParam;
 
-  using hash_map = xenium::vyukov_hash_map<int, int,
-    xenium::policy::reclaimer<Reclaimer>>;
+  using hash_map = xenium::vyukov_hash_map<int, int, xenium::policy::reclaimer<Reclaimer>>;
   hash_map map(8);
 
   static constexpr int keys_per_thread = 8;
 
   std::vector<std::thread> threads;
-  for (int i = 0; i < 8; ++i)
-  {
-    threads.push_back(std::thread([i, &map]
-    {
+  for (int i = 0; i < 8; ++i) {
+    threads.push_back(std::thread([i, &map] {
       for (int k = i * keys_per_thread; k < (i + 1) * keys_per_thread; ++k) {
         for (int j = 0; j < MaxIterations / keys_per_thread; ++j) {
           [[maybe_unused]] typename Reclaimer::region_guard gaurd{};
@@ -470,7 +429,7 @@ TYPED_TEST(VyukovHashMap, parallel_usage)
             EXPECT_EQ(k, *acc);
           }
           if ((j + i) % 8 == 0) {
-            for (auto it = map.begin(); it != map.end(); ) {
+            for (auto it = map.begin(); it != map.end();) {
               EXPECT_EQ((*it).first, (*it).second);
               if ((*it).first == k) {
                 map.erase(it);
@@ -494,21 +453,17 @@ TYPED_TEST(VyukovHashMap, parallel_usage)
     thread.join();
 }
 
-TYPED_TEST(VyukovHashMap, parallel_usage_with_nontrivial_types)
-{
+TYPED_TEST(VyukovHashMap, parallel_usage_with_nontrivial_types) {
   using Reclaimer = TypeParam;
 
-  using hash_map = xenium::vyukov_hash_map<std::string, std::string,
-    xenium::policy::reclaimer<Reclaimer>>;
+  using hash_map = xenium::vyukov_hash_map<std::string, std::string, xenium::policy::reclaimer<Reclaimer>>;
   hash_map map(8);
 
   static constexpr int keys_per_thread = 8;
 
   std::vector<std::thread> threads;
-  for (int i = 0; i < 8; ++i)
-  {
-    threads.push_back(std::thread([i, &map]
-    {
+  for (int i = 0; i < 8; ++i) {
+    threads.push_back(std::thread([i, &map] {
       for (int k = i * keys_per_thread; k < (i + 1) * keys_per_thread; ++k) {
         for (int j = 0; j < (MaxIterations / keys_per_thread) / 2; ++j) {
           std::string key = std::to_string(k);
@@ -520,7 +475,7 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_nontrivial_types)
             EXPECT_EQ(key, *acc);
           }
           if ((j + i) % 8 == 0) {
-            for (auto it = map.begin(); it != map.end(); ) {
+            for (auto it = map.begin(); it != map.end();) {
               EXPECT_EQ((*it).first, (*it).second);
               if ((*it).first == key) {
                 map.erase(it);
@@ -544,22 +499,17 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_nontrivial_types)
     thread.join();
 }
 
-TYPED_TEST(VyukovHashMap, parallel_usage_with_same_values)
-{
+TYPED_TEST(VyukovHashMap, parallel_usage_with_same_values) {
   using Reclaimer = TypeParam;
 
-  using hash_map = xenium::vyukov_hash_map<int, int,
-    xenium::policy::reclaimer<Reclaimer>>;
+  using hash_map = xenium::vyukov_hash_map<int, int, xenium::policy::reclaimer<Reclaimer>>;
   hash_map map(8);
 
   std::vector<std::thread> threads;
-  for (int i = 0; i < 8; ++i)
-  {
-    threads.push_back(std::thread([&map]
-    {
+  for (int i = 0; i < 8; ++i) {
+    threads.push_back(std::thread([&map] {
       for (int j = 0; j < MaxIterations / 10; ++j)
-        for (int i = 0; i < 10; ++i)
-        {
+        for (int i = 0; i < 10; ++i) {
           int k = i;
           [[maybe_unused]] typename Reclaimer::region_guard guard{};
           map.emplace(k, i);
@@ -586,8 +536,8 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_same_values)
     thread.join();
 }
 
-}
+} // namespace
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+  #pragma warning(pop)
 #endif

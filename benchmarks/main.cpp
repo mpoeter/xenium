@@ -1,23 +1,23 @@
-#include <iostream>
 #include <fstream>
+#include <iostream>
 #include <numeric>
 
 #ifdef _MSC_VER
-// taocpp config internally uses 128-bit arithmetic to check for overflows,
-// but this is not supported by MSVC -> revert to 64-bit.
-#define __int128_t std::int64_t
+  // taocpp config internally uses 128-bit arithmetic to check for overflows,
+  // but this is not supported by MSVC -> revert to 64-bit.
+  #define __int128_t std::int64_t
 #endif
-#include <tao/json/from_stream.hpp>
-#include <tao/config/value.hpp>
-#include <tao/config/schema.hpp>
 #include <tao/config/internal/configurator.hpp>
+#include <tao/config/schema.hpp>
+#include <tao/config/value.hpp>
+#include <tao/json/from_stream.hpp>
 
 #include "execution.hpp"
 
 #ifdef WITH_LIBCDS
-#include <cds/init.h>
-#include <cds/gc/hp.h>
-#include <cds/gc/dhp.h>
+  #include <cds/gc/dhp.h>
+  #include <cds/gc/hp.h>
+  #include <cds/init.h>
 #endif
 
 extern void register_queue_benchmark(registered_benchmarks&);
@@ -26,10 +26,9 @@ extern void register_hash_map_benchmark(registered_benchmarks&);
 namespace {
 
 struct invalid_argument_exception : std::exception {
-  invalid_argument_exception(std::string arg): arg(std::move(arg)) {}
-  const char* what() const noexcept override {
-    return arg.c_str();
-  }
+  invalid_argument_exception(std::string arg) : arg(std::move(arg)) {}
+  const char* what() const noexcept override { return arg.c_str(); }
+
 private:
   std::string arg;
 };
@@ -50,18 +49,18 @@ void print_summary(const report& report) {
   auto min = *std::min_element(throughput.begin(), throughput.end());
   auto max = *std::max_element(throughput.begin(), throughput.end());
   auto avg = std::accumulate(throughput.begin(), throughput.end(), 0.0) / throughput.size();
-  auto sqr = [](double v) { return v*v; };
+  auto sqr = [](double v) { return v * v; };
   double var = 0;
   for (auto v : throughput) {
-    var += sqr(v - avg);  
+    var += sqr(v - avg);
   }
   var /= throughput.size();
 
-  std::cout << "Summary:\n" <<
-    "  min: " << min << " ops/ms\n" <<
-    "  max: " << max << " ops/ms\n" <<
-    "  avg: " << avg << " ops/ms\n" <<
-    "  stddev: " << sqrt(var) << std::endl;
+  std::cout << "Summary:\n"
+            << "  min: " << min << " ops/ms\n"
+            << "  max: " << max << " ops/ms\n"
+            << "  avg: " << avg << " ops/ms\n"
+            << "  stddev: " << sqrt(var) << std::endl;
 }
 
 bool configs_match(const tao::config::value& config, const tao::json::value& descriptor);
@@ -84,8 +83,7 @@ bool objects_match(const tao::config::value::object_t& config, const tao::json::
 }
 
 bool scalars_match(const tao::config::value& config, const tao::json::value& descriptor) {
-  if (config.is_string() != descriptor.is_string() ||
-      config.is_integer() != descriptor.is_integer() ||
+  if (config.is_string() != descriptor.is_string() || config.is_integer() != descriptor.is_integer() ||
       config.is_boolean() != descriptor.is_boolean()) {
     return false;
   }
@@ -130,8 +128,7 @@ key_value split_key_value(const std::string& s) {
   return {s.substr(0, pos), s.substr(pos + 1)};
 }
 
-class runner
-{
+class runner {
 public:
   runner(const options& opts);
   void run();
@@ -150,9 +147,7 @@ private:
   std::uint32_t _current_round = 0;
 };
 
-runner::runner(const options& opts) :
-  _reportfile(opts.report)
-{
+runner::runner(const options& opts) : _reportfile(opts.report) {
   tao::config::internal::configurator configurator;
   configurator.parse(tao::config::pegtl::file_input(opts.configfile));
 
@@ -172,20 +167,19 @@ void runner::load_config() {
   auto it = benchmarks.find(type);
   if (it == benchmarks.end())
     throw std::runtime_error("Invalid benchmark type " + type);
-  
+
   _builder = find_matching_builder(it->second);
   if (!_builder) {
     throw std::runtime_error("Invalid config");
   }
 }
 
-std::shared_ptr<benchmark_builder> runner::find_matching_builder(const benchmark_builders& builders)
-{
+std::shared_ptr<benchmark_builder> runner::find_matching_builder(const benchmark_builders& builders) {
   auto& ds_config = _config["ds"];
   std::cout << "Given data structure config:\n";
   print_config(ds_config);
   std::vector<std::shared_ptr<benchmark_builder>> matches;
-  for(auto& var : builders) {
+  for (auto& var : builders) {
     auto descriptor = var->get_descriptor();
     if (configs_match(ds_config, descriptor)) {
       matches.push_back(var);
@@ -230,11 +224,11 @@ void runner::write_report(const report& report) {
     if (stream) {
       json = tao::json::from_stream(stream, _reportfile);
     }
-  } catch(...) {
-    std::cerr << "Failed to parse existing report file \"" << _reportfile << "\"" <<
-      " - skipping report generation!" << std::endl;
+  } catch (...) {
+    std::cerr << "Failed to parse existing report file \"" << _reportfile << "\""
+              << " - skipping report generation!" << std::endl;
   }
-  
+
   auto& reports = json["reports"];
   std::ofstream ostream(_reportfile);
   reports.push_back(report.as_json());
@@ -254,8 +248,8 @@ void runner::warmup() {
 report runner::run_benchmark() {
   auto rounds = _config.optional<std::uint32_t>("rounds").value_or(10);
   auto runtime = _config.optional<std::uint32_t>("runtime").value_or(10000);
-  auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-    std::chrono::system_clock::now().time_since_epoch());
+  auto timestamp =
+    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
 
   std::vector<round_report> round_reports;
   round_reports.reserve(rounds);
@@ -266,12 +260,10 @@ report runner::run_benchmark() {
     round_reports.push_back(std::move(report));
   }
 
-  return {
-    _config.optional<std::string>("name").value_or(_config.as<std::string>("type")),
-    timestamp.count(),
-    _config,
-    round_reports
-  };
+  return {_config.optional<std::string>("name").value_or(_config.as<std::string>("type")),
+          timestamp.count(),
+          _config,
+          round_reports};
 }
 
 round_report runner::exec_round(std::uint32_t runtime) {
@@ -285,11 +277,10 @@ round_report runner::exec_round(std::uint32_t runtime) {
 }
 
 void print_usage() {
-  std::cout << "Usage: benchmark" <<
-    " --help | <config-file>" <<
-    " [--report=<report-file>]" <<
-    " [-- <param>=<value> ...]" <<
-    std::endl;
+  std::cout << "Usage: benchmark"
+            << " --help | <config-file>"
+            << " [--report=<report-file>]"
+            << " [-- <param>=<value> ...]" << std::endl;
 }
 
 void print_available_benchmarks() {
@@ -321,19 +312,16 @@ void parse_args(int argc, char* argv[], options& opts) {
   }
 }
 
-}
+} // namespace
 
-int main (int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
   register_queue_benchmark(benchmarks);
   register_hash_map_benchmark(benchmarks);
-  
+
 #if !defined(NDEBUG)
-  std::cout
-    << "==============================\n"
-    << "  This is a __DEBUG__ build!  \n"
-    << "=============================="
-    << std::endl;
+  std::cout << "==============================\n"
+            << "  This is a __DEBUG__ build!  \n"
+            << "==============================" << std::endl;
 #endif
 
   if (argc < 2) {
@@ -347,8 +335,7 @@ int main (int argc, char* argv[])
     return 0;
   }
 
-  try
-  {
+  try {
     options opts;
     parse_args(argc, argv, opts);
 

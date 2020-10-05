@@ -12,14 +12,14 @@
 #include <xenium/policy.hpp>
 
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4324) // structure was padded due to alignment specifier
+  #pragma warning(push)
+  #pragma warning(disable : 4324) // structure was padded due to alignment specifier
 #endif
 
 namespace xenium {
 /**
  * @brief An unbounded generic lock-free multi-producer/multi-consumer FIFO queue.
- * 
+ *
  * This is an implementation of the lock-free MPMC queue proposed by Michael and Scott
  * \[[MS96](index.html#ref-michael-1996)\].
  * It is fully generic and can handle any type `T` that is copyable or movable.
@@ -67,7 +67,7 @@ public:
    * @param result
    * @return `true` if the operation was successful, otherwise `false`
    */
-  [[nodiscard]] bool try_pop(T &result);
+  [[nodiscard]] bool try_pop(T& result);
 
 private:
   struct node;
@@ -75,35 +75,31 @@ private:
   using concurrent_ptr = typename reclaimer::template concurrent_ptr<node, 0>;
   using marked_ptr = typename concurrent_ptr::marked_ptr;
   using guard_ptr = typename concurrent_ptr::guard_ptr;
-  
-  struct node : reclaimer::template enable_concurrent_ptr<node>
-  {
-    node() : value() {};
+
+  struct node : reclaimer::template enable_concurrent_ptr<node> {
+    node() : value(){};
     node(T&& v) : value(std::move(v)) {}
 
     T value;
     concurrent_ptr next;
   };
-  
+
   alignas(64) concurrent_ptr head;
   alignas(64) concurrent_ptr tail;
 };
 
 template <class T, class... Policies>
-michael_scott_queue<T, Policies...>::michael_scott_queue()
-{
+michael_scott_queue<T, Policies...>::michael_scott_queue() {
   auto n = new node();
   head.store(n, std::memory_order_relaxed);
   tail.store(n, std::memory_order_relaxed);
 }
 
 template <class T, class... Policies>
-michael_scott_queue<T, Policies...>::~michael_scott_queue()
-{
+michael_scott_queue<T, Policies...>::~michael_scott_queue() {
   // (1) - this acquire-load synchronizes-with the release-CAS (11)
   auto n = head.load(std::memory_order_acquire);
-  while (n)
-  {
+  while (n) {
     // (2) - this acquire-load synchronizes-with the release-CAS (6)
     auto next = n->next.load(std::memory_order_acquire);
     delete n.get();
@@ -112,15 +108,13 @@ michael_scott_queue<T, Policies...>::~michael_scott_queue()
 }
 
 template <class T, class... Policies>
-void michael_scott_queue<T, Policies...>::push(T value)
-{
+void michael_scott_queue<T, Policies...>::push(T value) {
   node* n = new node(std::move(value));
 
   backoff backoff;
 
   guard_ptr t;
-  for (;;)
-  {
+  for (;;) {
     // Get the old tail pointer.
     // (3) - this acquire-load synchronizes-with the release-CAS (5, 7, 10)
     t.acquire(tail, std::memory_order_acquire);
@@ -128,8 +122,7 @@ void michael_scott_queue<T, Policies...>::push(T value)
     // Help update the tail pointer if needed.
     // (4) - this acquire-load synchronizes-with the release-CAS (6)
     auto next = t->next.load(std::memory_order_acquire);
-    if (next.get() != nullptr)
-    {
+    if (next.get() != nullptr) {
       marked_ptr expected(t.get());
       // (5) - this release-CAS synchronizes-with the acquire-load (3)
       tail.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed);
@@ -152,13 +145,11 @@ void michael_scott_queue<T, Policies...>::push(T value)
 }
 
 template <class T, class... Policies>
-bool michael_scott_queue<T, Policies...>::try_pop(T &result)
-{
+bool michael_scott_queue<T, Policies...>::try_pop(T& result) {
   backoff backoff;
 
   guard_ptr h;
-  for (;;)
-  {
+  for (;;) {
     // Get the old head and tail elements.
     // (8) - this acquire-load synchronizes-with the release-CAS (11)
     h.acquire(head, std::memory_order_acquire);
@@ -171,14 +162,13 @@ bool michael_scott_queue<T, Policies...>::try_pop(T &result)
 
     // If the head (dummy) element is the only one, return false to signal that
     // the operation has failed (no element has been returned).
-    if (next.get() == nullptr) 
+    if (next.get() == nullptr)
       return false;
 
     marked_ptr t = tail.load(std::memory_order_relaxed);
 
     // There are multiple elements. Help update tail if needed.
-    if (h.get() == t.get())
-    {
+    if (h.get() == t.get()) {
       // (10) - this release-CAS synchronizes-with the acquire-load (3)
       tail.compare_exchange_weak(t, next, std::memory_order_release, std::memory_order_relaxed);
       continue;
@@ -187,8 +177,7 @@ bool michael_scott_queue<T, Policies...>::try_pop(T &result)
     // Attempt to update the head pointer so that it points to the new dummy node.
     marked_ptr expected(h.get());
     // (11) - this release-CAS synchronizes-with the acquire-load (1, 8)
-    if (head.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed))
-    {
+    if (head.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed)) {
       // return the data of head's successor; it is the new dummy node.
       result = std::move(next->value);
       break;
@@ -202,10 +191,10 @@ bool michael_scott_queue<T, Policies...>::try_pop(T &result)
 
   return true;
 }
-}
+} // namespace xenium
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+  #pragma warning(pop)
 #endif
 
 #endif

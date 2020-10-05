@@ -1,7 +1,7 @@
 #pragma once
 
-#include <tao/json/value.hpp>
 #include <tao/config/value.hpp>
+#include <tao/json/value.hpp>
 
 #include <string>
 #include <vector>
@@ -9,7 +9,7 @@
 /*
   {
     name: "bla",
-    timestamp: "<epoch>", 
+    timestamp: "<epoch>",
     config: {...},
     rounds: [
       {

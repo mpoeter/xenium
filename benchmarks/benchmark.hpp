@@ -4,30 +4,27 @@
 
 #include <tao/config/value.hpp>
 
+#include <functional>
 #include <unordered_map>
 #include <vector>
-#include <functional>
 
 struct execution;
 struct execution_thread;
 
 namespace config {
-  struct prefill {
-    bool serial = false;
-    std::uint64_t count = 0;
-    void setup(const tao::config::value& config, std::uint64_t default_count);
-    std::uint64_t get_thread_quota(std::uint32_t thread_id, std::uint32_t num_threads);
-  };
-}
+struct prefill {
+  bool serial = false;
+  std::uint64_t count = 0;
+  void setup(const tao::config::value& config, std::uint64_t default_count);
+  std::uint64_t get_thread_quota(std::uint32_t thread_id, std::uint32_t num_threads);
+};
+} // namespace config
 
-struct benchmark
-{
+struct benchmark {
   virtual ~benchmark() = default;
   virtual void setup(const tao::config::value& config) = 0;
-  virtual std::unique_ptr<execution_thread> create_thread(
-    std::uint32_t id,
-    const execution& exec,
-    const std::string& type) = 0;
+  virtual std::unique_ptr<execution_thread>
+    create_thread(std::uint32_t id, const execution& exec, const std::string& type) = 0;
 };
 
 struct benchmark_builder {

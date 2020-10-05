@@ -8,7 +8,7 @@
 
 #include <utility>
 
-namespace xenium{ namespace reclamation { namespace detail {
+namespace xenium { namespace reclamation { namespace detail {
 
   template <class T, class MarkedPtr, class Derived>
   class guard_ptr {
@@ -33,8 +33,7 @@ namespace xenium{ namespace reclamation { namespace detail {
     T& operator*() const noexcept { return *ptr; }
 
     // Swap two guards
-    void swap(Derived& g) noexcept
-    {
+    void swap(Derived& g) noexcept {
       std::swap(ptr, g.ptr);
       self().do_swap(g);
     }
@@ -48,6 +47,6 @@ namespace xenium{ namespace reclamation { namespace detail {
   private:
     Derived& self() { return static_cast<Derived&>(*this); }
   };
-}}}
+}}} // namespace xenium::reclamation::detail
 
 #endif

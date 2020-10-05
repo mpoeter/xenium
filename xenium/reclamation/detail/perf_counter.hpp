@@ -10,11 +10,11 @@
 
 namespace xenium { namespace reclamation { namespace detail {
 #ifdef WITH_PERF_COUNTER
-  struct perf_counter
-  {
+  struct perf_counter {
     perf_counter(std::size_t& counter) : counter(counter), cnt() {}
-    ~perf_counter() { counter += cnt;  }
+    ~perf_counter() { counter += cnt; }
     void inc() { ++cnt; }
+
   private:
     std::size_t& counter;
     std::size_t cnt;
@@ -23,8 +23,7 @@ namespace xenium { namespace reclamation { namespace detail {
   #define PERF_COUNTER(name, counter) xenium::reclamation::detail::perf_counter name(counter);
   #define INC_PERF_CNT(counter) ++counter;
 #else
-  struct perf_counter
-  {
+  struct perf_counter {
     perf_counter() {}
     void inc() {}
   };
@@ -32,6 +31,6 @@ namespace xenium { namespace reclamation { namespace detail {
   #define PERF_COUNTER(name, counter) xenium::reclamation::detail::perf_counter name;
   #define INC_PERF_CNT(counter)
 #endif
-}}}
+}}} // namespace xenium::reclamation::detail
 
 #endif

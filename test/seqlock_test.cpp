@@ -19,23 +19,17 @@ struct Foo {
     return *this;
   }
 
-  bool verify() const {
-    return v1 == v2 && v2 == v3 && v3 == v4;
-  }
-  bool operator==(const Foo& rhs) const {
-    return v1 == rhs.v1 && v2 == rhs.v2 && v3 == rhs.v3 && v4 == rhs.v4;
-  }
+  bool verify() const { return v1 == v2 && v2 == v3 && v3 == v4; }
+  bool operator==(const Foo& rhs) const { return v1 == rhs.v1 && v2 == rhs.v2 && v3 == rhs.v3 && v4 == rhs.v4; }
 };
 
-TEST(SeqLock, load_returns_initial_value)
-{
+TEST(SeqLock, load_returns_initial_value) {
   xenium::seqlock<Foo> data{{0, 1, 2, 3}};
   Foo expected = {0, 1, 2, 3};
   EXPECT_EQ(expected, data.load());
 }
 
-TEST(SeqLock, load_returns_previously_stored_value)
-{
+TEST(SeqLock, load_returns_previously_stored_value) {
   Foo f = {0, 1, 2, 3};
   xenium::seqlock<Foo> data{};
   for (int32_t i = 0; i < 4; ++i) {
@@ -46,9 +40,7 @@ TEST(SeqLock, load_returns_previously_stored_value)
   }
 }
 
-
-TEST(SeqLock, load_returns_previously_stored_value_with_multiple_slots)
-{
+TEST(SeqLock, load_returns_previously_stored_value_with_multiple_slots) {
   Foo f = {0, 1, 2, 3};
   xenium::seqlock<Foo, xenium::policy::slots<8>> data{};
   for (int32_t i = 0; i < 8; ++i) {
@@ -59,8 +51,7 @@ TEST(SeqLock, load_returns_previously_stored_value_with_multiple_slots)
   }
 }
 
-TEST(SeqLock, update_functor_receives_latest_value_as_parameter)
-{
+TEST(SeqLock, update_functor_receives_latest_value_as_parameter) {
   Foo f = {0, 1, 2, 3};
   xenium::seqlock<Foo> data{f};
   for (int32_t i = 0; i < 4; ++i) {
@@ -73,8 +64,7 @@ TEST(SeqLock, update_functor_receives_latest_value_as_parameter)
   }
 }
 
-TEST(SeqLock, update_functor_receives_latest_value_as_parameter_with_multple_slots)
-{
+TEST(SeqLock, update_functor_receives_latest_value_as_parameter_with_multple_slots) {
   Foo f = {0, 1, 2, 3};
   xenium::seqlock<Foo, xenium::policy::slots<4>> data{f};
   for (int32_t i = 0; i < 8; ++i) {
@@ -87,8 +77,7 @@ TEST(SeqLock, update_functor_receives_latest_value_as_parameter_with_multple_slo
   }
 }
 
-TEST(SeqLock, read_returns_value_stored_by_update)
-{
+TEST(SeqLock, read_returns_value_stored_by_update) {
   Foo f = {0, 1, 2, 3};
   xenium::seqlock<Foo> data{f};
   for (int32_t i = 0; i < 4; ++i) {
@@ -99,8 +88,7 @@ TEST(SeqLock, read_returns_value_stored_by_update)
   }
 }
 
-TEST(SeqLock, read_returns_value_stored_by_update_with_multiple_slots)
-{
+TEST(SeqLock, read_returns_value_stored_by_update_with_multiple_slots) {
   Foo f = {0, 1, 2, 3};
   xenium::seqlock<Foo, xenium::policy::slots<4>> data{f};
   for (int32_t i = 0; i < 9; ++i) {
@@ -117,11 +105,11 @@ TEST(SeqLock, parallel_usage) {
   std::vector<std::thread> threads;
   for (int i = 0; i < 8; ++i) {
     threads.emplace_back([&data, i] {
-    #ifdef DEBUG
+#ifdef DEBUG
       const int MaxIterations = 5000;
-    #else
+#else
       const int MaxIterations = 50000;
-    #endif
+#endif
       for (int j = 0; j < MaxIterations; ++j) {
         auto d = data.load();
         EXPECT_TRUE(d.verify());
@@ -143,4 +131,4 @@ TEST(SeqLock, parallel_usage) {
     thread.join();
 }
 
-}
+} // namespace

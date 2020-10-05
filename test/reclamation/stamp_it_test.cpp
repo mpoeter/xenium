@@ -6,24 +6,25 @@ namespace {
 
 using Reclaimer = xenium::reclamation::stamp_it;
 
-struct Foo : Reclaimer::enable_concurrent_ptr<Foo, 2>
-{
+struct Foo : Reclaimer::enable_concurrent_ptr<Foo, 2> {
   Foo** instance;
   Foo(Foo** instance) : instance(instance) {}
-  virtual ~Foo() { if (instance) *instance = nullptr; }
+  virtual ~Foo() {
+    if (instance)
+      *instance = nullptr;
+  }
 };
 
 template <typename T>
 using concurrent_ptr = Reclaimer::concurrent_ptr<T>;
-template <typename T> using marked_ptr = typename concurrent_ptr<T>::marked_ptr;
+template <typename T>
+using marked_ptr = typename concurrent_ptr<T>::marked_ptr;
 
-struct StampIt : testing::Test
-{
+struct StampIt : testing::Test {
   Foo* foo = new Foo(&foo);
   marked_ptr<Foo> mp = marked_ptr<Foo>(foo, 3);
 
-  void TearDown() override
-  {
+  void TearDown() override {
     if (mp == nullptr)
       assert(foo == nullptr);
     else
@@ -31,27 +32,23 @@ struct StampIt : testing::Test
   }
 };
 
-TEST_F(StampIt, mark_returns_the_same_mark_as_the_original_marked_ptr)
-{
+TEST_F(StampIt, mark_returns_the_same_mark_as_the_original_marked_ptr) {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   EXPECT_EQ(mp.mark(), gp.mark());
 }
 
-TEST_F(StampIt, get_returns_the_same_pointer_as_the_original_marked_ptr)
-{
+TEST_F(StampIt, get_returns_the_same_pointer_as_the_original_marked_ptr) {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   EXPECT_EQ(mp.get(), gp.get());
 }
 
-TEST_F(StampIt, reset_releases_ownership_and_sets_pointer_to_null)
-{
+TEST_F(StampIt, reset_releases_ownership_and_sets_pointer_to_null) {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   gp.reset();
   EXPECT_EQ(nullptr, gp.get());
 }
 
-TEST_F(StampIt, reclaim_releases_ownership_and_the_object_gets_deleted)
-{
+TEST_F(StampIt, reclaim_releases_ownership_and_the_object_gets_deleted) {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   gp.reclaim();
   this->mp = nullptr;
@@ -73,16 +70,14 @@ void DummyDeleter::operator()(WithCustomDeleter* obj) const {
   delete obj;
 }
 
-TEST_F(StampIt, supports_custom_deleters)
-{
+TEST_F(StampIt, supports_custom_deleters) {
   bool called = false;
   concurrent_ptr<WithCustomDeleter>::guard_ptr gp(new WithCustomDeleter());
   gp.reclaim(DummyDeleter{&called, gp.get()});
   EXPECT_TRUE(called);
 }
 
-TEST_F(StampIt, object_cannot_be_reclaimed_as_long_as_another_guard_protects_it)
-{
+TEST_F(StampIt, object_cannot_be_reclaimed_as_long_as_another_guard_protects_it) {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2(mp);
   gp.reclaim();
@@ -90,8 +85,7 @@ TEST_F(StampIt, object_cannot_be_reclaimed_as_long_as_another_guard_protects_it)
   EXPECT_NE(nullptr, foo);
 }
 
-TEST_F(StampIt, copy_constructor_leads_to_shared_ownership_preventing_the_object_from_beeing_reclaimed)
-{
+TEST_F(StampIt, copy_constructor_leads_to_shared_ownership_preventing_the_object_from_beeing_reclaimed) {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2(gp);
   gp.reclaim();
@@ -99,8 +93,7 @@ TEST_F(StampIt, copy_constructor_leads_to_shared_ownership_preventing_the_object
   EXPECT_NE(nullptr, foo);
 }
 
-TEST_F(StampIt, move_constructor_moves_ownership_and_resets_source_object)
-{
+TEST_F(StampIt, move_constructor_moves_ownership_and_resets_source_object) {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2(std::move(gp));
   gp2.reclaim();
@@ -109,8 +102,7 @@ TEST_F(StampIt, move_constructor_moves_ownership_and_resets_source_object)
   EXPECT_EQ(nullptr, foo);
 }
 
-TEST_F(StampIt, copy_assignment_leads_to_shared_ownership_preventing_the_object_from_beeing_reclaimed)
-{
+TEST_F(StampIt, copy_assignment_leads_to_shared_ownership_preventing_the_object_from_beeing_reclaimed) {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2{};
   gp2 = gp;
@@ -119,8 +111,7 @@ TEST_F(StampIt, copy_assignment_leads_to_shared_ownership_preventing_the_object_
   EXPECT_NE(nullptr, foo);
 }
 
-TEST_F(StampIt, move_assignment_moves_ownership_and_resets_source_object)
-{
+TEST_F(StampIt, move_assignment_moves_ownership_and_resets_source_object) {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2{};
   gp2 = std::move(gp);
@@ -129,4 +120,4 @@ TEST_F(StampIt, move_assignment_moves_ownership_and_resets_source_object)
   EXPECT_EQ(nullptr, gp.get());
   EXPECT_EQ(nullptr, foo);
 }
-}
+} // namespace

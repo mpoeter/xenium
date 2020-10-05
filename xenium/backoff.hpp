@@ -6,23 +6,21 @@
 #ifndef XENIUM_BACKOFF_HPP
 #define XENIUM_BACKOFF_HPP
 
-#include <xenium/detail/hardware.hpp>
 #include <algorithm>
+#include <xenium/detail/hardware.hpp>
 
 namespace xenium {
 /**
  * @brief Dummy backoff strategy that does nothing.
  */
-struct no_backoff
-{
+struct no_backoff {
   void operator()() {}
 };
 
 /**
  * @brief Simple backoff strategy that always perfoms a single `hardware_pause` operation.
  */
-struct single_backoff
-{
+struct single_backoff {
   void operator()() { detail::hardware_pause(); }
 };
 
@@ -39,6 +37,6 @@ struct exponential_backoff {
   unsigned count = 1;
 };
 
-}
+} // namespace xenium
 
 #endif

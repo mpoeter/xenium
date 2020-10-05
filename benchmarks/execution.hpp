@@ -13,40 +13,29 @@
 #include <thread>
 #include <vector>
 
-enum class execution_state {
-  starting,
-  preparing,
-  initializing,
-  running,
-  stopped
-};
+enum class execution_state { starting, preparing, initializing, running, stopped };
 
-enum class thread_state {
-  starting,
-  running,
-  ready,
-  finished
-};
+enum class thread_state { starting, running, ready, finished };
 
 struct initialization_failure : std::exception {
-  const char* what() const noexcept override {
-    return "Failed to initialize data structure under test-";
-  }
+  const char* what() const noexcept override { return "Failed to initialize data structure under test-"; }
 };
 
 struct execution;
- 
+
 struct execution_thread {
   execution_thread(std::uint32_t id, const execution& exec);
   virtual ~execution_thread() = default;
   virtual void setup(const tao::config::value& config);
   virtual void run() = 0;
   virtual void initialize(std::uint32_t /*num_threads*/) {}
-  virtual thread_report report() const { return { {}, 0 }; }
+  virtual thread_report report() const { return {{}, 0}; }
   std::uint32_t id() const { return _id; }
+
 private:
   const execution& _execution;
   std::shared_ptr<workload_simulator> _workload;
+
 protected:
   void simulate_workload();
   const std::uint32_t _id;
@@ -54,6 +43,7 @@ protected:
   std::mt19937_64 _randomizer{};
   std::thread _thread{};
   std::chrono::duration<double, std::milli> _runtime{};
+
 private:
   friend struct execution;
   void thread_func();
@@ -73,13 +63,14 @@ struct execution {
   round_report run();
   execution_state state(std::memory_order order = std::memory_order_relaxed) const;
   std::uint32_t num_threads() const { return static_cast<std::uint32_t>(_threads.size()); }
+
 private:
   void wait_until_all_threads_are(thread_state state);
 
   void wait_until_running(const execution_thread& thread) const;
   void wait_until_finished(const execution_thread& thread) const;
   void wait_until_thread_state_is(const execution_thread& thread, thread_state expected) const;
-  
+
   round_report build_report(double runtime);
 
   std::atomic<execution_state> _state;

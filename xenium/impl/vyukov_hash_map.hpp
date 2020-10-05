@@ -4,7 +4,7 @@
 //
 
 #ifndef XENIUM_VYUKOV_HASH_MAP_IMPL
-#error "This is an impl file and must not be included directly!"
+  #error "This is an impl file and must not be included directly!"
 #endif
 
 #include <xenium/acquire_guard.hpp>
@@ -16,9 +16,9 @@
 #include <cstring>
 
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 26495) // uninitialized member variable
-#pragma warning(disable: 4324) // structure was padded due to alignment specifier
+  #pragma warning(push)
+  #pragma warning(disable : 26495) // uninitialized member variable
+  #pragma warning(disable : 4324)  // structure was padded due to alignment specifier
 #endif
 
 namespace xenium {
@@ -134,9 +134,7 @@ struct vyukov_hash_map<Key, Value, Policies...>::extension_bucket {
 };
 
 template <class Key, class Value, class... Policies>
-struct alignas(64) vyukov_hash_map<Key, Value, Policies...>::block :
-  reclaimer::template enable_concurrent_ptr<block>
-{
+struct alignas(64) vyukov_hash_map<Key, Value, Policies...>::block : reclaimer::template enable_concurrent_ptr<block> {
   std::uint32_t mask;
   std::uint32_t bucket_count;
   std::uint32_t extension_bucket_count;
@@ -144,7 +142,7 @@ struct alignas(64) vyukov_hash_map<Key, Value, Policies...>::block :
 
   // TODO - adapt to be customizable via map_to_bucket policy
   std::uint32_t index(const key_type& key) const { return static_cast<std::uint32_t>(key & mask); }
-  bucket* buckets() { return reinterpret_cast<bucket*>(this+1); }
+  bucket* buckets() { return reinterpret_cast<bucket*>(this + 1); }
 
   void operator delete(void* p) { ::operator delete(p, cacheline_size); }
 };
@@ -165,6 +163,7 @@ struct vyukov_hash_map<Key, Value, Policies...>::unlocker {
     enabled = false;
   }
   void disable() { enabled = false; }
+
 private:
   bool enabled = true;
   bucket_state state;
@@ -172,9 +171,7 @@ private:
 };
 
 template <class Key, class Value, class... Policies>
-vyukov_hash_map<Key, Value, Policies...>::vyukov_hash_map(std::size_t initial_capacity) :
-  resize_lock(0)
-{
+vyukov_hash_map<Key, Value, Policies...>::vyukov_hash_map(std::size_t initial_capacity) : resize_lock(0) {
   auto b = allocate_block(static_cast<std::uint32_t>(utils::next_power_of_two(initial_capacity)));
   if (b == nullptr)
     throw std::bad_alloc();
@@ -195,38 +192,29 @@ vyukov_hash_map<Key, Value, Policies...>::~vyukov_hash_map() {
 template <class Key, class Value, class... Policies>
 bool vyukov_hash_map<Key, Value, Policies...>::emplace(key_type key, value_type value) {
   return do_get_or_emplace<false>(
-    std::move(key),
-    [v = std::move(value)]() mutable { return std::move(v); },
-    [](accessor&&, auto&) {});
+    std::move(key), [v = std::move(value)]() mutable { return std::move(v); }, [](accessor&&, auto&) {});
 }
 
 template <class Key, class Value, class... Policies>
 template <class... Args>
 auto vyukov_hash_map<Key, Value, Policies...>::get_or_emplace(key_type key, Args&&... args)
-  -> std::pair<accessor, bool>
-{
+  -> std::pair<accessor, bool> {
   std::pair<accessor, bool> result;
   result.second = do_get_or_emplace<true>(
     std::move(key),
-    [&]{ return value_type(std::forward<Args>(args)...); },
-    [&result](accessor&& acc, auto&) {
-      result.first = std::move(acc);
-    });
+    [&] { return value_type(std::forward<Args>(args)...); },
+    [&result](accessor&& acc, auto&) { result.first = std::move(acc); });
   return result;
 }
 
 template <class Key, class Value, class... Policies>
 template <class Factory>
 auto vyukov_hash_map<Key, Value, Policies...>::get_or_emplace_lazy(key_type key, Factory&& factory)
-  -> std::pair<accessor, bool>
-{
+  -> std::pair<accessor, bool> {
   std::pair<accessor, bool> result;
-  result.second = do_get_or_emplace<true>(
-    std::move(key),
-    std::forward<Factory>(factory),
-    [&result](accessor&& acc, auto&) {
-      result.first = std::move(acc);
-    });
+  result.second = do_get_or_emplace<true>(std::move(key),
+                                          std::forward<Factory>(factory),
+                                          [&result](accessor&& acc, auto&) { result.first = std::move(acc); });
   return result;
 }
 
@@ -240,9 +228,9 @@ retry:
   guarded_block b;
   bucket_state state;
   bucket& bucket = lock_bucket(h, b, state);
-  
+
   unlocker unlocker(bucket, state);
-  
+
   std::uint32_t item_count = state.item_count();
 
   for (std::uint32_t i = 0; i != item_count; ++i)
@@ -253,8 +241,8 @@ retry:
     }
 
   if (item_count < bucket_item_count) {
-    traits::template store_item<AcquireAccessor>(bucket.key[item_count], bucket.value[item_count], h,
-      std::move(key), factory(), std::memory_order_relaxed, acc);
+    traits::template store_item<AcquireAccessor>(
+      bucket.key[item_count], bucket.value[item_count], h, std::move(key), factory(), std::memory_order_relaxed, acc);
     callback(std::move(acc), bucket.value[item_count]);
     // release the bucket lock and increment the item count
     // (3) - this release-store synchronizes-with the acquire-CAS (7, 30, 34, 37) and the acquire-load (23)
@@ -263,8 +251,7 @@ retry:
   }
 
   // TODO - keep extension items sorted
-  for (extension_item* extension = bucket.head.load(std::memory_order_relaxed);
-       extension != nullptr;
+  for (extension_item* extension = bucket.head.load(std::memory_order_relaxed); extension != nullptr;
        extension = extension->next.load(std::memory_order_relaxed)) {
     if (traits::template compare_key<AcquireAccessor>(extension->key, extension->value, key, h, acc)) {
       callback(std::move(acc), extension->value);
@@ -280,9 +267,9 @@ retry:
     goto retry;
   }
   try {
-    traits::template store_item<AcquireAccessor>(extension->key, extension->value, h,
-      std::move(key), factory(), std::memory_order_relaxed, acc);
-  } catch(...) {
+    traits::template store_item<AcquireAccessor>(
+      extension->key, extension->value, h, std::move(key), factory(), std::memory_order_relaxed, acc);
+  } catch (...) {
     free_extension_item(extension);
     throw;
   }
@@ -335,8 +322,8 @@ restart:
 
   auto locked_state = state.locked();
   // (7) - this acquire-CAS synchronizes-with the release-store (3, 5, 11, 13, 14, 36, 38)
-  if (!bucket.state.compare_exchange_strong(state, locked_state, std::memory_order_acquire,
-                                                                 std::memory_order_relaxed)) {
+  if (!bucket.state.compare_exchange_strong(
+        state, locked_state, std::memory_order_acquire, std::memory_order_relaxed)) {
     backoff();
     goto restart;
   }
@@ -599,8 +586,7 @@ retry:
 }
 
 template <class Key, class Value, class... Policies>
-void vyukov_hash_map<Key, Value, Policies...>::grow(bucket& bucket, bucket_state state)
-{
+void vyukov_hash_map<Key, Value, Policies...>::grow(bucket& bucket, bucket_state state) {
   // try to acquire the resizeLock
   const int already_resizing = resize_lock.exchange(1, std::memory_order_relaxed);
 
@@ -625,8 +611,7 @@ void vyukov_hash_map<Key, Value, Policies...>::grow(bucket& bucket, bucket_state
 }
 
 template <class Key, class Value, class... Policies>
-void vyukov_hash_map<Key, Value, Policies...>::do_grow()
-{
+void vyukov_hash_map<Key, Value, Policies...>::do_grow() {
   // Note: since we hold the resize lock, nobody can replace the current block
   // (29) - this acquire-load synchronizes-with the release-store (31)
   auto old_block = data_block.load(std::memory_order_acquire);
@@ -648,8 +633,7 @@ void vyukov_hash_map<Key, Value, Policies...>::do_grow()
         continue;
 
       // (30) - this acquire-CAS synchronizes-with the release-store (3, 5, 11, 13, 14, 36, 38)
-      if (bucket.state.compare_exchange_strong(st, st.locked(),
-          std::memory_order_acquire, std::memory_order_relaxed))
+      if (bucket.state.compare_exchange_strong(st, st.locked(), std::memory_order_acquire, std::memory_order_relaxed))
         break; // we've got the lock
 
       backoff();
@@ -673,10 +657,8 @@ void vyukov_hash_map<Key, Value, Policies...>::do_grow()
     }
 
     // relaxed ordering is fine since we own the bucket lock
-    for (extension_item* extension = old_bucket.head;
-        extension != nullptr;
-        extension = extension->next.load(std::memory_order_relaxed))
-    {
+    for (extension_item* extension = old_bucket.head; extension != nullptr;
+         extension = extension->next.load(std::memory_order_relaxed)) {
       auto k = extension->key.load(std::memory_order_relaxed);
       hash_t h = traits::template rehash<hash>(k);
       auto& new_bucket = new_buckets[h & new_block->mask];
@@ -697,7 +679,7 @@ void vyukov_hash_map<Key, Value, Policies...>::do_grow()
       }
     }
   }
-  // (31) - this release-store synchronizes-with (6, 22, 29, 33) 
+  // (31) - this release-store synchronizes-with (6, 22, 29, 33)
   data_block.store(new_block, std::memory_order_release);
   // (32) - this release-store synchronizes-with the acquire-load (28)
   resize_lock.store(0, std::memory_order_release);
@@ -710,9 +692,8 @@ void vyukov_hash_map<Key, Value, Policies...>::do_grow()
 template <class Key, class Value, class... Policies>
 auto vyukov_hash_map<Key, Value, Policies...>::allocate_block(std::uint32_t bucket_count) -> block* {
   std::uint32_t extension_bucket_count = bucket_count / bucket_to_extension_ratio;
-  std::size_t size = sizeof(block) +
-    sizeof(bucket) * bucket_count +
-    sizeof(extension_bucket) * (static_cast<size_t>(extension_bucket_count) + 1);
+  std::size_t size = sizeof(block) + sizeof(bucket) * bucket_count +
+                     sizeof(extension_bucket) * (static_cast<size_t>(extension_bucket_count) + 1);
 
   void* mem = ::operator new(size, cacheline_size, std::nothrow);
   if (mem == nullptr)
@@ -724,8 +705,7 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_block(std::uint32_t buck
   b->bucket_count = bucket_count;
   b->extension_bucket_count = extension_bucket_count;
 
-  std::size_t extension_bucket_addr =
-    reinterpret_cast<std::size_t>(b) + sizeof(block) + sizeof(bucket) * bucket_count;
+  std::size_t extension_bucket_addr = reinterpret_cast<std::size_t>(b) + sizeof(block) + sizeof(bucket) * bucket_count;
   if (extension_bucket_addr % sizeof(extension_bucket) != 0) {
     extension_bucket_addr += sizeof(extension_bucket) - (extension_bucket_addr % sizeof(extension_bucket));
   }
@@ -748,7 +728,7 @@ template <class Key, class Value, class... Policies>
 auto vyukov_hash_map<Key, Value, Policies...>::find(const key_type& key) -> iterator {
   const auto h = hash{}(key);
   iterator result;
-  
+
   result.current_bucket = &lock_bucket(h, result.block, result.current_bucket_state);
   auto& bucket = *result.current_bucket;
 
@@ -784,8 +764,7 @@ auto vyukov_hash_map<Key, Value, Policies...>::begin() -> iterator {
 
 template <class Key, class Value, class... Policies>
 auto vyukov_hash_map<Key, Value, Policies...>::lock_bucket(hash_t hash, guarded_block& block, bucket_state& state)
-  -> bucket&
-{
+  -> bucket& {
   backoff backoff;
   for (;;) {
     // (33) - this acquire-load synchronizes-with the release-store (31)
@@ -797,8 +776,7 @@ auto vyukov_hash_map<Key, Value, Policies...>::lock_bucket(hash_t hash, guarded_
       continue;
 
     // (34) - this acquire-CAS synchronizes-with the release-store (3, 5, 11, 13, 14, 36, 38)
-    if (bucket.state.compare_exchange_strong(st, st.locked(), std::memory_order_acquire,
-                                                              std::memory_order_relaxed)) {
+    if (bucket.state.compare_exchange_strong(st, st.locked(), std::memory_order_acquire, std::memory_order_relaxed)) {
       state = st;
       return bucket;
     }
@@ -807,9 +785,7 @@ auto vyukov_hash_map<Key, Value, Policies...>::lock_bucket(hash_t hash, guarded_
 }
 
 template <class Key, class Value, class... Policies>
-auto vyukov_hash_map<Key, Value, Policies...>::allocate_extension_item(block* b, hash_t hash)
-  -> extension_item*
-{
+auto vyukov_hash_map<Key, Value, Policies...>::allocate_extension_item(block* b, hash_t hash) -> extension_item* {
   const std::size_t extension_bucket_count = b->extension_bucket_count;
   const std::size_t mod_mask = extension_bucket_count - 1;
   for (std::size_t iter = 0; iter != 2; ++iter) {
@@ -850,23 +826,21 @@ void vyukov_hash_map<Key, Value, Policies...>::free_extension_item(extension_ite
 
 template <class Key, class Value, class... Policies>
 vyukov_hash_map<Key, Value, Policies...>::iterator::iterator() :
-  block(),
-  current_bucket(),
-  current_bucket_state(),
-  index(),
-  extension(),
-  prev()
-{}
+    block(),
+    current_bucket(),
+    current_bucket_state(),
+    index(),
+    extension(),
+    prev() {}
 
 template <class Key, class Value, class... Policies>
 vyukov_hash_map<Key, Value, Policies...>::iterator::iterator(iterator&& other) :
-  block(std::move(other.block)),
-  current_bucket(std::move(other.current_bucket)),
-  current_bucket_state(std::move(other.current_bucket_state)),
-  index(std::move(other.index)),
-  extension(std::move(other.extension)),
-  prev(std::move(other.prev))
-{
+    block(std::move(other.block)),
+    current_bucket(std::move(other.current_bucket)),
+    current_bucket_state(std::move(other.current_bucket_state)),
+    index(std::move(other.index)),
+    extension(std::move(other.extension)),
+    prev(std::move(other.prev)) {
   other.block.reset();
   other.current_bucket = nullptr;
   other.current_bucket_state = bucket_state();
@@ -918,11 +892,8 @@ void vyukov_hash_map<Key, Value, Policies...>::iterator::reset() {
 
 template <class Key, class Value, class... Policies>
 bool vyukov_hash_map<Key, Value, Policies...>::iterator::operator==(const iterator& r) const {
-  return block == r.block &&
-    current_bucket == r.current_bucket &&
-    current_bucket_state == r.current_bucket_state &&
-    index == r.index &&
-    extension == r.extension;
+  return block == r.block && current_bucket == r.current_bucket && current_bucket_state == r.current_bucket_state &&
+         index == r.index && extension == r.extension;
 }
 
 template <class Key, class Value, class... Policies>
@@ -953,9 +924,9 @@ auto vyukov_hash_map<Key, Value, Policies...>::iterator::operator++() -> iterato
 template <class Key, class Value, class... Policies>
 auto vyukov_hash_map<Key, Value, Policies...>::iterator::operator->() -> pointer {
   static_assert(std::is_reference<reference>::value,
-    "operator-> is only available for instantiations with non-trivial key types. Use explicit "
-    "dereferenciation instead (operator*). The reason is that all other instantiations create "
-    "temporary std::pair<> instances since key and value are stored separately.");
+                "operator-> is only available for instantiations with non-trivial key types. Use explicit "
+                "dereferenciation instead (operator*). The reason is that all other instantiations create "
+                "temporary std::pair<> instances since key and value are stored separately.");
   return &this->operator*();
 }
 
@@ -989,9 +960,8 @@ void vyukov_hash_map<Key, Value, Policies...>::iterator::move_to_next_bucket() {
       continue;
 
     // (37) - this acquire-CAS synchronizes-with the release-store (3, 5, 11, 13, 14, 36, 38)
-    if (current_bucket->state.compare_exchange_strong(st, st.locked(), std::memory_order_acquire,
-                                                                       std::memory_order_relaxed))
-    {
+    if (current_bucket->state.compare_exchange_strong(
+          st, st.locked(), std::memory_order_acquire, std::memory_order_relaxed)) {
       current_bucket_state = st;
       break;
     }
@@ -1008,8 +978,8 @@ void vyukov_hash_map<Key, Value, Policies...>::iterator::move_to_next_bucket() {
     move_to_next_bucket();
 }
 
-}
+} // namespace xenium
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+  #pragma warning(pop)
 #endif

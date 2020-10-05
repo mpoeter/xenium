@@ -6,11 +6,11 @@
 #ifndef XENIUM_HAZARD_POINTER_HPP
 #define XENIUM_HAZARD_POINTER_HPP
 
-#include <xenium/reclamation/detail/concurrent_ptr.hpp>
-#include <xenium/reclamation/detail/guard_ptr.hpp>
-#include <xenium/reclamation/detail/deletable_object.hpp>
-#include <xenium/reclamation/detail/thread_block_list.hpp>
 #include <xenium/reclamation/detail/allocation_tracker.hpp>
+#include <xenium/reclamation/detail/concurrent_ptr.hpp>
+#include <xenium/reclamation/detail/deletable_object.hpp>
+#include <xenium/reclamation/detail/guard_ptr.hpp>
+#include <xenium/reclamation/detail/thread_block_list.hpp>
 
 #include <xenium/acquire_guard.hpp>
 #include <xenium/parameter.hpp>
@@ -35,19 +35,15 @@ namespace xenium { namespace reclamation {
     struct basic_hp_thread_control_block;
 
     template <size_t K_, size_t A, size_t B, template <class> class ThreadControlBlock>
-    struct generic_hp_allocation_strategy
-    {
+    struct generic_hp_allocation_strategy {
       static constexpr size_t K = K_;
-      
-      static size_t retired_nodes_threshold() {
-        return A * number_of_active_hazard_pointers() + B;
-      }
 
-      static size_t number_of_active_hazard_pointers() {
-        return number_of_active_hps.load(std::memory_order_relaxed);
-      }
+      static size_t retired_nodes_threshold() { return A * number_of_active_hazard_pointers() + B; }
+
+      static size_t number_of_active_hazard_pointers() { return number_of_active_hps.load(std::memory_order_relaxed); }
 
       using thread_control_block = ThreadControlBlock<generic_hp_allocation_strategy>;
+
     private:
       friend thread_control_block;
       friend basic_hp_thread_control_block<generic_hp_allocation_strategy, thread_control_block>;
@@ -60,39 +56,38 @@ namespace xenium { namespace reclamation {
 
     template <class Strategy>
     struct dynamic_hp_thread_control_block;
-  }
+  } // namespace detail
 
   namespace hp_allocation {
     /**
      * @brief Hazard pointer allocation strategy for a static number of hazard pointers per thread.
-     * 
+     *
      * The threshold for the number of retired nodes is calculated as `A * K * num_threads + B`;
-     * `K`, `A` and `B` can be configured via template parameter. 
-     * 
+     * `K`, `A` and `B` can be configured via template parameter.
+     *
      * @tparam K The max. number of hazard pointers that can be allocated at the same time.
      * @tparam A
      * @tparam B
      */
     template <size_t K = 2, size_t A = 2, size_t B = 100>
-    struct static_strategy :
-      detail::generic_hp_allocation_strategy<K, A, B, detail::static_hp_thread_control_block> {};
+    struct static_strategy : detail::generic_hp_allocation_strategy<K, A, B, detail::static_hp_thread_control_block> {};
 
     /**
      * @brief Hazard pointer allocation strategy for a dynamic number of hazard pointers per thread.
-     * 
+     *
      * This strategy uses a linked list of segments for the hazard pointers. The first segment can
      * hold `K` hazard pointers; subsequently allocated segments can hold 1.5x the number of hazard
      * pointers as the sum of all previous segments.
-     * 
+     *
      * The threshold for the number of retired nodes is calculated as `A * available_hps + B`, where
      * `available_hps` is the max. number of hazard pointers that could be allocated by all threads
      * at that time, without growing the number of segments. E.g., if `K = 2` and we have two threads
      * each with a single segment, then `available_hps = 4`; if one thread later allocates additional
      * hps and increases the number of segments such that they can hold up to 10 hazard pointers,
      * then `available_hps = 10+2 = 12`.
-     * 
+     *
      * `K`, `A` and `B` can be configured via template parameter.
-     * 
+     *
      * @tparam K The initial number of hazard pointers (i.e., the number of hps that can be allocated
      * without the need to grow).
      * @tparam A
@@ -100,17 +95,16 @@ namespace xenium { namespace reclamation {
      */
     template <size_t K = 2, size_t A = 2, size_t B = 100>
     struct dynamic_strategy :
-      detail::generic_hp_allocation_strategy<K, A, B, detail::dynamic_hp_thread_control_block> {};
-  }
-  
+        detail::generic_hp_allocation_strategy<K, A, B, detail::dynamic_hp_thread_control_block> {};
+  } // namespace hp_allocation
+
   template <class AllocationStrategy = hp_allocation::static_strategy<3>>
   struct hazard_pointer_traits {
     using allocation_strategy = AllocationStrategy;
 
     template <class... Policies>
-    using with = hazard_pointer_traits<
-      parameter::type_param_t<policy::allocation_strategy, AllocationStrategy, Policies...>
-    >;
+    using with =
+      hazard_pointer_traits<parameter::type_param_t<policy::allocation_strategy, AllocationStrategy, Policies...>>;
   };
 
   /**
@@ -118,7 +112,7 @@ namespace xenium { namespace reclamation {
    * \[[Mic04](index.html#ref-michael-2004)\].
    *
    * For general information about the interface of the reclamation scheme see @ref reclamation_schemes.
-   * 
+   *
    * This class does not take a list of policies, but a `Traits` type that can be customized
    * with a list of policies. The following policies are supported:
    *  * `xenium::policy::allocation_strategy`<br>
@@ -128,12 +122,11 @@ namespace xenium { namespace reclamation {
    *    and 'xenium::reclamation::hp_allocation::dynamic_strategy`, where both strategies
    *    can be further customized via their respective template parameters.
    *    (defaults to `xenium::reclamation::he_allocation::static_strategy<3>`)
-   * 
+   *
    * @tparam Traits
    */
   template <typename Traits = hazard_pointer_traits<>>
-  class hazard_pointer
-  {
+  class hazard_pointer {
     using allocation_strategy = typename Traits::allocation_strategy;
     using thread_control_block = typename allocation_strategy::thread_control_block;
     friend detail::basic_hp_thread_control_block<allocation_strategy, thread_control_block>;
@@ -144,12 +137,12 @@ namespace xenium { namespace reclamation {
   public:
     /**
      * @brief Customize the reclamation scheme with the given policies.
-     * 
+     *
      * The given policies are applied to the current configuration, replacing previously
      * specified policies of the same type.
-     * 
+     *
      * The resulting type is the newly configured reclamation scheme.
-     * 
+     *
      * @tparam Policies list of policies to customize the behaviour
      */
     template <class... Policies>
@@ -164,6 +157,7 @@ namespace xenium { namespace reclamation {
     using concurrent_ptr = detail::concurrent_ptr<T, N, guard_ptr>;
 
     ALLOCATION_TRACKER;
+
   private:
     struct thread_data;
 
@@ -176,11 +170,11 @@ namespace xenium { namespace reclamation {
   template <typename Traits>
   template <class T, std::size_t N, class Deleter>
   class hazard_pointer<Traits>::enable_concurrent_ptr :
-    private detail::deletable_object_impl<T, Deleter>,
-    private detail::tracked_object<hazard_pointer>
-  {
+      private detail::deletable_object_impl<T, Deleter>,
+      private detail::tracked_object<hazard_pointer> {
   public:
     static constexpr std::size_t number_of_mark_bits = N;
+
   protected:
     enable_concurrent_ptr() noexcept = default;
     enable_concurrent_ptr(const enable_concurrent_ptr&) noexcept = default;
@@ -188,6 +182,7 @@ namespace xenium { namespace reclamation {
     enable_concurrent_ptr& operator=(const enable_concurrent_ptr&) noexcept = default;
     enable_concurrent_ptr& operator=(enable_concurrent_ptr&&) noexcept = default;
     ~enable_concurrent_ptr() noexcept = default;
+
   private:
     friend detail::deletable_object_impl<T, Deleter>;
 
@@ -197,10 +192,10 @@ namespace xenium { namespace reclamation {
 
   template <typename Traits>
   template <class T, class MarkedPtr>
-  class hazard_pointer<Traits>::guard_ptr : public detail::guard_ptr<T, MarkedPtr, guard_ptr<T, MarkedPtr>>
-  {
+  class hazard_pointer<Traits>::guard_ptr : public detail::guard_ptr<T, MarkedPtr, guard_ptr<T, MarkedPtr>> {
     using base = detail::guard_ptr<T, MarkedPtr, guard_ptr>;
     using Deleter = typename T::Deleter;
+
   public:
     guard_ptr() noexcept = default;
 
@@ -234,7 +229,7 @@ namespace xenium { namespace reclamation {
 
     typename thread_control_block::hazard_pointer* hp = nullptr;
   };
-}}
+}} // namespace xenium::reclamation
 
 #define HAZARD_POINTER_IMPL
 #include <xenium/reclamation/impl/hazard_pointer.hpp>

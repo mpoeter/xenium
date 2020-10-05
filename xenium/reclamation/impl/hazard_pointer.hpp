@@ -4,7 +4,7 @@
 //
 
 #ifndef HAZARD_POINTER_IMPL
-#error "This is an impl file and must not be included directly!"
+  #error "This is an impl file and must not be included directly!"
 #endif
 
 #include <xenium/aligned_object.hpp>
@@ -15,20 +15,16 @@
 #include <vector>
 
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4324) // structure was padded due to alignment specifier
+  #pragma warning(push)
+  #pragma warning(disable : 4324) // structure was padded due to alignment specifier
 #endif
 
 namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(const MarkedPtr& p) :
-    base(p),
-    hp()
-  {
-    if (this->ptr.get() != nullptr)
-    {
+  hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(const MarkedPtr& p) : base(p), hp() {
+    if (this->ptr.get() != nullptr) {
       hp = local_thread_data.alloc_hazard_pointer();
       hp->set_object(this->ptr.get());
     }
@@ -36,25 +32,18 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(const guard_ptr& p) :
-    guard_ptr(p.ptr)
-  {}
+  hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(const guard_ptr& p) : guard_ptr(p.ptr) {}
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(guard_ptr&& p) noexcept :
-    base(p.ptr),
-    hp(p.hp)
-  {
+  hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(guard_ptr&& p) noexcept : base(p.ptr), hp(p.hp) {
     p.ptr.reset();
     p.hp = nullptr;
   }
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  auto hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::operator=(const guard_ptr& p) noexcept
-    -> guard_ptr&
-  {
+  auto hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::operator=(const guard_ptr& p) noexcept -> guard_ptr& {
     if (&p == this)
       return *this;
 
@@ -67,9 +56,7 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  auto hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::operator=(guard_ptr&& p) noexcept
-    -> guard_ptr&
-  {
+  auto hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::operator=(guard_ptr&& p) noexcept -> guard_ptr& {
     if (&p == this)
       return *this;
 
@@ -83,19 +70,15 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  void hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::acquire(const concurrent_ptr<T>& p,
-    std::memory_order order)
-  {
+  void hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::acquire(const concurrent_ptr<T>& p, std::memory_order order) {
     auto p1 = p.load(std::memory_order_relaxed);
     if (p1 == this->ptr)
       return;
     if (p1 != nullptr && hp == nullptr)
       hp = local_thread_data.alloc_hazard_pointer();
     auto p2 = p1;
-    do
-    {
-      if (p2 == nullptr)
-      {
+    do {
+      if (p2 == nullptr) {
         reset();
         return;
       }
@@ -111,14 +94,11 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  bool hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::acquire_if_equal(
-    const concurrent_ptr<T>& p,
-    const MarkedPtr& expected,
-    std::memory_order order)
-  {
+  bool hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::acquire_if_equal(const concurrent_ptr<T>& p,
+                                                                         const MarkedPtr& expected,
+                                                                         std::memory_order order) {
     auto p1 = p.load(std::memory_order_relaxed);
-    if (p1 == nullptr || p1 != expected)
-    {
+    if (p1 == nullptr || p1 != expected) {
       reset();
       return p1 == expected;
     }
@@ -128,8 +108,7 @@ namespace xenium { namespace reclamation {
     hp->set_object(p1.get());
     // (2) - this load operation potentially synchronizes-with any release operation on p.
     this->ptr = p.load(order);
-    if (this->ptr != p1)
-    {
+    if (this->ptr != p1) {
       reset();
       return false;
     }
@@ -138,23 +117,20 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  void hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::reset() noexcept
-  {
+  void hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::reset() noexcept {
     local_thread_data.release_hazard_pointer(hp);
     this->ptr.reset();
   }
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  void hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::do_swap(guard_ptr& g) noexcept
-  {
+  void hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::do_swap(guard_ptr& g) noexcept {
     std::swap(hp, g.hp);
   }
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  void hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::reclaim(Deleter d) noexcept
-  {
+  void hazard_pointer<Traits>::guard_ptr<T, MarkedPtr>::reclaim(Deleter d) noexcept {
     auto p = this->ptr.get();
     reset();
     p->set_deleter(std::move(d));
@@ -165,13 +141,10 @@ namespace xenium { namespace reclamation {
   namespace detail {
     template <class Strategy, class Derived>
     struct alignas(64) basic_hp_thread_control_block :
-      detail::thread_block_list<Derived>::entry,
-      aligned_object<basic_hp_thread_control_block<Strategy, Derived>>
-    {
-      struct hazard_pointer
-      {
-        void set_object(detail::deletable_object* obj)
-        {
+        detail::thread_block_list<Derived>::entry,
+        aligned_object<basic_hp_thread_control_block<Strategy, Derived>> {
+      struct hazard_pointer {
+        void set_object(detail::deletable_object* obj) {
           // (3) - this release-store synchronizes-with the acquire-fence (9)
           value.store(reinterpret_cast<void**>(obj), std::memory_order_release);
           // This release is required because when acquire/acquire_if_equal is called on a
@@ -184,35 +157,29 @@ namespace xenium { namespace reclamation {
           std::atomic_thread_fence(std::memory_order_seq_cst);
         }
 
-        bool try_get_object(detail::deletable_object*& result) const
-        {
+        bool try_get_object(detail::deletable_object*& result) const {
           // TSan does not support explicit fences, so we cannot rely on the acquire-fence (9)
           // but have to perform an acquire-load here to avoid false positives.
           constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
           auto v = value.load(memory_order);
-          if (v.mark() == 0)
-          {
+          if (v.mark() == 0) {
             result = reinterpret_cast<detail::deletable_object*>(v.get());
             return true;
           }
           return false; // value contains a link
         }
 
-        void set_link(hazard_pointer* link)
-        {
+        void set_link(hazard_pointer* link) {
           // (5) - this release store synchronizes-with the acquire fence (9)
           value.store(marked_ptr<void*, 1>(reinterpret_cast<void**>(link), 1), std::memory_order_release);
         }
-        hazard_pointer* get_link() const
-        {
+        hazard_pointer* get_link() const {
           assert(is_link());
           return reinterpret_cast<hazard_pointer*>(value.load(std::memory_order_relaxed).get());
         }
 
-        bool is_link() const
-        {
-          return value.load(std::memory_order_relaxed).mark() != 0;
-        }
+        bool is_link() const { return value.load(std::memory_order_relaxed).mark() != 0; }
+
       private:
         // since we use the hazard pointer array to build our internal linked list of hazard pointers
         // we set the LSB to signal that this is an internal pointer and not a pointer to a protected object.
@@ -221,20 +188,17 @@ namespace xenium { namespace reclamation {
 
       using hint = hazard_pointer*;
 
-      void initialize(hint& hint)
-      {
+      void initialize(hint& hint) {
         Strategy::number_of_active_hps.fetch_add(self().number_of_hps(), std::memory_order_relaxed);
         hint = initialize_block(self());
       }
 
-      void abandon()
-      {
+      void abandon() {
         Strategy::number_of_active_hps.fetch_sub(self().number_of_hps(), std::memory_order_relaxed);
         detail::thread_block_list<Derived>::entry::abandon();
       }
 
-      hazard_pointer* alloc_hazard_pointer(hint& hint)
-      {
+      hazard_pointer* alloc_hazard_pointer(hint& hint) {
         auto result = hint;
         if (result == nullptr)
           result = self().need_more_hps();
@@ -243,10 +207,8 @@ namespace xenium { namespace reclamation {
         return result;
       }
 
-      void release_hazard_pointer(hazard_pointer*& hp, hint& hint)
-      {
-        if (hp != nullptr)
-        {
+      void release_hazard_pointer(hazard_pointer*& hp, hint& hint) {
+        if (hp != nullptr) {
           hp->set_link(hint);
           hint = hp;
           hp = nullptr;
@@ -262,12 +224,10 @@ namespace xenium { namespace reclamation {
       const hazard_pointer* end() const { return &pointers[Strategy::K]; }
 
       template <typename T>
-      static hazard_pointer* initialize_block(T& block)
-      {
+      static hazard_pointer* initialize_block(T& block) {
         auto begin = block.begin();
         auto end = block.end() - 1; // the last element is handled specially, so loop only over n-1 entries
-        for (auto it = begin; it != end;)
-        {
+        for (auto it = begin; it != end;) {
           auto next = it + 1;
           it->set_link(next);
           it = next;
@@ -277,10 +237,9 @@ namespace xenium { namespace reclamation {
       }
 
       static void gather_protected_pointers(std::vector<const detail::deletable_object*>& protected_ptrs,
-        const hazard_pointer* begin, const hazard_pointer* end)
-      {
-        for (auto it = begin; it != end; ++it)
-        {
+                                            const hazard_pointer* begin,
+                                            const hazard_pointer* end) {
+        for (auto it = begin; it != end; ++it) {
           detail::deletable_object* obj;
           if (it->try_get_object(obj))
             protected_ptrs.push_back(obj);
@@ -292,16 +251,15 @@ namespace xenium { namespace reclamation {
 
     template <class Strategy>
     struct static_hp_thread_control_block :
-      basic_hp_thread_control_block<Strategy, static_hp_thread_control_block<Strategy>>
-    {
+        basic_hp_thread_control_block<Strategy, static_hp_thread_control_block<Strategy>> {
       using base = basic_hp_thread_control_block<Strategy, static_hp_thread_control_block>;
       using hazard_pointer = typename base::hazard_pointer;
       friend base;
 
-      void gather_protected_pointers(std::vector<const detail::deletable_object*>& protected_ptrs) const
-      {
+      void gather_protected_pointers(std::vector<const detail::deletable_object*>& protected_ptrs) const {
         base::gather_protected_pointers(protected_ptrs, this->begin(), this->end());
       }
+
     private:
       hazard_pointer* need_more_hps() { throw bad_hazard_pointer_alloc("hazard pointer pool exceeded"); }
       constexpr size_t number_of_hps() const { return Strategy::K; }
@@ -310,20 +268,17 @@ namespace xenium { namespace reclamation {
 
     template <class Strategy>
     struct dynamic_hp_thread_control_block :
-      basic_hp_thread_control_block<Strategy, dynamic_hp_thread_control_block<Strategy>>
-    {
+        basic_hp_thread_control_block<Strategy, dynamic_hp_thread_control_block<Strategy>> {
       using base = basic_hp_thread_control_block<Strategy, dynamic_hp_thread_control_block>;
       using hazard_pointer = typename base::hazard_pointer;
       friend base;
 
-      void gather_protected_pointers(std::vector<const detail::deletable_object*>& protected_ptrs) const
-      {
+      void gather_protected_pointers(std::vector<const detail::deletable_object*>& protected_ptrs) const {
         gather_protected_pointers(*this, protected_ptrs);
       }
 
     private:
-      struct alignas(64) hazard_pointer_block : aligned_object<hazard_pointer_block>
-      {
+      struct alignas(64) hazard_pointer_block : aligned_object<hazard_pointer_block> {
         hazard_pointer_block(size_t size) : size(size) {}
 
         hazard_pointer* begin() { return reinterpret_cast<hazard_pointer*>(this + 1); }
@@ -339,24 +294,21 @@ namespace xenium { namespace reclamation {
         const size_t size;
       };
 
-      const hazard_pointer_block* next_block() const
-      {
+      const hazard_pointer_block* next_block() const {
         // (6) - this acquire-load synchronizes-with the release-store (7)
         return hp_block.load(std::memory_order_acquire);
       }
       size_t number_of_hps() const { return total_number_of_hps; }
       hazard_pointer* need_more_hps() { return allocate_new_hazard_pointer_block(); }
 
-      
-      hazard_pointer* initialize_next_block()
-      {
+      hazard_pointer* initialize_next_block() {
         auto block = hp_block.load(std::memory_order_relaxed);
         return block ? base::initialize_block(*block) : nullptr;
       }
 
       template <typename T>
-      static void gather_protected_pointers(const T& block, std::vector<const detail::deletable_object*>& protected_ptrs)
-      {
+      static void gather_protected_pointers(const T& block,
+                                            std::vector<const detail::deletable_object*>& protected_ptrs) {
         base::gather_protected_pointers(protected_ptrs, block.begin(), block.end());
 
         auto next = block.next_block();
@@ -364,23 +316,21 @@ namespace xenium { namespace reclamation {
           gather_protected_pointers(*next, protected_ptrs);
       }
 
-      static detail::deletable_object* as_internal_pointer(hazard_pointer* p)
-      {
+      static detail::deletable_object* as_internal_pointer(hazard_pointer* p) {
         // since we use the hazard pointer array to build our internal linked list of hazard pointers
         // we set the LSB to signal that this is an internal pointer and not a pointer to a protected object.
         auto marked = reinterpret_cast<size_t>(p) | 1;
         return reinterpret_cast<detail::deletable_object*>(marked);
       }
 
-      hazard_pointer* allocate_new_hazard_pointer_block()
-      {
+      hazard_pointer* allocate_new_hazard_pointer_block() {
         size_t hps = std::max(static_cast<size_t>(Strategy::K), total_number_of_hps / 2);
         total_number_of_hps += hps;
         Strategy::number_of_active_hps.fetch_add(hps, std::memory_order_relaxed);
 
         size_t buffer_size = sizeof(hazard_pointer_block) + hps * sizeof(hazard_pointer);
         void* buffer = hazard_pointer_block::operator new(buffer_size);
-        auto block = ::new(buffer) hazard_pointer_block(hps);
+        auto block = ::new (buffer) hazard_pointer_block(hps);
         auto result = this->initialize_block(*block);
         block->next = hp_block.load(std::memory_order_relaxed);
         // (7) - this release-store synchronizes-with the acquire-load (6)
@@ -391,17 +341,14 @@ namespace xenium { namespace reclamation {
       size_t total_number_of_hps = Strategy::K;
       std::atomic<hazard_pointer_block*> hp_block;
     };
-  }
+  } // namespace detail
 
   template <class Traits>
-  struct alignas(64) hazard_pointer<Traits>::thread_data : aligned_object<thread_data>
-  {
+  struct alignas(64) hazard_pointer<Traits>::thread_data : aligned_object<thread_data> {
     using HP = typename thread_control_block::hazard_pointer*;
 
-    ~thread_data()
-    {
-      if (retire_list != nullptr)
-      {
+    ~thread_data() {
+      if (retire_list != nullptr) {
         scan();
         if (retire_list != nullptr)
           global_thread_block_list.abandon_retired_nodes(retire_list);
@@ -414,26 +361,20 @@ namespace xenium { namespace reclamation {
       }
     }
 
-    HP alloc_hazard_pointer()
-    {
+    HP alloc_hazard_pointer() {
       ensure_has_control_block();
       return control_block->alloc_hazard_pointer(hint);
     }
 
-    void release_hazard_pointer(HP& hp)
-    {
-      control_block->release_hazard_pointer(hp, hint);
-    }
+    void release_hazard_pointer(HP& hp) { control_block->release_hazard_pointer(hp, hint); }
 
-    std::size_t add_retired_node(detail::deletable_object* p)
-    {
+    std::size_t add_retired_node(detail::deletable_object* p) {
       p->next = retire_list;
       retire_list = p;
       return ++number_of_retired_nodes;
     }
 
-    void scan()
-    {
+    void scan() {
       std::vector<const detail::deletable_object*> protected_pointers;
       protected_pointers.reserve(allocation_strategy::number_of_active_hazard_pointers());
 
@@ -442,9 +383,8 @@ namespace xenium { namespace reclamation {
 
       auto adopted_nodes = global_thread_block_list.adopt_abandoned_retired_nodes();
 
-      std::for_each(global_thread_block_list.begin(), global_thread_block_list.end(),
-        [&protected_pointers](const auto& entry)
-        {
+      std::for_each(
+        global_thread_block_list.begin(), global_thread_block_list.end(), [&protected_pointers](const auto& entry) {
           // TSan does not support explicit fences, so we cannot rely on the acquire-fence (9)
           // but have to perform an acquire-load here to avoid false positives.
           constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
@@ -465,20 +405,16 @@ namespace xenium { namespace reclamation {
     }
 
   private:
-    void ensure_has_control_block()
-    {
-      if (control_block == nullptr)
-      {
+    void ensure_has_control_block() {
+      if (control_block == nullptr) {
         control_block = global_thread_block_list.acquire_entry();
         control_block->initialize(hint);
       }
     }
 
     void reclaim_nodes(detail::deletable_object* list,
-      const std::vector<const detail::deletable_object*>& protected_pointers)
-    {
-      while (list != nullptr)
-      {
+                       const std::vector<const detail::deletable_object*>& protected_pointers) {
+      while (list != nullptr) {
         auto cur = list;
         list = list->next;
 
@@ -500,15 +436,17 @@ namespace xenium { namespace reclamation {
 
 #ifdef TRACK_ALLOCATIONS
   template <class Traits>
-  inline void hazard_pointer<Traits>::count_allocation()
-  { local_thread_data.allocation_counter.count_allocation(); }
+  inline void hazard_pointer<Traits>::count_allocation() {
+    local_thread_data.allocation_counter.count_allocation();
+  }
 
   template <class Traits>
-  inline void hazard_pointer<Traits>::count_reclamation()
-  { local_thread_data.allocation_counter.count_reclamation(); }
+  inline void hazard_pointer<Traits>::count_reclamation() {
+    local_thread_data.allocation_counter.count_reclamation();
+  }
 #endif
-}}
+}} // namespace xenium::reclamation
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+  #pragma warning(pop)
 #endif

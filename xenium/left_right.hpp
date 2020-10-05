@@ -12,8 +12,8 @@
 #include <thread>
 
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4324) // structure was padded due to alignment specifier
+  #pragma warning(push)
+  #pragma warning(disable : 4324) // structure was padded due to alignment specifier
 #endif
 
 namespace xenium {
@@ -21,20 +21,20 @@ namespace xenium {
 /**
  * @brief Generic implementation of the LeftRight algorithm proposed by Ramalhete
  * and Correia \[[RC15](index.html#ref-ramalhete-2015)\].
- * 
+ *
  * The LeftRight algorithm provides the following advantages when compared to a
  * read-write-lock:
  *   * writers never block readers, i.e., read operations are wait-free
  *     (population oblivious)
  *   * readers never block writers, i.e., the updated data is immediately
  *     visible to new readers.
- * 
+ *
  * This is comes at the cost of a duplication of the underlying data structure,
  * which also means that update operations have to be applied to both instances.
- * 
+ *
  * @tparam T
  */
-template<typename T>
+template <typename T>
 struct left_right {
   /**
    * @brief Initialize the two underlying T instances with the specified `source`.
@@ -43,10 +43,7 @@ struct left_right {
    *
    * @param source the source used to initialize the two underlying instances.
    */
-  left_right(T source) :
-    left(source),
-    right(std::move(source))
-  {}
+  left_right(T source) : left(source), right(std::move(source)) {}
 
   /**
    * @brief Initializes the two underlying instances withe the specified sources.
@@ -56,10 +53,7 @@ struct left_right {
    * @param left the source to initialize the left instance
    * @param right the source to initialize the right instance
    */
-  left_right(T left, T right) :
-    left(std::move(left)),
-    right(std::move(right))
-  {}
+  left_right(T left, T right) : left(std::move(left)), right(std::move(right)) {}
 
   /**
    * @brief Default constructs both underlying instances.
@@ -79,7 +73,7 @@ struct left_right {
    * @param func
    * @return the value returned by the call to `func`
    */
-  template<typename Func>
+  template <typename Func>
   auto read(Func&& func) const {
     read_guard guard(*this);
     // (1) - this seq-cst-load enforces a total order with the seq-cst-store (2, 3)
@@ -96,7 +90,7 @@ struct left_right {
    * @tparam Func
    * @param func
    */
-  template<typename Func>
+  template <typename Func>
   void update(Func&& func) {
     std::lock_guard<std::mutex> lock(writer_mutex);
     assert(lr_indicator.load() == version_index.load());
@@ -114,6 +108,7 @@ struct left_right {
       func(right);
     }
   }
+
 private:
   struct alignas(64) read_indicator {
     void arrive(void) {
@@ -133,17 +128,18 @@ private:
       //       and synchronizes-with the release-fetch-add (5)
       return counter.load(std::memory_order_seq_cst) == 0;
     }
+
   private:
     std::atomic<uint64_t> counter{0};
   };
 
   struct read_guard {
     read_guard(const left_right& inst) :
-      indicator(inst.get_read_indicator(inst.version_index.load(std::memory_order_relaxed)))
-    {
+        indicator(inst.get_read_indicator(inst.version_index.load(std::memory_order_relaxed))) {
       indicator.arrive();
     }
     ~read_guard() { indicator.depart(); }
+
   private:
     read_indicator& indicator;
   };
@@ -177,8 +173,8 @@ private:
 
   // TODO: make mutex type configurable via policy
   std::mutex writer_mutex;
-  std::atomic<int> version_index{0} ;
-  std::atomic<int> lr_indicator { READ_LEFT };
+  std::atomic<int> version_index{0};
+  std::atomic<int> lr_indicator{READ_LEFT};
 
   mutable read_indicator read_indicator1;
   T left;
@@ -186,10 +182,10 @@ private:
   mutable read_indicator read_indicator2;
   T right;
 };
-}
+} // namespace xenium
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+  #pragma warning(pop)
 #endif
 
 #endif

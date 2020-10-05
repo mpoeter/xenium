@@ -6,8 +6,8 @@
 #ifndef XENIUM_VYUKOV_BOUNDED_QUEUE_HPP
 #define XENIUM_VYUKOV_BOUNDED_QUEUE_HPP
 
-#include <xenium/utils.hpp>
 #include <xenium/parameter.hpp>
+#include <xenium/utils.hpp>
 
 #include <atomic>
 #include <cassert>
@@ -15,8 +15,8 @@
 #include <memory>
 
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4324) // structure was padded due to alignment specifier
+  #pragma warning(push)
+  #pragma warning(disable : 4324) // structure was padded due to alignment specifier
 #endif
 
 namespace xenium {
@@ -30,15 +30,15 @@ namespace policy {
   template <bool Value>
   struct default_to_weak;
 
-}
+} // namespace policy
 /**
  * @brief A bounded generic multi-producer/multi-consumer FIFO queue.
- * 
+ *
  * This implementation is based on the bounded MPMC queue proposed by Vyukov
  * \[[Vy10](index.html#ref-vyukov-2010)\].
  * It is fully generic and can handle any type `T`, as long as it is default
  * constructible and either copyable or movable.
- * 
+ *
  * Producers and consumers operate independently, but the operations are not
  * lock-free, i.e., a `try_pop` may have to wait for a pending `try_push`
  * operation to finish and vice versa.
@@ -55,22 +55,20 @@ namespace policy {
  *
  * @tparam T type of the stored elements.
  */
-template<class T, class... Policies>
+template <class T, class... Policies>
 struct vyukov_bounded_queue {
 public:
   using value_type = T;
-  
+
   static constexpr bool default_to_weak =
-    parameter::value_param_t<bool, policy::default_to_weak, false, Policies...>::value;;
+    parameter::value_param_t<bool, policy::default_to_weak, false, Policies...>::value;
+  ;
 
   /**
    * @brief Constructs a new instance with the specified maximum size.
    * @param size max number of elements in the queue; must be a power of two greater one.
    */
-  vyukov_bounded_queue(std::size_t size) :
-    cells(new cell[size]),
-    index_mask(size - 1)
-  {
+  vyukov_bounded_queue(std::size_t size) : cells(new cell[size]), index_mask(size - 1) {
     assert(size >= 2 && utils::is_power_of_two(size));
     for (std::size_t i = 0; i < size; ++i)
       cells[i].sequence.store(i, std::memory_order_relaxed);
@@ -81,8 +79,8 @@ public:
   vyukov_bounded_queue(const vyukov_bounded_queue&) = delete;
   vyukov_bounded_queue(vyukov_bounded_queue&&) = delete;
 
-  vyukov_bounded_queue& operator= (const vyukov_bounded_queue&) = delete;
-  vyukov_bounded_queue& operator= (vyukov_bounded_queue&&) = delete;
+  vyukov_bounded_queue& operator=(const vyukov_bounded_queue&) = delete;
+  vyukov_bounded_queue& operator=(vyukov_bounded_queue&&) = delete;
 
   /**
    * @brief Tries to push a new element to the queue.
@@ -156,9 +154,7 @@ public:
    * @param result the value popped from the queue if the operation was successful
    * @return `true` if the operation was successful, otherwise `false`
    */
-  [[nodiscard]] bool try_pop(T& result) {
-    return do_try_pop<default_to_weak>(result);
-  }
+  [[nodiscard]] bool try_pop(T& result) { return do_try_pop<default_to_weak>(result); }
 
   /**
    * @brief Tries to pop an element from the queue as long as the queue is not empty.
@@ -171,9 +167,7 @@ public:
    * @param result the value popped from the queue if the operation was successful
    * @return `true` if the operation was successful, otherwise `false`
    */
-  [[nodiscard]] bool try_pop_strong(T& result) {
-    return do_try_pop<false>(result);
-  }
+  [[nodiscard]] bool try_pop_strong(T& result) { return do_try_pop<false>(result); }
 
   /**
    * @brief Tries to pop an element from the queue.
@@ -186,9 +180,7 @@ public:
    * @param result the value popped from the queue if the operation was successful
    * @return `true` if the operation was successful, otherwise `false`
    */
-  [[nodiscard]] bool try_pop_weak(T& result) {
-    return do_try_pop<true>(result);
-  }
+  [[nodiscard]] bool try_pop_weak(T& result) { return do_try_pop<true>(result); }
 
 private:
   template <bool Weak, class... Args>
@@ -256,7 +248,9 @@ private:
   void assign_value(T& v, const T& source) { v = source; }
   void assign_value(T& v, T&& source) { v = std::move(source); }
   template <class... Args>
-  void assign_value(T& v, Args&&... args) { v = T{std::forward<Args>(args)...}; }
+  void assign_value(T& v, Args&&... args) {
+    v = T{std::forward<Args>(args)...};
+  }
 
   // TODO - add optional padding via policy
   struct cell {
@@ -269,10 +263,10 @@ private:
   alignas(64) std::atomic<size_t> enqueue_pos;
   alignas(64) std::atomic<size_t> dequeue_pos;
 };
-}
+} // namespace xenium
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+  #pragma warning(pop)
 #endif
 
 #endif

@@ -13,9 +13,8 @@ struct NikolaevSCQ : testing::Test {};
 namespace {
   static constexpr std::size_t capacity = 8;
   static constexpr std::size_t remap_shift = xenium::detail::nikolaev_scq::calc_remap_shift(capacity);
-}
-TEST(NikolaevSCQ, construct_empty)
-{
+} // namespace
+TEST(NikolaevSCQ, construct_empty) {
   xenium::detail::nikolaev_scq queue(capacity, remap_shift, xenium::detail::nikolaev_scq::empty_tag{});
   std::uint64_t v;
   auto res = queue.dequeue<false, 0>(v, capacity, remap_shift);
@@ -26,8 +25,7 @@ TEST(NikolaevSCQ, construct_empty)
   }
 }
 
-TEST(NikolaevSCQ, construct_full)
-{
+TEST(NikolaevSCQ, construct_full) {
   xenium::detail::nikolaev_scq queue(capacity, remap_shift, xenium::detail::nikolaev_scq::full_tag{});
   std::uint64_t v;
   for (std::size_t i = 0; i < capacity; ++i) {
@@ -39,8 +37,7 @@ TEST(NikolaevSCQ, construct_full)
   ASSERT_FALSE(res);
 }
 
-TEST(NikolaevSCQ, construct_first_used)
-{
+TEST(NikolaevSCQ, construct_first_used) {
   xenium::detail::nikolaev_scq queue(capacity, remap_shift, xenium::detail::nikolaev_scq::first_used_tag{});
   std::uint64_t v;
   auto res = queue.dequeue<false, 0>(v, capacity, remap_shift);
@@ -50,8 +47,7 @@ TEST(NikolaevSCQ, construct_first_used)
   ASSERT_FALSE(res);
 }
 
-TEST(NikolaevSCQ, construct_first_empty)
-{
+TEST(NikolaevSCQ, construct_first_empty) {
   xenium::detail::nikolaev_scq queue(capacity, remap_shift, xenium::detail::nikolaev_scq::first_empty_tag{});
   auto res = queue.enqueue<false, 0>(0, capacity, remap_shift);
   ASSERT_TRUE(res);
@@ -64,4 +60,4 @@ TEST(NikolaevSCQ, construct_first_empty)
   }
 }
 
-}
+} // namespace

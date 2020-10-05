@@ -7,4 +7,3 @@
 
 template <class T>
 struct descriptor;
-

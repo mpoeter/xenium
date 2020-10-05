@@ -3,8 +3,8 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <tao/config/value.hpp>
+#include <unordered_map>
 
 struct workload_simulator {
   virtual ~workload_simulator() = default;
@@ -17,6 +17,7 @@ public:
   std::shared_ptr<workload_simulator> operator()(const tao::config::value& config);
   using builder = std::function<std::shared_ptr<workload_simulator>(const tao::config::value&)>;
   void register_workload(std::string type, builder func);
+
 private:
   std::unordered_map<std::string, builder> _builders;
 };

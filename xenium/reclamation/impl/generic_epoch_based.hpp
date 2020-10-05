@@ -4,15 +4,15 @@
 //
 
 #ifndef GENERIC_EPOCH_BASED_IMPL
-#error "This is an impl file and must not be included directly!"
+  #error "This is an impl file and must not be included directly!"
 #endif
 
-#include <xenium/detail/port.hpp>
 #include <array>
+#include <xenium/detail/port.hpp>
 
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4127) // conditional expression is constant
+  #pragma warning(push)
+  #pragma warning(disable : 4127) // conditional expression is constant
 #endif
 
 namespace xenium { namespace reclamation {
@@ -21,21 +21,19 @@ namespace xenium { namespace reclamation {
      * @brief Scan all threads (default behaviour in EBR/NEBR).
      */
     struct all_threads {
-      template<class Reclaimer>
+      template <class Reclaimer>
       struct type {
         bool scan(typename Reclaimer::epoch_t epoch) {
-          auto prevents_update = [epoch](const typename Reclaimer::thread_control_block &data) -> bool {
+          auto prevents_update = [epoch](const typename Reclaimer::thread_control_block& data) -> bool {
             // TSan does not support explicit fences, so we cannot rely on the acquire-fence (6)
             // but have to perform an acquire-load here to avoid false positives.
             constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
-            return data.is_in_critical_region.load(memory_order) &&
-                   data.local_epoch.load(memory_order) != epoch;
+            return data.is_in_critical_region.load(memory_order) && data.local_epoch.load(memory_order) != epoch;
           };
 
           // If any thread hasn't advanced to the current epoch, abort the attempt.
-          return !std::any_of(Reclaimer::global_thread_block_list.begin(),
-                              Reclaimer::global_thread_block_list.end(),
-                              prevents_update);
+          return !std::any_of(
+            Reclaimer::global_thread_block_list.begin(), Reclaimer::global_thread_block_list.end(), prevents_update);
         }
 
         void reset() {}
@@ -45,9 +43,9 @@ namespace xenium { namespace reclamation {
     /**
      * @brief Scan _N_ threads.
      */
-    template<unsigned N>
+    template <unsigned N>
     struct n_threads {
-      template<class Reclaimer>
+      template <class Reclaimer>
       struct type {
         type() { reset(); }
 
@@ -65,9 +63,7 @@ namespace xenium { namespace reclamation {
           return false;
         }
 
-        void reset() {
-          thread_iterator = Reclaimer::global_thread_block_list.begin();
-        }
+        void reset() { thread_iterator = Reclaimer::global_thread_block_list.begin(); }
 
       private:
         typename detail::thread_block_list<typename Reclaimer::thread_control_block>::iterator thread_iterator;
@@ -78,10 +74,10 @@ namespace xenium { namespace reclamation {
      * @brief Scan a single thread (default behaviour in DEBRA).
      */
     struct one_thread {
-      template<class Reclaimer>
+      template <class Reclaimer>
       using type = n_threads<1>::type<Reclaimer>;
     };
-  }
+  } // namespace scan
 
   namespace abandon {
     /**
@@ -98,8 +94,7 @@ namespace xenium { namespace reclamation {
      */
     struct always {
       using retire_list = detail::retire_list<>;
-      static void apply(retire_list& retire_list, detail::orphan_list<>& orphans)
-      {
+      static void apply(retire_list& retire_list, detail::orphan_list<>& orphans) {
         if (!retire_list.empty())
           orphans.add(retire_list.steal());
       }
@@ -112,31 +107,26 @@ namespace xenium { namespace reclamation {
     template <size_t Threshold>
     struct when_exceeds_threshold {
       using retire_list = detail::counting_retire_list<>;
-      static void apply(retire_list& retire_list, detail::orphan_list<>& orphans)
-      {
+      static void apply(retire_list& retire_list, detail::orphan_list<>& orphans) {
         if (retire_list.size() >= Threshold)
           orphans.add(retire_list.steal());
       }
     };
-  }
+  } // namespace abandon
 
   template <class Traits>
-  generic_epoch_based<Traits>::region_guard::region_guard() noexcept
-  {
+  generic_epoch_based<Traits>::region_guard::region_guard() noexcept {
     local_thread_data.enter_region();
   }
 
   template <class Traits>
-  generic_epoch_based<Traits>::region_guard::~region_guard() noexcept
-  {
+  generic_epoch_based<Traits>::region_guard::~region_guard() noexcept {
     local_thread_data.leave_region();
   }
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(const MarkedPtr& p) noexcept :
-    base(p)
-  {
+  generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(const MarkedPtr& p) noexcept : base(p) {
     if (this->ptr)
       local_thread_data.enter_critical();
   }
@@ -144,22 +134,17 @@ namespace xenium { namespace reclamation {
   template <class Traits>
   template <class T, class MarkedPtr>
   generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(const guard_ptr& p) noexcept :
-    guard_ptr(MarkedPtr(p))
-  {}
+      guard_ptr(MarkedPtr(p)) {}
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(guard_ptr&& p) noexcept :
-    base(p.ptr)
-  {
+  generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(guard_ptr&& p) noexcept : base(p.ptr) {
     p.ptr.reset();
   }
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  auto generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::operator=(const guard_ptr& p) noexcept
-  -> guard_ptr&
-  {
+  auto generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::operator=(const guard_ptr& p) noexcept -> guard_ptr& {
     if (&p == this)
       return *this;
 
@@ -173,9 +158,7 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  auto generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::operator=(guard_ptr&& p) noexcept
-  -> guard_ptr&
-  {
+  auto generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::operator=(guard_ptr&& p) noexcept -> guard_ptr& {
     if (&p == this)
       return *this;
 
@@ -188,11 +171,9 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  void generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::acquire(
-    const concurrent_ptr<T>& p, std::memory_order order) noexcept
-  {
-    if (p.load(std::memory_order_relaxed) == nullptr)
-    {
+  void generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::acquire(const concurrent_ptr<T>& p,
+                                                                     std::memory_order order) noexcept {
+    if (p.load(std::memory_order_relaxed) == nullptr) {
       reset();
       return;
     }
@@ -207,12 +188,11 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  bool generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::acquire_if_equal(
-    const concurrent_ptr<T>& p, const MarkedPtr& expected, std::memory_order order) noexcept
-  {
+  bool generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::acquire_if_equal(const concurrent_ptr<T>& p,
+                                                                              const MarkedPtr& expected,
+                                                                              std::memory_order order) noexcept {
     auto actual = p.load(std::memory_order_relaxed);
-    if (actual == nullptr || actual != expected)
-    {
+    if (actual == nullptr || actual != expected) {
       reset();
       return actual == expected;
     }
@@ -221,8 +201,7 @@ namespace xenium { namespace reclamation {
       local_thread_data.enter_critical();
     // (2) - this load operation potentially synchronizes-with any release operation on p.
     this->ptr = p.load(order);
-    if (!this->ptr || this->ptr != expected)
-    {
+    if (!this->ptr || this->ptr != expected) {
       local_thread_data.leave_critical();
       this->ptr.reset();
     }
@@ -232,8 +211,7 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  void generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::reset() noexcept
-  {
+  void generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::reset() noexcept {
     if (this->ptr)
       local_thread_data.leave_critical();
     this->ptr.reset();
@@ -241,31 +219,23 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  void generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::reclaim(Deleter d) noexcept
-  {
+  void generic_epoch_based<Traits>::guard_ptr<T, MarkedPtr>::reclaim(Deleter d) noexcept {
     this->ptr->set_deleter(std::move(d));
     local_thread_data.add_retired_node(this->ptr.get());
     reset();
   }
 
   template <class Traits>
-  struct generic_epoch_based<Traits>::thread_control_block :
-    detail::thread_block_list<thread_control_block>::entry
-  {
-    thread_control_block() :
-      is_in_critical_region(false),
-      local_epoch(number_epochs)
-    {}
+  struct generic_epoch_based<Traits>::thread_control_block : detail::thread_block_list<thread_control_block>::entry {
+    thread_control_block() : is_in_critical_region(false), local_epoch(number_epochs) {}
 
     std::atomic<bool> is_in_critical_region;
     std::atomic<epoch_t> local_epoch;
   };
 
   template <class Traits>
-  struct generic_epoch_based<Traits>::thread_data
-  {
-    ~thread_data()
-    {
+  struct generic_epoch_based<Traits>::thread_data {
+    ~thread_data() {
       if (control_block == nullptr)
         return; // no control_block -> nothing to do
 
@@ -278,47 +248,39 @@ namespace xenium { namespace reclamation {
       control_block = nullptr;
     }
 
-    void enter_region()
-    {
+    void enter_region() {
       ensure_has_control_block();
-      if (Traits::region_extension_type != region_extension::none && ++region_entries == 1)
-      {
+      if (Traits::region_extension_type != region_extension::none && ++region_entries == 1) {
         if (Traits::region_extension_type == region_extension::eager)
           set_critical_region_flag();
       }
     }
 
-    void leave_region()
-    {
-      if (Traits::region_extension_type != region_extension::none && --region_entries == 0)
-      {
+    void leave_region() {
+      if (Traits::region_extension_type != region_extension::none && --region_entries == 0) {
         clear_critical_region_flag();
       }
     }
 
-    void enter_critical()
-    {
+    void enter_critical() {
       enter_region();
       if (++nested_critical_entries == 1)
         do_enter_critical();
     }
 
-    void leave_critical()
-    {
+    void leave_critical() {
       if (--nested_critical_entries == 0 && Traits::region_extension_type == region_extension::none)
         clear_critical_region_flag();
       leave_region();
     }
 
   private:
-    void ensure_has_control_block()
-    {
+    void ensure_has_control_block() {
       if (XENIUM_UNLIKELY(control_block == nullptr))
         acquire_control_block();
     }
 
-    XENIUM_NOINLINE void acquire_control_block()
-    {
+    XENIUM_NOINLINE void acquire_control_block() {
       assert(control_block == nullptr);
       control_block = global_thread_block_list.acquire_entry();
       assert(control_block->is_in_critical_region.load() == false);
@@ -328,18 +290,16 @@ namespace xenium { namespace reclamation {
       scan_strategy.reset();
     }
 
-    void set_critical_region_flag()
-    {
+    void set_critical_region_flag() {
       assert(!control_block->is_in_critical_region.load(std::memory_order_relaxed));
       control_block->is_in_critical_region.store(true, std::memory_order_relaxed);
-      // (3) - this seq_cst-fence enforces a total order with itself, and 
+      // (3) - this seq_cst-fence enforces a total order with itself, and
       //       synchronizes-with the acquire-fence (6)
       std::atomic_thread_fence(std::memory_order_seq_cst);
     }
 
-    void clear_critical_region_flag()
-    {
-      //if (Traits::region_extension_type == region_extension::lazy && control_block == nullptr)
+    void clear_critical_region_flag() {
+      // if (Traits::region_extension_type == region_extension::lazy && control_block == nullptr)
       //  return;
 
       assert(control_block != nullptr);
@@ -351,12 +311,10 @@ namespace xenium { namespace reclamation {
         Traits::abandon_strategy::apply(retire_lists[i], orphans[i]);
     }
 
-    void do_enter_critical()
-    {
+    void do_enter_critical() {
       if (Traits::region_extension_type == region_extension::none)
         set_critical_region_flag();
-      else if (Traits::region_extension_type == region_extension::lazy)
-      {
+      else if (Traits::region_extension_type == region_extension::lazy) {
         if (!control_block->is_in_critical_region.load(std::memory_order_relaxed))
           set_critical_region_flag();
       }
@@ -369,20 +327,16 @@ namespace xenium { namespace reclamation {
       {
         critical_entries_since_update = 0;
         update_local_epoch(epoch);
-      }
-      else if (critical_entries_since_update++ == Traits::scan_frequency)
-      {
+      } else if (critical_entries_since_update++ == Traits::scan_frequency) {
         critical_entries_since_update = 0;
-        if (scan_strategy.scan(epoch))
-        {
+        if (scan_strategy.scan(epoch)) {
           epoch = update_global_epoch(epoch, epoch + 1);
           update_local_epoch(epoch);
         }
       }
     }
 
-    void update_local_epoch(epoch_t new_epoch)
-    {
+    void update_local_epoch(epoch_t new_epoch) {
       // we either just updated the global_epoch or we are observing a new epoch
       // from some other thread either way - we can reclaim all the objects from
       // the old 'incarnation' of this epoch, as well as from other epochs we
@@ -397,8 +351,7 @@ namespace xenium { namespace reclamation {
 
       auto diff = std::min<int>(static_cast<int>(number_epochs), static_cast<int>(new_epoch - old_epoch));
       epoch_t epoch_idx = local_epoch_idx;
-      for (int i = diff - 1; i >= 0; --i)
-      {
+      for (int i = diff - 1; i >= 0; --i) {
         epoch_idx = (new_epoch - i) % number_epochs;
         auto nodes = retire_lists[epoch_idx].steal();
         detail::delete_objects(nodes.first);
@@ -408,31 +361,24 @@ namespace xenium { namespace reclamation {
       scan_strategy.reset();
     }
 
-    epoch_t update_global_epoch(epoch_t curr_epoch, epoch_t new_epoch)
-    {
-      if (global_epoch.load(std::memory_order_relaxed) == curr_epoch)
-      {
+    epoch_t update_global_epoch(epoch_t curr_epoch, epoch_t new_epoch) {
+      if (global_epoch.load(std::memory_order_relaxed) == curr_epoch) {
         // (6) - due to the load operations in scan, this acquire-fence synchronizes-with the release-store (4)
         //       and the seq-cst fence (3)
         std::atomic_thread_fence(std::memory_order_acquire);
 
         // (7) - this release-CAS synchronizes-with the acquire-load (5)
-        bool success = global_epoch.compare_exchange_strong(curr_epoch, new_epoch,
-                                                            std::memory_order_release,
-                                                            std::memory_order_relaxed);
+        bool success = global_epoch.compare_exchange_strong(
+          curr_epoch, new_epoch, std::memory_order_release, std::memory_order_relaxed);
         if (XENIUM_LIKELY(success))
           reclaim_orphans(new_epoch);
       }
       return new_epoch;
     }
 
-    void add_retired_node(detail::deletable_object* p)
-    {
-      retire_lists[local_epoch_idx].push(p);
-    }
+    void add_retired_node(detail::deletable_object* p) { retire_lists[local_epoch_idx].push(p); }
 
-    void reclaim_orphans(epoch_t epoch)
-    {
+    void reclaim_orphans(epoch_t epoch) {
       auto idx = epoch % number_epochs;
       auto nodes = orphans[idx].adopt();
       detail::delete_objects(nodes);
@@ -450,17 +396,19 @@ namespace xenium { namespace reclamation {
     ALLOCATION_COUNTER(generic_epoch_based);
   };
 
-#ifdef TRACK_ALLOCATIONS 
+#ifdef TRACK_ALLOCATIONS
   template <class Traits>
-  inline void generic_epoch_based<Traits>::count_allocation()
-  { local_thread_data.allocation_counter.count_allocation(); }
+  inline void generic_epoch_based<Traits>::count_allocation() {
+    local_thread_data.allocation_counter.count_allocation();
+  }
 
   template <class Traits>
-  inline void generic_epoch_based<Traits>::count_reclamation()
-  { local_thread_data.allocation_counter.count_reclamation(); }
+  inline void generic_epoch_based<Traits>::count_reclamation() {
+    local_thread_data.allocation_counter.count_reclamation();
+  }
 #endif
-}}
+}} // namespace xenium::reclamation
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+  #pragma warning(pop)
 #endif

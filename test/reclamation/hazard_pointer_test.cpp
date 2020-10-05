@@ -4,40 +4,34 @@
 
 namespace {
 
-struct my_static_allocation_strategy : xenium::reclamation::hp_allocation::static_strategy<2>
-{
+struct my_static_allocation_strategy : xenium::reclamation::hp_allocation::static_strategy<2> {
   // we are redifining this method in our own strategy to enforce the
   // immediate reclamation of nodes.
   static constexpr size_t retired_nodes_threshold() { return 0; }
 };
 
-struct my_dynamic_allocation_strategy : xenium::reclamation::hp_allocation::dynamic_strategy<2>
-{
+struct my_dynamic_allocation_strategy : xenium::reclamation::hp_allocation::dynamic_strategy<2> {
   // we are redifining this method in our own strategy to enforce the
   // immediate reclamation of nodes.
   static constexpr size_t retired_nodes_threshold() { return 0; }
 };
 
 template <typename Policy>
-struct HazardPointer : ::testing::Test
-{
+struct HazardPointer : ::testing::Test {
   using HP = xenium::reclamation::hazard_pointer<>::with<xenium::policy::allocation_strategy<Policy>>;
 
-  struct Foo : HP::template enable_concurrent_ptr<Foo, 2>
-  {
+  struct Foo : HP::template enable_concurrent_ptr<Foo, 2> {
     Foo** instance;
     Foo(Foo** instance) : instance(instance) {}
     virtual ~Foo() { *instance = nullptr; }
   };
 
-  struct Bar
-  {
+  struct Bar {
     int x{};
     virtual ~Bar() {}
   };
 
-  struct FooBar : Bar, Foo
-  {
+  struct FooBar : Bar, Foo {
     FooBar(Foo** instance) : Foo(instance) {}
   };
 
@@ -51,7 +45,8 @@ struct HazardPointer : ::testing::Test
 
   template <typename T>
   using concurrent_ptr = typename HP::template concurrent_ptr<T>;
-  template <typename T> using marked_ptr = typename concurrent_ptr<T>::marked_ptr;
+  template <typename T>
+  using marked_ptr = typename concurrent_ptr<T>::marked_ptr;
 
   Foo* foo = nullptr;
   marked_ptr<Foo> mp{};
@@ -61,8 +56,7 @@ struct HazardPointer : ::testing::Test
     this->mp = marked_ptr<Foo>(foo, 3);
   }
 
-  void TearDown() override
-  {
+  void TearDown() override {
     trigger_reclamation();
     if (mp == nullptr)
       assert(foo == nullptr);
@@ -70,8 +64,7 @@ struct HazardPointer : ::testing::Test
       delete foo;
   }
 
-  void trigger_reclamation()
-  {
+  void trigger_reclamation() {
     // There might be some retired nodes remaining from a testcase that need to be reclaimed.
     // In order to do so we create a guard for a dummy object and mark it for reclamation.
     // This triggers reclamation of all the objects in the retired_list.
@@ -88,36 +81,29 @@ void HazardPointer<Policy>::DummyDeleter::operator()(WithCustomDeleter* obj) con
   delete obj;
 }
 
-using Policies = ::testing::Types<
-    my_static_allocation_strategy,
-    my_dynamic_allocation_strategy
-  >;
+using Policies = ::testing::Types<my_static_allocation_strategy, my_dynamic_allocation_strategy>;
 TYPED_TEST_CASE(HazardPointer, Policies);
 
-TYPED_TEST(HazardPointer, mark_returns_the_same_mark_as_the_original_marked_ptr)
-{
+TYPED_TEST(HazardPointer, mark_returns_the_same_mark_as_the_original_marked_ptr) {
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;
   guard_ptr gp(this->mp);
   EXPECT_EQ(this->mp.mark(), gp.mark());
 }
 
-TYPED_TEST(HazardPointer, get_returns_the_same_pointer_as_the_original_marked_ptr)
-{
+TYPED_TEST(HazardPointer, get_returns_the_same_pointer_as_the_original_marked_ptr) {
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;
   guard_ptr gp(this->mp);
   EXPECT_EQ(this->mp.get(), gp.get());
 }
 
-TYPED_TEST(HazardPointer, acquire_guard_acquires_pointer)
-{
+TYPED_TEST(HazardPointer, acquire_guard_acquires_pointer) {
   using concurrent_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>;
   concurrent_ptr foo_ptr(this->mp);
   typename concurrent_ptr::guard_ptr gp = xenium::acquire_guard(foo_ptr);
   EXPECT_EQ(this->mp, gp);
 }
 
-TYPED_TEST(HazardPointer, additional_acquire_call_do_not_lead_to_overallocation_of_HPs)
-{
+TYPED_TEST(HazardPointer, additional_acquire_call_do_not_lead_to_overallocation_of_HPs) {
   using concurrent_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>;
   concurrent_ptr foo_ptr(this->mp);
   typename concurrent_ptr::guard_ptr gp;
@@ -126,8 +112,7 @@ TYPED_TEST(HazardPointer, additional_acquire_call_do_not_lead_to_overallocation_
   gp.acquire(foo_ptr);
 }
 
-TYPED_TEST(HazardPointer, acquire_if_equal_returns_true_and_acquires_pointer_when_values_are_equal)
-{
+TYPED_TEST(HazardPointer, acquire_if_equal_returns_true_and_acquires_pointer_when_values_are_equal) {
   using concurrent_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>;
   concurrent_ptr foo_ptr(this->mp);
   typename concurrent_ptr::guard_ptr gp;
@@ -135,8 +120,7 @@ TYPED_TEST(HazardPointer, acquire_if_equal_returns_true_and_acquires_pointer_whe
   EXPECT_EQ(this->mp, gp);
 }
 
-TYPED_TEST(HazardPointer, acquire_if_equal_returns_false_and_resets_guard_when_values_are_not_equal)
-{
+TYPED_TEST(HazardPointer, acquire_if_equal_returns_false_and_resets_guard_when_values_are_not_equal) {
   using concurrent_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>;
   using Foo = typename TestFixture::Foo;
   concurrent_ptr foo_ptr(this->mp);
@@ -146,30 +130,24 @@ TYPED_TEST(HazardPointer, acquire_if_equal_returns_false_and_resets_guard_when_v
   EXPECT_FALSE(gp.acquire_if_equal(foo_ptr, other));
   EXPECT_EQ(nullptr, gp.get());
 }
-TYPED_TEST(HazardPointer, static_allocation_strategy_throws_bad_hazard_pointer_when_HP_pool_is_exceeded)
-{
-  if (std::is_same<TypeParam , my_dynamic_allocation_strategy>::value)
+TYPED_TEST(HazardPointer, static_allocation_strategy_throws_bad_hazard_pointer_when_HP_pool_is_exceeded) {
+  if (std::is_same<TypeParam, my_dynamic_allocation_strategy>::value)
     return;
 
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;
   guard_ptr gp1{this->mp};
   guard_ptr gp2{this->mp};
-  EXPECT_THROW(
-    guard_ptr gp3{this->mp},
-    xenium::reclamation::bad_hazard_pointer_alloc
-  );
+  EXPECT_THROW(guard_ptr gp3{this->mp}, xenium::reclamation::bad_hazard_pointer_alloc);
 }
 
-TYPED_TEST(HazardPointer, reset_releases_ownership_and_sets_pointer_to_null)
-{
+TYPED_TEST(HazardPointer, reset_releases_ownership_and_sets_pointer_to_null) {
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;
   guard_ptr gp(this->mp);
   gp.reset();
   EXPECT_EQ(nullptr, gp.get());
 }
 
-TYPED_TEST(HazardPointer, reclaim_releases_ownership_and_deletes_object_because_no_HP_protects_it)
-{
+TYPED_TEST(HazardPointer, reclaim_releases_ownership_and_deletes_object_because_no_HP_protects_it) {
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;
   guard_ptr gp(this->mp);
   gp.reclaim();
@@ -178,8 +156,7 @@ TYPED_TEST(HazardPointer, reclaim_releases_ownership_and_deletes_object_because_
   EXPECT_EQ(nullptr, gp.get());
 }
 
-TYPED_TEST(HazardPointer, supports_custom_deleters)
-{
+TYPED_TEST(HazardPointer, supports_custom_deleters) {
   bool called = false;
   using TT = typename TestFixture::WithCustomDeleter;
   using Deleter = typename TestFixture::DummyDeleter;
@@ -188,8 +165,7 @@ TYPED_TEST(HazardPointer, supports_custom_deleters)
   EXPECT_TRUE(called);
 }
 
-TYPED_TEST(HazardPointer, object_cannot_be_reclaimed_as_long_as_another_guard_protects_it)
-{
+TYPED_TEST(HazardPointer, object_cannot_be_reclaimed_as_long_as_another_guard_protects_it) {
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;
   guard_ptr gp(this->mp);
   guard_ptr gp2(this->mp);
@@ -198,8 +174,7 @@ TYPED_TEST(HazardPointer, object_cannot_be_reclaimed_as_long_as_another_guard_pr
   EXPECT_NE(nullptr, this->foo);
 }
 
-TYPED_TEST(HazardPointer, copy_constructor_leads_to_shared_ownership_preventing_the_object_from_beeing_reclaimed)
-{
+TYPED_TEST(HazardPointer, copy_constructor_leads_to_shared_ownership_preventing_the_object_from_beeing_reclaimed) {
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;
   guard_ptr gp(this->mp);
   guard_ptr gp2(gp);
@@ -208,8 +183,7 @@ TYPED_TEST(HazardPointer, copy_constructor_leads_to_shared_ownership_preventing_
   EXPECT_NE(nullptr, this->foo);
 }
 
-TYPED_TEST(HazardPointer, move_constructor_moves_ownership_and_resets_source_object)
-{
+TYPED_TEST(HazardPointer, move_constructor_moves_ownership_and_resets_source_object) {
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;
   guard_ptr gp(this->mp);
   guard_ptr gp2(std::move(gp));
@@ -219,8 +193,7 @@ TYPED_TEST(HazardPointer, move_constructor_moves_ownership_and_resets_source_obj
   EXPECT_EQ(nullptr, this->foo);
 }
 
-TYPED_TEST(HazardPointer, copy_assignment_leads_to_shared_ownership_preventing_the_object_from_beeing_reclaimed)
-{
+TYPED_TEST(HazardPointer, copy_assignment_leads_to_shared_ownership_preventing_the_object_from_beeing_reclaimed) {
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;
   guard_ptr gp(this->mp);
   guard_ptr gp2{};
@@ -230,8 +203,7 @@ TYPED_TEST(HazardPointer, copy_assignment_leads_to_shared_ownership_preventing_t
   EXPECT_NE(nullptr, this->foo);
 }
 
-TYPED_TEST(HazardPointer, move_assignment_moves_ownership_and_resets_source_object)
-{
+TYPED_TEST(HazardPointer, move_assignment_moves_ownership_and_resets_source_object) {
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;
   guard_ptr gp(this->mp);
   guard_ptr gp2{};
@@ -242,8 +214,7 @@ TYPED_TEST(HazardPointer, move_assignment_moves_ownership_and_resets_source_obje
   EXPECT_EQ(nullptr, this->foo);
 }
 
-TYPED_TEST(HazardPointer, guard_ptr_protects_the_same_object_via_different_base_classes)
-{
+TYPED_TEST(HazardPointer, guard_ptr_protects_the_same_object_via_different_base_classes) {
   using Foo = typename TestFixture::Foo;
   using FooBar = typename TestFixture::FooBar;
 
@@ -252,7 +223,7 @@ TYPED_TEST(HazardPointer, guard_ptr_protects_the_same_object_via_different_base_
   ptr = obj;
   typename TestFixture::template concurrent_ptr<Foo>::guard_ptr gp(obj);
   typename TestFixture::template concurrent_ptr<FooBar>::guard_ptr gp2(obj);
-  EXPECT_NE((void *) gp.get(), (void *) gp2.get());
+  EXPECT_NE((void*)gp.get(), (void*)gp2.get());
   gp.reclaim();
   EXPECT_NE(nullptr, ptr);
   EXPECT_EQ(obj, gp2.get());
@@ -261,9 +232,8 @@ TYPED_TEST(HazardPointer, guard_ptr_protects_the_same_object_via_different_base_
   EXPECT_EQ(nullptr, ptr);
 }
 
-TYPED_TEST(HazardPointer, dynamic_allocation_strategy_can_protect_more_than_K_objects)
-{
-  if (std::is_same<TypeParam , my_static_allocation_strategy>::value)
+TYPED_TEST(HazardPointer, dynamic_allocation_strategy_can_protect_more_than_K_objects) {
+  if (std::is_same<TypeParam, my_static_allocation_strategy>::value)
     return;
 
   const size_t count = 100;
@@ -275,8 +245,7 @@ TYPED_TEST(HazardPointer, dynamic_allocation_strategy_can_protect_more_than_K_ob
   std::vector<guard_ptr> guards(100);
   std::vector<guard_ptr> guards2(100);
 
-  for (size_t i = 0; i < count; ++i)
-  {
+  for (size_t i = 0; i < count; ++i) {
     foos[i] = new Foo(&foos[i]);
     guards[i] = guard_ptr(foos[i]);
     guards2[i] = guard_ptr(foos[i]);
@@ -298,4 +267,4 @@ TYPED_TEST(HazardPointer, dynamic_allocation_strategy_can_protect_more_than_K_ob
   for (size_t i = 0; i < count; ++i)
     EXPECT_EQ(nullptr, foos[i]);
 }
-}
+} // namespace

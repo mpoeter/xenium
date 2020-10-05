@@ -47,7 +47,7 @@ namespace policy {
    */
   template <bool Value>
   struct memoize_hash;
-}
+} // namespace policy
 
 /**
  * @brief A generic lock-free hash-map.
@@ -55,7 +55,7 @@ namespace policy {
  * This hash-map consists of a fixed number of buckets were each bucket is essentially
  * a `harris_michael_list_based_set` instance. The number of buckets is fixed, so the
  * hash-map does not support dynamic resizing.
- * 
+ *
  * This hash-map is less efficient than many other available concurrent hash-maps, but it is
  * lock-free and fully generic, i.e., it supports arbitrary types for `Key` and `Value`.
  *
@@ -83,15 +83,15 @@ namespace policy {
  * @tparam Policies list of policies to customize the behaviour
  */
 template <class Key, class Value, class... Policies>
-class harris_michael_hash_map
-{
+class harris_michael_hash_map {
 public:
   using value_type = std::pair<const Key, Value>;
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
   using hash = parameter::type_param_t<policy::hash, xenium::hash<Key>, Policies...>;
   using map_to_bucket = parameter::type_param_t<policy::map_to_bucket, utils::modulo<std::size_t>, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
-  static constexpr std::size_t num_buckets = parameter::value_param_t<std::size_t, policy::buckets, 512, Policies...>::value;
+  static constexpr std::size_t num_buckets =
+    parameter::value_param_t<std::size_t, policy::buckets, 512, Policies...>::value;
   static constexpr bool memoize_hash =
     parameter::value_param_t<bool, policy::memoize_hash, !std::is_scalar<Key>::value, Policies...>::value;
 
@@ -114,9 +114,9 @@ public:
    * the newly constructed element will be destroyed immediately.
    *
    * No iterators or references are invalidated.
-   * 
+   *
    * Progress guarantees: lock-free
-   * 
+   *
    * @param args arguments to forward to the constructor of the element
    * @return `true` if an element was inserted, otherwise `false`
    */
@@ -131,9 +131,9 @@ public:
    * the newly constructed element will be destroyed immediately.
    *
    * No iterators or references are invalidated.
-   * 
+   *
    * Progress guarantees: lock-free
-   * 
+   *
    * @param args arguments to forward to the constructor of the element
    * @return a pair consisting of an iterator to the inserted element, or the already-existing element
    * if no insertion happened, and a bool denoting whether the insertion took place;
@@ -188,9 +188,9 @@ public:
    * @brief Removes the element with the key equivalent to key (if one exists).
    *
    * No iterators or references are invalidated.
-   * 
+   *
    * Progress guarantees: lock-free
-   * 
+   *
    * @param key key of the element to remove
    * @return `true` if an element was removed, otherwise `false`
    */
@@ -200,9 +200,9 @@ public:
    * @brief Removes the specified element from the container.
    *
    * No iterators or references are invalidated.
-   * 
+   *
    * Progress guarantees: lock-free
-   * 
+   *
    * @param pos the iterator identifying the element to remove
    * @return iterator following the last removed element
    */
@@ -210,9 +210,9 @@ public:
 
   /**
    * @brief Finds an element with key equivalent to key.
-   * 
+   *
    * Progress guarantees: lock-free
-   * 
+   *
    * @param key key of the element to search for
    * @return iterator to an element with key equivalent to key if such element is found,
    * otherwise past-the-end iterator
@@ -223,7 +223,7 @@ public:
    * @brief Checks if there is an element with key equivalent to key in the container.
    *
    * Progress guarantees: lock-free
-   * 
+   *
    * @param key key of the element to search for
    * @return `true` if there is such an element, otherwise `false`
    */
@@ -239,15 +239,15 @@ public:
   accessor operator[](const Key& key);
 
   /**
-   * @brief Returns an iterator to the first element of the container. 
-   * @return iterator to the first element 
+   * @brief Returns an iterator to the first element of the container.
+   * @return iterator to the first element
    */
   iterator begin();
 
   /**
    * @brief Returns an iterator to the element following the last element of the container.
-   * 
-   * This element acts as a placeholder; attempting to access it results in undefined behavior. 
+   *
+   * This element acts as a placeholder; attempting to access it results in undefined behavior.
    * @return iterator to the element following the last element.
    */
   iterator end();
@@ -264,33 +264,23 @@ private:
 
   struct construct_without_hash {};
 
-  struct data_without_hash
-  {
+  struct data_without_hash {
     value_type value;
     template <class... Args>
-    data_without_hash(hash_t /*hash*/, Args&&... args) :
-      value(std::forward<Args>(args)...)
-    {}
+    data_without_hash(hash_t /*hash*/, Args&&... args) : value(std::forward<Args>(args)...) {}
     template <class... Args>
-    data_without_hash(construct_without_hash, Args&&... args) :
-      value(std::forward<Args>(args)...)
-    {}
+    data_without_hash(construct_without_hash, Args&&... args) : value(std::forward<Args>(args)...) {}
     hash_t get_hash() const { return hash{}(value.first); }
     bool greater_or_equal(hash_t /*h*/, const Key& key) const { return value.first >= key; }
   };
 
-  struct data_with_hash
-  {
+  struct data_with_hash {
     hash_t hash;
     value_type value;
     template <class... Args>
-    data_with_hash(hash_t hash, Args&&... args) :
-      hash(hash), value(std::forward<Args>(args)...)
-    {}
+    data_with_hash(hash_t hash, Args&&... args) : hash(hash), value(std::forward<Args>(args)...) {}
     template <class... Args>
-    data_with_hash(construct_without_hash, Args&&... args) :
-      value(std::forward<Args>(args)...)
-    {
+    data_with_hash(construct_without_hash, Args&&... args) : value(std::forward<Args>(args)...) {
       hash = harris_michael_hash_map::hash{}(value.first);
     }
     hash_t get_hash() const { return hash; }
@@ -299,19 +289,14 @@ private:
 
   using data_t = std::conditional_t<memoize_hash, data_with_hash, data_without_hash>;
 
-
-  struct node : reclaimer::template enable_concurrent_ptr<node, 1>
-  {
+  struct node : reclaimer::template enable_concurrent_ptr<node, 1> {
     data_t data;
     concurrent_ptr next;
     template <class... Args>
-    node(Args&&... args) :
-      data(std::forward<Args>(args)...), next()
-    {}
+    node(Args&&... args) : data(std::forward<Args>(args)...), next() {}
   };
 
-  struct find_info
-  {
+  struct find_info {
     concurrent_ptr* prev;
     marked_ptr next{};
     guard_ptr cur{};
@@ -325,13 +310,13 @@ private:
 
 /**
  * @brief A ForwardIterator to safely iterate the hash-map.
- * 
+ *
  * Iterators are not invalidated by concurrent insert/erase operations. However, conflicting erase
  * operations can have a negative impact on the performance when advancing the iterator, because it
  * may be necessary to rescan the bucket's list to find the next element.
- * 
+ *
  * *Note:* This iterator class does *not* provide multi-pass guarantee as `a == b` does not imply `++a == ++b`.
- * 
+ *
  * *Note:* Each iterator internally holds two `guard_ptr` instances. This has to be considered when using
  * a reclamation scheme that requires per-instance resources like `hazard_pointer` or `hazard_eras`.
  * It is therefore highly recommended to use prefix increments wherever possible.
@@ -351,20 +336,16 @@ public:
   iterator& operator=(iterator&&) = default;
   iterator& operator=(const iterator&) = default;
 
-  iterator& operator++()
-  {
+  iterator& operator++() {
     assert(info.cur.get() != nullptr);
     auto next = info.cur->next.load(std::memory_order_relaxed);
     guard_ptr tmp_guard;
     // (1) - this acquire-load synchronizes-with the release-CAS (8, 9, 10, 12, 15)
-    if (next.mark() == 0 && tmp_guard.acquire_if_equal(info.cur->next, next, std::memory_order_acquire))
-    {
+    if (next.mark() == 0 && tmp_guard.acquire_if_equal(info.cur->next, next, std::memory_order_acquire)) {
       info.prev = &info.cur->next;
       info.save = std::move(info.cur);
       info.cur = std::move(tmp_guard);
-    }
-    else
-    {
+    } else {
       // cur is marked for removal
       // -> use find to remove it and get to the next node with a key >= cur->key
       // Note: we have to copy key here!
@@ -373,8 +354,7 @@ public:
       backoff backoff;
       map->find(h, key, bucket, info, backoff);
     }
-    assert(info.prev == &map->buckets[bucket] ||
-           info.cur.get() == nullptr ||
+    assert(info.prev == &map->buckets[bucket] || info.cur.get() == nullptr ||
            (info.save.get() != nullptr && &info.save->next == info.prev));
 
     if (!info.cur)
@@ -382,8 +362,7 @@ public:
 
     return *this;
   }
-  iterator operator++(int)
-  {
+  iterator operator++(int) {
     iterator retval = *this;
     ++(*this);
     return retval;
@@ -403,15 +382,9 @@ public:
 private:
   friend harris_michael_hash_map;
 
-  explicit iterator(harris_michael_hash_map* map) :
-    map(map),
-    bucket(num_buckets)
-  {}
+  explicit iterator(harris_michael_hash_map* map) : map(map), bucket(num_buckets) {}
 
-  explicit iterator(harris_michael_hash_map* map, std::size_t bucket) :
-    map(map),
-    bucket(bucket)
-  {
+  explicit iterator(harris_michael_hash_map* map, std::size_t bucket) : map(map), bucket(bucket) {
     info.prev = &map->buckets[bucket];
     // (2) - this acquire-load synchronizes-with the release-CAS (8, 9, 10, 12, 15)
     info.cur.acquire(*info.prev, std::memory_order_acquire);
@@ -421,10 +394,9 @@ private:
   }
 
   explicit iterator(harris_michael_hash_map* map, std::size_t bucket, find_info&& info) :
-    map(map),
-    bucket(bucket),
-    info(std::move(info))
-  {}
+      map(map),
+      bucket(bucket),
+      info(std::move(info)) {}
 
   void move_to_next_bucket() {
     info.save.reset();
@@ -456,21 +428,19 @@ public:
   Value* operator->() const noexcept { return &guard->data.value.second; }
   Value& operator*() const noexcept { return guard->data.value.second; }
   void reset() { guard.reset(); }
+
 private:
-  accessor(guard_ptr&& guard): guard(std::move(guard)) {}
+  accessor(guard_ptr&& guard) : guard(std::move(guard)) {}
   guard_ptr guard;
   friend harris_michael_hash_map;
 };
 
 template <class Key, class Value, class... Policies>
-harris_michael_hash_map<Key, Value, Policies...>::~harris_michael_hash_map()
-{
-  for (std::size_t i = 0; i < num_buckets; ++i)
-  {
+harris_michael_hash_map<Key, Value, Policies...>::~harris_michael_hash_map() {
+  for (std::size_t i = 0; i < num_buckets; ++i) {
     // (4) - this acquire-load synchronizes-with the release-CAS (8, 9, 10, 12, 15)
     auto p = buckets[i].load(std::memory_order_acquire);
-    while (p)
-    {
+    while (p) {
       // (5) - this acquire-load synchronizes-with the release-CAS (8, 9, 10, 12, 15)
       auto next = p->next.load(std::memory_order_acquire);
       delete p.get();
@@ -480,9 +450,11 @@ harris_michael_hash_map<Key, Value, Policies...>::~harris_michael_hash_map()
 }
 
 template <class Key, class Value, class... Policies>
-bool harris_michael_hash_map<Key, Value, Policies...>::find(hash_t hash, const Key& key, std::size_t bucket,
-  find_info& info, backoff& backoff)
-{
+bool harris_michael_hash_map<Key, Value, Policies...>::find(hash_t hash,
+                                                            const Key& key,
+                                                            std::size_t bucket,
+                                                            find_info& info,
+                                                            backoff& backoff) {
   auto& head = buckets[bucket];
   assert((info.save == nullptr && info.prev == &head) || &info.save->next == info.prev);
   concurrent_ptr* start = info.prev;
@@ -498,8 +470,7 @@ retry:
     goto retry;
   }
 
-  for (;;)
-  {
+  for (;;) {
     // (6) - this acquire-load synchronizes-with the release-CAS (8, 9, 10, 12, 15)
     if (!info.cur.acquire_if_equal(*info.prev, info.next, std::memory_order_acquire))
       goto retry;
@@ -508,8 +479,7 @@ retry:
       return false;
 
     info.next = info.cur->next.load(std::memory_order_relaxed);
-    if (info.next.mark() != 0)
-    {
+    if (info.next.mark() != 0) {
       // Node *cur is marked for deletion -> update the link and retire the element
 
       // (7) - this acquire-load synchronizes-with the release-CAS (8, 9, 10, 12, 15)
@@ -520,17 +490,13 @@ retry:
       // (8) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6, 7, 13)
       //       and the acquire-CAS (11, 14)
       //       it is the head of a potential release sequence containing (11, 14)
-      if (!info.prev->compare_exchange_weak(expected, info.next,
-                                            std::memory_order_release,
-                                            std::memory_order_relaxed))
-      {
+      if (!info.prev->compare_exchange_weak(
+            expected, info.next, std::memory_order_release, std::memory_order_relaxed)) {
         backoff();
         goto retry;
       }
       info.cur.reclaim();
-    }
-    else
-    {
+    } else {
       if (info.prev->load(std::memory_order_relaxed) != info.cur.get())
         goto retry; // cur might be cut from the hash_map.
 
@@ -545,8 +511,7 @@ retry:
 }
 
 template <class Key, class Value, class... Policies>
-bool harris_michael_hash_map<Key, Value, Policies...>::contains(const Key& key)
-{
+bool harris_michael_hash_map<Key, Value, Policies...>::contains(const Key& key) {
   auto h = hash{}(key);
   auto bucket = map_to_bucket{}(h, num_buckets);
   find_info info{&buckets[bucket]};
@@ -555,8 +520,7 @@ bool harris_michael_hash_map<Key, Value, Policies...>::contains(const Key& key)
 }
 
 template <class Key, class Value, class... Policies>
-auto harris_michael_hash_map<Key, Value, Policies...>::find(const Key& key) -> iterator
-{
+auto harris_michael_hash_map<Key, Value, Policies...>::find(const Key& key) -> iterator {
   auto h = hash{}(key);
   auto bucket = map_to_bucket{}(h, num_buckets);
   find_info info{&buckets[bucket]};
@@ -568,8 +532,7 @@ auto harris_michael_hash_map<Key, Value, Policies...>::find(const Key& key) -> i
 
 template <class Key, class Value, class... Policies>
 template <class... Args>
-bool harris_michael_hash_map<Key, Value, Policies...>::emplace(Args&&... args)
-{
+bool harris_michael_hash_map<Key, Value, Policies...>::emplace(Args&&... args) {
   auto result = emplace_or_get(std::forward<Args>(args)...);
   return result.second;
 }
@@ -577,10 +540,10 @@ bool harris_michael_hash_map<Key, Value, Policies...>::emplace(Args&&... args)
 template <class Key, class Value, class... Policies>
 template <class... Args>
 auto harris_michael_hash_map<Key, Value, Policies...>::get_or_emplace(Key key, Args&&... args)
--> std::pair<iterator, bool>
-{
+  -> std::pair<iterator, bool> {
   return do_get_or_emplace_lazy(std::move(key), [&args...](hash_t hash, Key key) {
-    return new node(hash, std::piecewise_construct,
+    return new node(hash,
+                    std::piecewise_construct,
                     std::forward_as_tuple(std::move(key)),
                     std::forward_as_tuple(std::forward<Args>(args)...));
   });
@@ -589,18 +552,15 @@ auto harris_michael_hash_map<Key, Value, Policies...>::get_or_emplace(Key key, A
 template <class Key, class Value, class... Policies>
 template <typename Factory>
 auto harris_michael_hash_map<Key, Value, Policies...>::get_or_emplace_lazy(Key key, Factory value_factory)
-  -> std::pair<iterator, bool>
-{
-  return do_get_or_emplace_lazy(std::move(key), [&value_factory](hash_t hash, Key key) {
-    return new node(hash, std::move(key), value_factory());
-  });
+  -> std::pair<iterator, bool> {
+  return do_get_or_emplace_lazy(
+    std::move(key), [&value_factory](hash_t hash, Key key) { return new node(hash, std::move(key), value_factory()); });
 }
 
 template <class Key, class Value, class... Policies>
 template <typename Factory>
 auto harris_michael_hash_map<Key, Value, Policies...>::do_get_or_emplace_lazy(Key key, Factory node_factory)
-  -> std::pair<iterator, bool>
-{
+  -> std::pair<iterator, bool> {
   node* n = nullptr;
   auto h = hash{}(key);
   auto bucket = map_to_bucket{}(h, num_buckets);
@@ -608,10 +568,8 @@ auto harris_michael_hash_map<Key, Value, Policies...>::do_get_or_emplace_lazy(Ke
   const Key* pkey = &key;
   find_info info{&buckets[bucket]};
   backoff backoff;
-  for (;;)
-  {
-    if (find(h, *pkey, bucket, info, backoff))
-    {
+  for (;;) {
+    if (find(h, *pkey, bucket, info, backoff)) {
       delete n;
       return {iterator(this, bucket, std::move(info)), false};
     }
@@ -629,9 +587,7 @@ auto harris_michael_hash_map<Key, Value, Policies...>::do_get_or_emplace_lazy(Ke
     // (9) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6, 7, 13)
     //       and the acquire-CAS (11, 14)
     //       it is the head of a potential release sequence containing (11, 14)
-    if (info.prev->compare_exchange_weak(cur, n,
-                                         std::memory_order_release,
-                                         std::memory_order_relaxed))
+    if (info.prev->compare_exchange_weak(cur, n, std::memory_order_release, std::memory_order_relaxed))
       return {iterator(this, bucket, std::move(info)), true};
 
     backoff();
@@ -640,9 +596,7 @@ auto harris_michael_hash_map<Key, Value, Policies...>::do_get_or_emplace_lazy(Ke
 
 template <class Key, class Value, class... Policies>
 template <class... Args>
-auto harris_michael_hash_map<Key, Value, Policies...>::emplace_or_get(Args&&... args)
-  -> std::pair<iterator, bool>
-{
+auto harris_michael_hash_map<Key, Value, Policies...>::emplace_or_get(Args&&... args) -> std::pair<iterator, bool> {
   node* n = new node(construct_without_hash{}, std::forward<Args>(args)...);
 
   auto h = n->data.get_hash();
@@ -650,24 +604,20 @@ auto harris_michael_hash_map<Key, Value, Policies...>::emplace_or_get(Args&&... 
 
   find_info info{&buckets[bucket]};
   backoff backoff;
-  for (;;)
-  {
-    if (find(h, n->data.value.first, bucket, info, backoff))
-    {
+  for (;;) {
+    if (find(h, n->data.value.first, bucket, info, backoff)) {
       delete n;
       return {iterator(this, bucket, std::move(info)), false};
     }
     // Try to install new node
     marked_ptr expected = info.cur.get();
     n->next.store(expected, std::memory_order_relaxed);
-    guard_ptr new_guard(n);    
+    guard_ptr new_guard(n);
 
     // (10) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6, 7, 13)
     //        and the acquire-CAS (11, 14)
     //        it is the head of a potential release sequence containing (11, 14)
-    if (info.prev->compare_exchange_weak(expected, n,
-                                         std::memory_order_release,
-                                         std::memory_order_relaxed)) {
+    if (info.prev->compare_exchange_weak(expected, n, std::memory_order_release, std::memory_order_relaxed)) {
       info.cur = std::move(new_guard);
       return {iterator(this, bucket, std::move(info)), true};
     }
@@ -677,23 +627,19 @@ auto harris_michael_hash_map<Key, Value, Policies...>::emplace_or_get(Args&&... 
 }
 
 template <class Key, class Value, class... Policies>
-bool harris_michael_hash_map<Key, Value, Policies...>::erase(const Key& key)
-{
+bool harris_michael_hash_map<Key, Value, Policies...>::erase(const Key& key) {
   auto h = hash{}(key);
   auto bucket = map_to_bucket{}(h, num_buckets);
   backoff backoff;
   find_info info{&buckets[bucket]};
   // Find node in hash_map with matching key and mark it for erasure.
-  do
-  {
+  do {
     if (!find(h, key, bucket, info, backoff))
       return false; // No such node in the hash_map
     // (11) - this acquire-CAS synchronizes with the release-CAS (8, 9, 10, 12, 15)
     //        and is part of a release sequence headed by those operations
-  } while (!info.cur->next.compare_exchange_weak(info.next,
-                                                 marked_ptr(info.next.get(), 1),
-                                                 std::memory_order_acquire,
-                                                 std::memory_order_relaxed));
+  } while (!info.cur->next.compare_exchange_weak(
+    info.next, marked_ptr(info.next.get(), 1), std::memory_order_acquire, std::memory_order_relaxed));
 
   assert(info.next.mark() == 0);
   assert(info.cur.mark() == 0);
@@ -703,31 +649,25 @@ bool harris_michael_hash_map<Key, Value, Policies...>::erase(const Key& key)
   // (12) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6, 7, 13)
   //        and the acquire-CAS (11, 14)
   //        it is the head of a potential release sequence containing (11, 14)
-  if (info.prev->compare_exchange_weak(expected, info.next.get(),
-                                       std::memory_order_release,
-                                       std::memory_order_relaxed))
+  if (info.prev->compare_exchange_weak(expected, info.next.get(), std::memory_order_release, std::memory_order_relaxed))
     info.cur.reclaim();
   else
     // Another thread interfered -> rewalk the bucket's list to ensure
     // reclamation of marked node before returning.
     find(h, key, bucket, info, backoff);
-   
+
   return true;
 }
 
 template <class Key, class Value, class... Policies>
-auto harris_michael_hash_map<Key, Value, Policies...>::erase(iterator pos) -> iterator
-{
+auto harris_michael_hash_map<Key, Value, Policies...>::erase(iterator pos) -> iterator {
   backoff backoff;
   // (13) - this acquire-load synchronizes-with the release-CAS (8, 9, 10, 12, 15)
   auto next = pos.info.cur->next.load(std::memory_order_acquire);
-  while (next.mark() == 0)
-  {
+  while (next.mark() == 0) {
     // (14) - this acquire-CAS synchronizes with the release-CAS (8, 9, 10, 12, 15)
     //        and is part of a release sequence headed by those operations
-    if (pos.info.cur->next.compare_exchange_weak(next,
-                                                 marked_ptr(next.get(), 1),
-                                                 std::memory_order_acquire))
+    if (pos.info.cur->next.compare_exchange_weak(next, marked_ptr(next.get(), 1), std::memory_order_acquire))
       break;
 
     backoff();
@@ -741,9 +681,8 @@ auto harris_michael_hash_map<Key, Value, Policies...>::erase(iterator pos) -> it
   // (15) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6, 7, 13)
   //        and the acquire-CAS (11, 14)
   //        it is the head of a potential release sequence containing (11, 14)
-  if (pos.info.prev->compare_exchange_weak(expected, next_guard,
-                                           std::memory_order_release,
-                                           std::memory_order_relaxed)) {
+  if (pos.info.prev->compare_exchange_weak(
+        expected, next_guard, std::memory_order_release, std::memory_order_relaxed)) {
     pos.info.cur.reclaim();
     pos.info.cur = std::move(next_guard);
   } else {
@@ -762,23 +701,20 @@ auto harris_michael_hash_map<Key, Value, Policies...>::erase(iterator pos) -> it
 }
 
 template <class Key, class Value, class... Policies>
-auto harris_michael_hash_map<Key, Value, Policies...>::operator[](const Key& key) -> accessor
-{
+auto harris_michael_hash_map<Key, Value, Policies...>::operator[](const Key& key) -> accessor {
   auto result = get_or_emplace_lazy(key, []() { return Value{}; });
   return accessor(std::move(result.first.info.cur));
 }
 
 template <class Key, class Value, class... Policies>
-auto harris_michael_hash_map<Key, Value, Policies...>::begin() -> iterator
-{
+auto harris_michael_hash_map<Key, Value, Policies...>::begin() -> iterator {
   return iterator(this, 0);
 }
 
 template <class Key, class Value, class... Policies>
-auto harris_michael_hash_map<Key, Value, Policies...>::end() -> iterator
-{
+auto harris_michael_hash_map<Key, Value, Policies...>::end() -> iterator {
   return iterator(this);
 }
-}
+} // namespace xenium
 
 #endif

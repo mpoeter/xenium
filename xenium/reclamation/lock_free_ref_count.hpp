@@ -6,9 +6,9 @@
 #ifndef XENIUM_LOCK_FREE_REF_COUNT_HPP
 #define XENIUM_LOCK_FREE_REF_COUNT_HPP
 
+#include <xenium/reclamation/detail/allocation_tracker.hpp>
 #include <xenium/reclamation/detail/concurrent_ptr.hpp>
 #include <xenium/reclamation/detail/guard_ptr.hpp>
-#include <xenium/reclamation/detail/allocation_tracker.hpp>
 
 #include <xenium/acquire_guard.hpp>
 #include <xenium/parameter.hpp>
@@ -21,35 +21,34 @@ namespace policy {
   /**
    * @brief Policy to configure whether to insert padding after the internal header for
    * `lock_free_ref_count` reclamation.
-   * 
+   *
    * This policy is used to define whether a padding should be inserted between the internal
    * header that contains the reference counter and the actual object. This can be used to
    * avoid false sharing, but of course it increases memory overhead, which can also cause
    * a performance drop in some cases.
-   * 
+   *
    * @tparam Value
    */
-  template <bool Value> struct insert_padding;
+  template <bool Value>
+  struct insert_padding;
 
   /**
    * @brief Policy to configure the size of thread-local free-lists for `lock` reclamation.
-   * 
+   *
    * This policy is used to define the max. number of items in each thread-local free-list.
    * If this is set to zero, then thread-local free-lists are completely disable.
    * Using thread-local free-lists cna reduce the contention on the global free-list, but it
    * may lead to increased memory usage, since items stored in a thread-local free-list can
    * only be reused by the owning thread.
-   * 
+   *
    * @tparam Value
    */
-  template <std::size_t Value> struct thread_local_free_list_size;
-}
-  
+  template <std::size_t Value>
+  struct thread_local_free_list_size;
+} // namespace policy
+
 namespace reclamation {
-  template <
-    bool InsertPadding = false,
-    std::size_t ThreadLocalFreeListSize = 0
-  >
+  template <bool InsertPadding = false, std::size_t ThreadLocalFreeListSize = 0>
   struct lock_free_ref_count_traits {
     static constexpr bool insert_padding = InsertPadding;
     static constexpr std::size_t thread_local_free_list_size = ThreadLocalFreeListSize;
@@ -57,8 +56,8 @@ namespace reclamation {
     template <class... Policies>
     using with = lock_free_ref_count_traits<
       parameter::value_param_t<bool, policy::insert_padding, InsertPadding, Policies...>::value,
-      parameter::value_param_t<std::size_t, policy::thread_local_free_list_size, ThreadLocalFreeListSize, Policies...>::value
-    >;
+      parameter::value_param_t<std::size_t, policy::thread_local_free_list_size, ThreadLocalFreeListSize, Policies...>::
+        value>;
   };
 
   /**
@@ -67,7 +66,7 @@ namespace reclamation {
    *
    * This scheme cannot handle types that define their own new/delete operators, and it
    * does not allow the use of custom deleters.
-   * 
+   *
    * This class does not take a list of policies, but a `Traits` type that can be customized
    * with a list of policies. The following policies are supported:
    *  * `xenium::policy::insert_padding`<br>
@@ -75,12 +74,11 @@ namespace reclamation {
    *    object. (defaults to false)
    *  * `xenium::policy::thread_local_free_list_size`<br>
    *    Defines the max. number of items in each thread-local free-list. (defaults to 0)
-   * 
+   *
    * @tparam Traits
    */
   template <class Traits = lock_free_ref_count_traits<>>
-  class lock_free_ref_count
-  {
+  class lock_free_ref_count {
     template <class T, class MarkedPtr>
     class guard_ptr;
 
@@ -110,23 +108,18 @@ namespace reclamation {
 
   template <class Traits>
   template <class T, std::size_t N, class DeleterT>
-  class lock_free_ref_count<Traits>::enable_concurrent_ptr:
-    private detail::tracked_object<lock_free_ref_count>
-  {
+  class lock_free_ref_count<Traits>::enable_concurrent_ptr : private detail::tracked_object<lock_free_ref_count> {
   protected:
-    enable_concurrent_ptr() noexcept
-    {
-      destroyed().store(false, std::memory_order_relaxed);
-    }
+    enable_concurrent_ptr() noexcept { destroyed().store(false, std::memory_order_relaxed); }
     enable_concurrent_ptr(const enable_concurrent_ptr&) noexcept = delete;
     enable_concurrent_ptr(enable_concurrent_ptr&&) noexcept = delete;
     enable_concurrent_ptr& operator=(const enable_concurrent_ptr&) noexcept = delete;
     enable_concurrent_ptr& operator=(enable_concurrent_ptr&&) noexcept = delete;
-    virtual ~enable_concurrent_ptr() noexcept
-    {
+    virtual ~enable_concurrent_ptr() noexcept {
       assert(!is_destroyed());
       destroyed().store(true, std::memory_order_relaxed);
     }
+
   public:
     using Deleter = DeleterT;
     static_assert(std::is_same<Deleter, std::default_delete<T>>::value,
@@ -165,16 +158,15 @@ namespace reclamation {
     using marked_ptr = typename concurrent_ptr<T, N>::marked_ptr;
 
     class free_list;
-    static free_list global_free_list;  
+    static free_list global_free_list;
   };
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  class lock_free_ref_count<Traits>::guard_ptr :
-      public detail::guard_ptr<T, MarkedPtr, guard_ptr<T, MarkedPtr>>
-  {
+  class lock_free_ref_count<Traits>::guard_ptr : public detail::guard_ptr<T, MarkedPtr, guard_ptr<T, MarkedPtr>> {
     using base = detail::guard_ptr<T, MarkedPtr, guard_ptr>;
     using Deleter = typename T::Deleter;
+
   public:
     template <class, std::size_t, class>
     friend class enable_concurrent_ptr;
@@ -201,7 +193,8 @@ namespace reclamation {
     // Reset. Deleter d will be applied some time after all owners release their ownership.
     void reclaim(Deleter d = Deleter()) noexcept;
   };
-}}
+} // namespace reclamation
+} // namespace xenium
 
 #define LOCK_FREE_REF_COUNT_IMPL
 #include <xenium/reclamation/impl/lock_free_ref_count.hpp>

@@ -6,10 +6,10 @@
 #ifndef XENIUM_CHASE_WORK_STEALING_DEQUE_HPP
 #define XENIUM_CHASE_WORK_STEALING_DEQUE_HPP
 
-#include <xenium/parameter.hpp>
-#include <xenium/policy.hpp>
 #include <xenium/detail/fixed_size_circular_array.hpp>
 #include <xenium/detail/growing_circular_array.hpp>
+#include <xenium/parameter.hpp>
+#include <xenium/policy.hpp>
 
 #include <atomic>
 #include <cassert>
@@ -20,7 +20,7 @@ namespace xenium {
  *
  * This is an implementation of the work stealing deque proposed by Chase and Lev
  * \[[CL05](index.html#ref-chase-2005)\].
- * 
+ *
  * Supported policies:
  *  * `xenium::policy::capacity`<br>
  *    Defines the (minimum) capacity of the deque. (*optional*; defaults to 128)
@@ -37,8 +37,10 @@ namespace xenium {
 template <class T, class... Policies>
 struct chase_work_stealing_deque {
   using value_type = T*;
-  static constexpr std::size_t capacity = parameter::value_param_t<std::size_t, policy::capacity, 128, Policies...>::value;
-  using container = parameter::type_param_t<policy::container, detail::growing_circular_array<T, capacity>, Policies...>;
+  static constexpr std::size_t capacity =
+    parameter::value_param_t<std::size_t, policy::capacity, 128, Policies...>::value;
+  using container =
+    parameter::type_param_t<policy::container, detail::growing_circular_array<T, capacity>, Policies...>;
 
   chase_work_stealing_deque();
 
@@ -49,12 +51,14 @@ struct chase_work_stealing_deque {
   chase_work_stealing_deque& operator=(chase_work_stealing_deque&&) = delete;
 
   bool try_push(value_type item);
-  [[nodiscard]] bool try_pop(value_type &result);
-  [[nodiscard]] bool try_steal(value_type &result);
+  [[nodiscard]] bool try_pop(value_type& result);
+  [[nodiscard]] bool try_steal(value_type& result);
 
   std::size_t size() {
     auto t = top.load(std::memory_order_relaxed);
-    return bottom.load(std::memory_order_relaxed) - t; }
+    return bottom.load(std::memory_order_relaxed) - t;
+  }
+
 private:
   container items;
   std::atomic<std::size_t> bottom;
@@ -62,10 +66,7 @@ private:
 };
 
 template <class T, class... Policies>
-chase_work_stealing_deque<T, Policies...>::chase_work_stealing_deque() :
-  bottom(),
-  top()
-{}
+chase_work_stealing_deque<T, Policies...>::chase_work_stealing_deque() : bottom(), top() {}
 
 template <class T, class... Policies>
 bool chase_work_stealing_deque<T, Policies...>::try_push(value_type item) {
@@ -77,8 +78,7 @@ bool chase_work_stealing_deque<T, Policies...>::try_push(value_type item) {
       items.grow(b, t);
       assert(size < items.capacity());
       // TODO - need to update top??
-    }
-    else
+    } else
       return false;
   }
 
@@ -90,7 +90,7 @@ bool chase_work_stealing_deque<T, Policies...>::try_push(value_type item) {
 }
 
 template <class T, class... Policies>
-bool chase_work_stealing_deque<T, Policies...>::try_pop(value_type &result) {
+bool chase_work_stealing_deque<T, Policies...>::try_pop(value_type& result) {
   auto b = bottom.load(std::memory_order_relaxed);
   auto t = top.load(std::memory_order_relaxed);
   if (b == t)
@@ -129,7 +129,7 @@ bool chase_work_stealing_deque<T, Policies...>::try_pop(value_type &result) {
 }
 
 template <class T, class... Policies>
-bool chase_work_stealing_deque<T, Policies...>::try_steal(value_type &result) {
+bool chase_work_stealing_deque<T, Policies...>::try_steal(value_type& result) {
   auto t = top.load(std::memory_order_relaxed);
 
   // (4) - this seq-cst-load enforces a total order with the seq-cst-store (2)
@@ -148,6 +148,6 @@ bool chase_work_stealing_deque<T, Policies...>::try_steal(value_type &result) {
 
   return false;
 }
-}
+} // namespace xenium
 
 #endif

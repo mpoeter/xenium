@@ -9,7 +9,7 @@ std::uint64_t round_report::operations() const {
 }
 
 tao::json::value round_report::as_json() const {
-  tao::json::value result {
+  tao::json::value result{
     {"runtime", runtime},
     {"operations", operations()},
   };
@@ -20,16 +20,13 @@ tao::json::value round_report::as_json() const {
   }
 
   result.try_emplace("threads", std::move(thread_data));
-  
+
   return result;
 }
 
 tao::json::value report::as_json() const {
   tao::json::value result{
-    {"name", name},
-    {"timestamp", timestamp},
-    {"config", tao::json::from_string(tao::json::to_string(config))}
-  };
+    {"name", name}, {"timestamp", timestamp}, {"config", tao::json::from_string(tao::json::to_string(config))}};
 
   tao::json::value round_reports;
   for (const auto& round : rounds) {

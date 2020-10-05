@@ -15,24 +15,19 @@ namespace xenium { namespace detail {
   struct fixed_size_circular_array {
     std::size_t capacity() const { return Capacity; }
 
-    T* get(std::size_t idx, std::memory_order order) {
-      return items[idx & mask].load(order);
-    }
+    T* get(std::size_t idx, std::memory_order order) { return items[idx & mask].load(order); }
 
-    void put(std::size_t idx, T* value, std::memory_order order) {
-      items[idx & mask].store(value, order);
-    }
+    void put(std::size_t idx, T* value, std::memory_order order) { items[idx & mask].store(value, order); }
 
     constexpr bool can_grow() const { return false; }
 
-    void grow(std::size_t, std::size_t) {
-      throw std::runtime_error("cannot grow fixed_size_circular_array");
-    }
+    void grow(std::size_t, std::size_t) { throw std::runtime_error("cannot grow fixed_size_circular_array"); }
+
   private:
     static constexpr std::size_t mask = Capacity - 1;
     static_assert((Capacity & mask) == 0, "capacity has to be a power of two");
 
     std::atomic<T*> items[Capacity];
   };
-}}
+}} // namespace xenium::detail
 #endif

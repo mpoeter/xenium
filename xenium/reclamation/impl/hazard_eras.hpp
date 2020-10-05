@@ -4,7 +4,7 @@
 //
 
 #ifndef HAZARD_ERAS_IMPL
-#error "This is an impl file and must not be included directly!"
+  #error "This is an impl file and must not be included directly!"
 #endif
 
 #include <xenium/aligned_object.hpp>
@@ -15,21 +15,17 @@
 #include <vector>
 
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4324) // structure was padded due to alignment specifier
-#pragma warning(disable: 26495) // uninitialized member variable
+  #pragma warning(push)
+  #pragma warning(disable : 4324)  // structure was padded due to alignment specifier
+  #pragma warning(disable : 26495) // uninitialized member variable
 #endif
 
 namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(const MarkedPtr& p) :
-    base(p),
-    he()
-  {
-    if (this->ptr.get() != nullptr)
-    {
+  hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(const MarkedPtr& p) : base(p), he() {
+    if (this->ptr.get() != nullptr) {
       auto era = era_clock.load(std::memory_order_relaxed);
       he = local_thread_data().alloc_hazard_era(era);
     }
@@ -37,29 +33,21 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(const guard_ptr& p) :
-    base(p.ptr),
-    he(p.he)
-  {
+  hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(const guard_ptr& p) : base(p.ptr), he(p.he) {
     if (he)
       he->add_guard();
   }
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(guard_ptr&& p) noexcept :
-    base(p.ptr),
-    he(p.he)
-  {
+  hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::guard_ptr(guard_ptr&& p) noexcept : base(p.ptr), he(p.he) {
     p.ptr.reset();
     p.he = nullptr;
   }
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  auto hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::operator=(const guard_ptr& p) noexcept
-    -> guard_ptr&
-  {
+  auto hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::operator=(const guard_ptr& p) noexcept -> guard_ptr& {
     if (&p == this)
       return *this;
 
@@ -73,9 +61,7 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  auto hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::operator=(guard_ptr&& p) noexcept
-    -> guard_ptr&
-  {
+  auto hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::operator=(guard_ptr&& p) noexcept -> guard_ptr& {
     if (&p == this)
       return *this;
 
@@ -89,9 +75,7 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  void hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::acquire(const concurrent_ptr<T>& p,
-    std::memory_order order)
-  {
+  void hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::acquire(const concurrent_ptr<T>& p, std::memory_order order) {
     if (order == std::memory_order_relaxed || order == std::memory_order_consume) {
       // we have to use memory_order_acquire (or something stricter) to ensure that
       // the era_clock.load cannot return an outdated value.
@@ -110,17 +94,14 @@ namespace xenium { namespace reclamation {
         return;
       }
 
-      if (he != nullptr)
-      {
+      if (he != nullptr) {
         assert(he->get_era() != era);
-        if (he->guards() == 1)
-        {
+        if (he->guards() == 1) {
           // we are the only guard using this HE instance -> reuse it and simply update the era
           he->set_era(era);
           prev_era = era;
           continue;
-        }
-        else {
+        } else {
           he->release_guard();
           he = nullptr;
         }
@@ -133,11 +114,9 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  bool hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::acquire_if_equal(
-    const concurrent_ptr<T>& p,
-    const MarkedPtr& expected,
-    std::memory_order order)
-  {
+  bool hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::acquire_if_equal(const concurrent_ptr<T>& p,
+                                                                      const MarkedPtr& expected,
+                                                                      std::memory_order order) {
     if (order == std::memory_order_relaxed || order == std::memory_order_consume) {
       // we have to use memory_order_acquire (or something stricter) to ensure that
       // the era_clock.load cannot return an outdated value.
@@ -164,8 +143,7 @@ namespace xenium { namespace reclamation {
     }
 
     this->ptr = p.load(std::memory_order_relaxed);
-    if (this->ptr != p1)
-    {
+    if (this->ptr != p1) {
       reset();
       return false;
     }
@@ -174,8 +152,7 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  void hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::reset() noexcept
-  {
+  void hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::reset() noexcept {
     local_thread_data().release_hazard_era(he);
     assert(this->he == nullptr);
     this->ptr.reset();
@@ -183,15 +160,13 @@ namespace xenium { namespace reclamation {
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  void hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::do_swap(guard_ptr& g) noexcept
-  {
+  void hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::do_swap(guard_ptr& g) noexcept {
     std::swap(he, g.he);
   }
 
   template <class Traits>
   template <class T, class MarkedPtr>
-  void hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::reclaim(Deleter d) noexcept
-  {
+  void hazard_eras<Traits>::guard_ptr<T, MarkedPtr>::reclaim(Deleter d) noexcept {
     auto p = this->ptr.get();
     reset();
     p->set_deleter(std::move(d));
@@ -205,21 +180,16 @@ namespace xenium { namespace reclamation {
   namespace detail {
     template <class Strategy, class Derived>
     struct alignas(64) basic_he_thread_control_block :
-      detail::thread_block_list<Derived, detail::deletable_object_with_eras>::entry,
-      aligned_object<basic_he_thread_control_block<Strategy, Derived>>
-    {
+        detail::thread_block_list<Derived, detail::deletable_object_with_eras>::entry,
+        aligned_object<basic_he_thread_control_block<Strategy, Derived>> {
       using era_t = uint64_t;
 
-      ~basic_he_thread_control_block() {
-        assert(last_hazard_era != nullptr);
-      }
+      ~basic_he_thread_control_block() { assert(last_hazard_era != nullptr); }
 
-      struct hazard_era
-      {
-        hazard_era(): value(nullptr), guard_cnt(0) {}
+      struct hazard_era {
+        hazard_era() : value(nullptr), guard_cnt(0) {}
 
-        void set_era(era_t era)
-        {
+        void set_era(era_t era) {
           assert(era != 0);
           // (4) - this release-store synchronizes-with the acquire-fence (10)
           value.store(marked_ptr(reinterpret_cast<void**>(era << 1)), std::memory_order_release);
@@ -234,8 +204,7 @@ namespace xenium { namespace reclamation {
           std::atomic_thread_fence(std::memory_order_seq_cst);
         }
 
-        era_t get_era() const
-        {
+        era_t get_era() const {
           era_t result = 0;
           bool success = try_get_era(result);
           (void)success;
@@ -248,36 +217,30 @@ namespace xenium { namespace reclamation {
         uint64_t add_guard() { return ++guard_cnt; }
         uint64_t release_guard() { return --guard_cnt; }
 
-        bool try_get_era(era_t& result) const
-        {
+        bool try_get_era(era_t& result) const {
           // TSan does not support explicit fences, so we cannot rely on the acquire-fence (10)
           // but have to perform an acquire-load here to avoid false positives.
           constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
           auto v = value.load(memory_order);
-          if (v.mark() == 0)
-          {
+          if (v.mark() == 0) {
             result = reinterpret_cast<era_t>(v.get()) >> 1;
             return true;
           }
           return false; // value contains a link
         }
 
-        void set_link(hazard_era* link)
-        {
+        void set_link(hazard_era* link) {
           assert(guard_cnt == 0);
           // (6) - this release store synchronizes-with the acquire fence (10)
           value.store(marked_ptr(reinterpret_cast<void**>(link), 1), std::memory_order_release);
         }
-        hazard_era* get_link() const
-        {
+        hazard_era* get_link() const {
           assert(is_link());
           return reinterpret_cast<hazard_era*>(value.load(std::memory_order_relaxed).get());
         }
 
-        bool is_link() const
-        {
-          return value.load(std::memory_order_relaxed).mark() != 0;
-        }
+        bool is_link() const { return value.load(std::memory_order_relaxed).mark() != 0; }
+
       private:
         using marked_ptr = xenium::marked_ptr<void*, 1>;
         // since we use the hazard era array to build our internal linked list of hazard eras we set
@@ -289,20 +252,17 @@ namespace xenium { namespace reclamation {
 
       using hint = hazard_era*;
 
-      void initialize(hint& hint)
-      {
+      void initialize(hint& hint) {
         Strategy::number_of_active_hes.fetch_add(self().number_of_hes(), std::memory_order_relaxed);
         hint = initialize_block(self());
       }
 
-      void abandon()
-      {
+      void abandon() {
         Strategy::number_of_active_hes.fetch_sub(self().number_of_hes(), std::memory_order_relaxed);
         detail::thread_block_list<Derived, detail::deletable_object_with_eras>::entry::abandon();
       }
 
-      hazard_era* alloc_hazard_era(hint& hint, era_t era)
-      {
+      hazard_era* alloc_hazard_era(hint& hint, era_t era) {
         if (last_hazard_era && last_era == era) {
           last_hazard_era->add_guard();
           return last_hazard_era;
@@ -320,11 +280,9 @@ namespace xenium { namespace reclamation {
         return result;
       }
 
-      void release_hazard_era(hazard_era*& he, hint& hint)
-      {
+      void release_hazard_era(hazard_era*& he, hint& hint) {
         assert(he != nullptr);
-        if (he->release_guard() == 0)
-        {
+        if (he->release_guard() == 0) {
           if (he == last_hazard_era)
             last_hazard_era = nullptr;
 
@@ -343,12 +301,10 @@ namespace xenium { namespace reclamation {
       const hazard_era* end() const { return &eras[Strategy::K]; }
 
       template <typename T>
-      static hazard_era* initialize_block(T& block)
-      {
+      static hazard_era* initialize_block(T& block) {
         auto begin = block.begin();
         auto end = block.end() - 1; // the last element is handled specially, so loop only over n-1 entries
-        for (auto it = begin; it != end;)
-        {
+        for (auto it = begin; it != end;) {
           auto next = it + 1;
           it->set_link(next);
           it = next;
@@ -357,11 +313,9 @@ namespace xenium { namespace reclamation {
         return begin;
       }
 
-      static void gather_protected_eras(std::vector<era_t>& protected_eras,
-        const hazard_era* begin, const hazard_era* end)
-      {
-        for (auto it = begin; it != end; ++it)
-        {
+      static void
+        gather_protected_eras(std::vector<era_t>& protected_eras, const hazard_era* begin, const hazard_era* end) {
+        for (auto it = begin; it != end; ++it) {
           era_t era;
           if (it->try_get_era(era))
             protected_eras.push_back(era);
@@ -375,44 +329,39 @@ namespace xenium { namespace reclamation {
 
     template <class Strategy>
     struct static_he_thread_control_block :
-      basic_he_thread_control_block<Strategy, static_he_thread_control_block<Strategy>>
-    {
+        basic_he_thread_control_block<Strategy, static_he_thread_control_block<Strategy>> {
       using base = basic_he_thread_control_block<Strategy, static_he_thread_control_block>;
       using hazard_era = typename base::hazard_era;
       using era_t = typename base::era_t;
       friend base;
 
-      void gather_protected_eras(std::vector<era_t>& protected_eras) const
-      {
+      void gather_protected_eras(std::vector<era_t>& protected_eras) const {
         base::gather_protected_eras(protected_eras, this->begin(), this->end());
       }
+
     private:
-      hazard_era* need_more_hes() {
-        throw bad_hazard_era_alloc("hazard era pool exceeded"); }
+      hazard_era* need_more_hes() { throw bad_hazard_era_alloc("hazard era pool exceeded"); }
       constexpr size_t number_of_hes() const { return Strategy::K; }
       constexpr hazard_era* initialize_next_block() const { return nullptr; }
     };
 
     template <class Strategy>
     struct dynamic_he_thread_control_block :
-      basic_he_thread_control_block<Strategy, dynamic_he_thread_control_block<Strategy>>
-    {
+        basic_he_thread_control_block<Strategy, dynamic_he_thread_control_block<Strategy>> {
       using base = basic_he_thread_control_block<Strategy, dynamic_he_thread_control_block>;
       using hazard_era = typename base::hazard_era;
       using era_t = typename base::era_t;
       friend base;
 
-      void gather_protected_eras(std::vector<era_t>& protected_eras) const
-      {
+      void gather_protected_eras(std::vector<era_t>& protected_eras) const {
         gather_protected_eras(*this, protected_eras);
       }
 
     private:
-      struct alignas(64) hazard_eras_block : aligned_object<hazard_eras_block>
-      {
+      struct alignas(64) hazard_eras_block : aligned_object<hazard_eras_block> {
         hazard_eras_block(size_t size) : size(size) {
           for (auto it = begin(); it != end(); ++it) {
-            new(it) hazard_era;
+            new (it) hazard_era;
           }
         }
 
@@ -429,24 +378,20 @@ namespace xenium { namespace reclamation {
         const size_t size;
       };
 
-      const hazard_eras_block* next_block() const
-      {
+      const hazard_eras_block* next_block() const {
         // (7) - this acquire-load synchronizes-with the release-store (8)
         return he_block.load(std::memory_order_acquire);
       }
       size_t number_of_hes() const { return total_number_of_hes; }
       hazard_era* need_more_hes() { return allocate_new_hazard_eras_block(); }
 
-
-      hazard_era* initialize_next_block()
-      {
+      hazard_era* initialize_next_block() {
         auto block = he_block.load(std::memory_order_relaxed);
         return block ? base::initialize_block(*block) : nullptr;
       }
 
       template <typename T>
-      static void gather_protected_eras(const T& block, std::vector<era_t>& protected_eras)
-      {
+      static void gather_protected_eras(const T& block, std::vector<era_t>& protected_eras) {
         base::gather_protected_eras(protected_eras, block.begin(), block.end());
 
         auto next = block.next_block();
@@ -454,15 +399,14 @@ namespace xenium { namespace reclamation {
           gather_protected_eras(*next, protected_eras);
       }
 
-      hazard_era* allocate_new_hazard_eras_block()
-      {
+      hazard_era* allocate_new_hazard_eras_block() {
         size_t hes = std::max(static_cast<size_t>(Strategy::K), total_number_of_hes / 2);
         total_number_of_hes += hes;
         Strategy::number_of_active_hes.fetch_add(hes, std::memory_order_relaxed);
 
         size_t buffer_size = sizeof(hazard_eras_block) + hes * sizeof(hazard_era);
         void* buffer = hazard_eras_block::operator new(buffer_size);
-        auto block = ::new(buffer) hazard_eras_block(hes);
+        auto block = ::new (buffer) hazard_eras_block(hes);
         auto result = this->initialize_block(*block);
         block->next = he_block.load(std::memory_order_relaxed);
         // (8) - this release-store synchronizes-with the acquire-load (7)
@@ -473,17 +417,14 @@ namespace xenium { namespace reclamation {
       size_t total_number_of_hes = Strategy::K;
       std::atomic<hazard_eras_block*> he_block;
     };
-  }
+  } // namespace detail
 
   template <class Traits>
-  struct alignas(64) hazard_eras<Traits>::thread_data : aligned_object<thread_data>
-  {
+  struct alignas(64) hazard_eras<Traits>::thread_data : aligned_object<thread_data> {
     using HE = typename thread_control_block::hazard_era*;
 
-    ~thread_data()
-    {
-      if (retire_list != nullptr)
-      {
+    ~thread_data() {
+      if (retire_list != nullptr) {
         scan();
         if (retire_list != nullptr)
           global_thread_block_list.abandon_retired_nodes(retire_list);
@@ -496,29 +437,25 @@ namespace xenium { namespace reclamation {
       }
     }
 
-    HE alloc_hazard_era(era_t era)
-    {
+    HE alloc_hazard_era(era_t era) {
       ensure_has_control_block();
       return control_block->alloc_hazard_era(hint, era);
     }
 
-    void release_hazard_era(HE& he)
-    {
+    void release_hazard_era(HE& he) {
       if (he) {
         assert(control_block != nullptr);
         control_block->release_hazard_era(he, hint);
       }
     }
 
-    std::size_t add_retired_node(detail::deletable_object_with_eras* p)
-    {
+    std::size_t add_retired_node(detail::deletable_object_with_eras* p) {
       p->next = retire_list;
       retire_list = p;
       return ++number_of_retired_nodes;
     }
 
-    void scan()
-    {
+    void scan() {
       std::vector<era_t> protected_eras;
       protected_eras.reserve(allocation_strategy::number_of_active_hazard_eras());
 
@@ -527,9 +464,8 @@ namespace xenium { namespace reclamation {
 
       auto adopted_nodes = global_thread_block_list.adopt_abandoned_retired_nodes();
 
-      std::for_each(global_thread_block_list.begin(), global_thread_block_list.end(),
-        [&protected_eras](const auto& entry)
-        {
+      std::for_each(
+        global_thread_block_list.begin(), global_thread_block_list.end(), [&protected_eras](const auto& entry) {
           // TSan does not support explicit fences, so we cannot rely on the acquire-fence (10)
           // but have to perform an acquire-load here to avoid false positives.
           constexpr auto memory_order = TSAN_MEMORY_ORDER(std::memory_order_acquire, std::memory_order_relaxed);
@@ -552,21 +488,16 @@ namespace xenium { namespace reclamation {
     }
 
   private:
-    void ensure_has_control_block()
-    {
-      if (control_block == nullptr)
-      {
+    void ensure_has_control_block() {
+      if (control_block == nullptr) {
         control_block = global_thread_block_list.acquire_inactive_entry();
         control_block->initialize(hint);
         control_block->activate();
       }
     }
 
-    void reclaim_nodes(detail::deletable_object_with_eras* list,
-      const std::vector<era_t>& protected_eras)
-    {
-      while (list != nullptr)
-      {
+    void reclaim_nodes(detail::deletable_object_with_eras* list, const std::vector<era_t>& protected_eras) {
+      while (list != nullptr) {
         auto cur = list;
         list = list->next;
 
@@ -589,8 +520,7 @@ namespace xenium { namespace reclamation {
   };
 
   template <class Traits>
-  inline typename hazard_eras<Traits>::thread_data& hazard_eras<Traits>::local_thread_data()
-  {
+  inline typename hazard_eras<Traits>::thread_data& hazard_eras<Traits>::local_thread_data() {
     // workaround for a Clang-8 issue that causes multiple re-initializations of thread_local variables
     static thread_local thread_data local_thread_data;
     return local_thread_data;
@@ -598,15 +528,17 @@ namespace xenium { namespace reclamation {
 
 #ifdef TRACK_ALLOCATIONS
   template <class Traits>
-  inline void hazard_eras<Traits>::count_allocation()
-  { local_thread_data().allocation_counter.count_allocation(); }
+  inline void hazard_eras<Traits>::count_allocation() {
+    local_thread_data().allocation_counter.count_allocation();
+  }
 
   template <class Traits>
-  inline void hazard_eras<Traits>::count_reclamation()
-  { local_thread_data().allocation_counter.count_reclamation(); }
+  inline void hazard_eras<Traits>::count_reclamation() {
+    local_thread_data().allocation_counter.count_reclamation();
+  }
 #endif
-}}
+}} // namespace xenium::reclamation
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+  #pragma warning(pop)
 #endif

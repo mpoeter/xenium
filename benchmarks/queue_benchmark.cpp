@@ -1,7 +1,7 @@
 
 #include "benchmark.hpp"
-#include "execution.hpp"
 #include "config.hpp"
+#include "execution.hpp"
 #include "queues.hpp"
 
 #include <iostream>
@@ -15,9 +15,8 @@ struct queue_benchmark;
 template <class T>
 struct benchmark_thread : execution_thread {
   benchmark_thread(queue_benchmark<T>& benchmark, std::uint32_t id, const execution& exec) :
-    execution_thread(id, exec),
-    _benchmark(benchmark)
-  {}
+      execution_thread(id, exec),
+      _benchmark(benchmark) {}
   virtual void initialize(std::uint32_t num_threads) override;
   virtual void run() override;
   virtual thread_report report() const override {
@@ -26,8 +25,9 @@ struct benchmark_thread : execution_thread {
       {"push", push_operations},
       {"pop", pop_operations},
     };
-    return { data, push_operations + pop_operations };
+    return {data, push_operations + pop_operations};
   }
+
 protected:
   void set_pop_ratio(double ratio) {
     assert(ratio >= 0 && ratio <= 1);
@@ -35,6 +35,7 @@ protected:
   }
   std::size_t push_operations = 0;
   std::size_t pop_operations = 0;
+
 private:
   queue_benchmark<T>& _benchmark;
   static constexpr unsigned ratio_bits = 8;
@@ -44,8 +45,7 @@ private:
 template <class T>
 struct push_thread : benchmark_thread<T> {
   push_thread(queue_benchmark<T>& benchmark, std::uint32_t id, const execution& exec) :
-    benchmark_thread<T>(benchmark, id, exec)
-  {}
+      benchmark_thread<T>(benchmark, id, exec) {}
   virtual void setup(const config_t& config) override {
     benchmark_thread<T>::setup(config);
     auto ratio = config.optional<double>("pop_ratio").value_or(0.0);
@@ -58,8 +58,7 @@ struct push_thread : benchmark_thread<T> {
 template <class T>
 struct pop_thread : benchmark_thread<T> {
   pop_thread(queue_benchmark<T>& benchmark, std::uint32_t id, const execution& exec) :
-    benchmark_thread<T>(benchmark, id, exec)
-  {}
+      benchmark_thread<T>(benchmark, id, exec) {}
   virtual void setup(const config_t& config) override {
     benchmark_thread<T>::setup(config);
     auto ratio = config.optional<double>("push_ratio").value_or(0.0);
@@ -73,11 +72,8 @@ template <class T>
 struct queue_benchmark : benchmark {
   virtual void setup(const config_t& config) override;
 
-  virtual std::unique_ptr<execution_thread> create_thread(
-    std::uint32_t id,
-    const execution& exec,
-    const std::string& type) override
-  {
+  virtual std::unique_ptr<execution_thread>
+    create_thread(std::uint32_t id, const execution& exec, const std::string& type) override {
     if (type == "producer")
       return std::make_unique<push_thread<T>>(*this, id, exec);
     else if (type == "consumer")
@@ -114,7 +110,7 @@ void benchmark_thread<T>::initialize(std::uint32_t num_threads) {
 template <class T>
 void benchmark_thread<T>::run() {
   T& queue = *_benchmark.queue;
-  
+
   const std::uint32_t n = _benchmark.batch_size;
   const std::uint32_t number_of_keys = std::max(1u, _benchmark.number_of_elements * 2);
 
@@ -133,7 +129,7 @@ void benchmark_thread<T>::run() {
         ++pop;
       }
     } else if (try_push(queue, key)) {
-        ++push;
+      ++push;
     }
     simulate_workload();
   }
@@ -143,81 +139,79 @@ void benchmark_thread<T>::run() {
 }
 
 namespace {
-  template <class T>
-  inline std::shared_ptr<benchmark_builder> make_benchmark_builder() {
-    return std::make_shared<typed_benchmark_builder<T, queue_benchmark>>();
-  }
+template <class T>
+inline std::shared_ptr<benchmark_builder> make_benchmark_builder() {
+  return std::make_shared<typed_benchmark_builder<T, queue_benchmark>>();
+}
 
-  auto benchmark_variations()
-  {
-    using namespace xenium;
-    return benchmark_builders
-    {
+auto benchmark_variations() {
+  using namespace xenium;
+  return benchmark_builders{
 #ifdef WITH_RAMALHETE_QUEUE
   #ifdef WITH_GENERIC_EPOCH_BASED
-      make_benchmark_builder<ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::epoch_based<>>>>(),
-      make_benchmark_builder<ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::new_epoch_based<>>>>(),
-      make_benchmark_builder<ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::debra<>>>>(),
+    make_benchmark_builder<ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::epoch_based<>>>>(),
+    make_benchmark_builder<ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::new_epoch_based<>>>>(),
+    make_benchmark_builder<ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::debra<>>>>(),
   #endif
   #ifdef WITH_QUIESCENT_STATE_BASED
     make_benchmark_builder<ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::quiescent_state_based>>>(),
   #endif
   #ifdef WITH_HAZARD_POINTER
     make_benchmark_builder<
-      ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<
-        reclamation::hazard_pointer<>::with<
-          policy::allocation_strategy<reclamation::hp_allocation::static_strategy<3>>>>>>(),
+      ramalhete_queue<QUEUE_ITEM*,
+                      policy::reclaimer<reclamation::hazard_pointer<>::with<
+                        policy::allocation_strategy<reclamation::hp_allocation::static_strategy<3>>>>>>(),
     make_benchmark_builder<
-      ramalhete_queue<QUEUE_ITEM*, policy::reclaimer<
-        reclamation::hazard_pointer<>::with<
-          policy::allocation_strategy<reclamation::hp_allocation::dynamic_strategy<3>>>>>>(),
+      ramalhete_queue<QUEUE_ITEM*,
+                      policy::reclaimer<reclamation::hazard_pointer<>::with<
+                        policy::allocation_strategy<reclamation::hp_allocation::dynamic_strategy<3>>>>>>(),
   #endif
 #endif
 
 #ifdef WITH_MICHAEL_SCOTT_QUEUE
   #ifdef WITH_GENERIC_EPOCH_BASED
-      make_benchmark_builder<michael_scott_queue<QUEUE_ITEM, policy::reclaimer<reclamation::epoch_based<>>>>(),
-      make_benchmark_builder<michael_scott_queue<QUEUE_ITEM, policy::reclaimer<reclamation::new_epoch_based<>>>>(),
-      make_benchmark_builder<michael_scott_queue<QUEUE_ITEM, policy::reclaimer<reclamation::debra<>>>>(),
+    make_benchmark_builder<michael_scott_queue<QUEUE_ITEM, policy::reclaimer<reclamation::epoch_based<>>>>(),
+    make_benchmark_builder<michael_scott_queue<QUEUE_ITEM, policy::reclaimer<reclamation::new_epoch_based<>>>>(),
+    make_benchmark_builder<michael_scott_queue<QUEUE_ITEM, policy::reclaimer<reclamation::debra<>>>>(),
   #endif
   #ifdef WITH_QUIESCENT_STATE_BASED
     make_benchmark_builder<michael_scott_queue<QUEUE_ITEM, policy::reclaimer<reclamation::quiescent_state_based>>>(),
   #endif
   #ifdef WITH_HAZARD_POINTER
     make_benchmark_builder<
-      michael_scott_queue<QUEUE_ITEM, policy::reclaimer<
-        reclamation::hazard_pointer<>::with<
-          policy::allocation_strategy<reclamation::hp_allocation::static_strategy<3>>>>>>(),
+      michael_scott_queue<QUEUE_ITEM,
+                          policy::reclaimer<reclamation::hazard_pointer<>::with<
+                            policy::allocation_strategy<reclamation::hp_allocation::static_strategy<3>>>>>>(),
     make_benchmark_builder<
-      michael_scott_queue<QUEUE_ITEM, policy::reclaimer<
-        reclamation::hazard_pointer<>::with<
-          policy::allocation_strategy<reclamation::hp_allocation::dynamic_strategy<3>>>>>>(),
+      michael_scott_queue<QUEUE_ITEM,
+                          policy::reclaimer<reclamation::hazard_pointer<>::with<
+                            policy::allocation_strategy<reclamation::hp_allocation::dynamic_strategy<3>>>>>>(),
   #endif
 #endif
 
 #ifdef WITH_VYUKOV_BOUNDED_QUEUE
-      make_benchmark_builder<vyukov_bounded_queue<QUEUE_ITEM, policy::default_to_weak<true>>>(),
-      make_benchmark_builder<vyukov_bounded_queue<QUEUE_ITEM, policy::default_to_weak<false>>>(),
+    make_benchmark_builder<vyukov_bounded_queue<QUEUE_ITEM, policy::default_to_weak<true>>>(),
+    make_benchmark_builder<vyukov_bounded_queue<QUEUE_ITEM, policy::default_to_weak<false>>>(),
 #endif
 
 #ifdef WITH_KIRSCH_KFIFO_QUEUE
   #ifdef WITH_GENERIC_EPOCH_BASED
-      make_benchmark_builder<kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::epoch_based<>>>>(),
-      make_benchmark_builder<kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::new_epoch_based<>>>>(),
-      make_benchmark_builder<kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::debra<>>>>(),
+    make_benchmark_builder<kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::epoch_based<>>>>(),
+    make_benchmark_builder<kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::new_epoch_based<>>>>(),
+    make_benchmark_builder<kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::debra<>>>>(),
   #endif
   #ifdef WITH_QUIESCENT_STATE_BASED
     make_benchmark_builder<kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<reclamation::quiescent_state_based>>>(),
   #endif
   #ifdef WITH_HAZARD_POINTER
     make_benchmark_builder<
-      kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<
-        reclamation::hazard_pointer<>::with<
-          policy::allocation_strategy<reclamation::hp_allocation::static_strategy<3>>>>>>(),
+      kirsch_kfifo_queue<QUEUE_ITEM*,
+                         policy::reclaimer<reclamation::hazard_pointer<>::with<
+                           policy::allocation_strategy<reclamation::hp_allocation::static_strategy<3>>>>>>(),
     make_benchmark_builder<
-      kirsch_kfifo_queue<QUEUE_ITEM*, policy::reclaimer<
-        reclamation::hazard_pointer<>::with<
-          policy::allocation_strategy<reclamation::hp_allocation::dynamic_strategy<3>>>>>>(),
+      kirsch_kfifo_queue<QUEUE_ITEM*,
+                         policy::reclaimer<reclamation::hazard_pointer<>::with<
+                           policy::allocation_strategy<reclamation::hp_allocation::dynamic_strategy<3>>>>>>(),
   #endif
 #endif
 
@@ -226,27 +220,27 @@ namespace {
 #endif
 
 #ifdef WITH_NIKOLAEV_BOUNDED_QUEUE
-      make_benchmark_builder<nikolaev_bounded_queue<QUEUE_ITEM>>(),
+    make_benchmark_builder<nikolaev_bounded_queue<QUEUE_ITEM>>(),
 #endif
 
 #ifdef WITH_CDS_MSQUEUE
-      make_benchmark_builder<cds::container::MSQueue<cds::gc::HP, QUEUE_ITEM>>(),
+    make_benchmark_builder<cds::container::MSQueue<cds::gc::HP, QUEUE_ITEM>>(),
 #endif
 
 #ifdef WITH_CDS_BASKET_QUEUE
-      make_benchmark_builder<cds::container::BasketQueue<cds::gc::HP, QUEUE_ITEM>>(),
+    make_benchmark_builder<cds::container::BasketQueue<cds::gc::HP, QUEUE_ITEM>>(),
 #endif
 
 #ifdef WITH_CDS_SEGMENTED_QUEUE
-      make_benchmark_builder<cds::container::SegmentedQueue<cds::gc::HP, QUEUE_ITEM>>(),
+    make_benchmark_builder<cds::container::SegmentedQueue<cds::gc::HP, QUEUE_ITEM>>(),
 #endif
 
 #ifdef WITH_BOOST_LOCKFREE_QUEUE
-      make_benchmark_builder<boost::lockfree::queue<QUEUE_ITEM>>(),
+    make_benchmark_builder<boost::lockfree::queue<QUEUE_ITEM>>(),
 #endif
-    };
-  }
+  };
 }
+} // namespace
 
 void register_queue_benchmark(registered_benchmarks& benchmarks) {
   benchmarks.emplace("queue", benchmark_variations());

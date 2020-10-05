@@ -3,14 +3,13 @@
 #include <gtest/gtest.h>
 
 namespace {
- 
+
 struct Foo {
   int x;
   [[maybe_unused]] static constexpr int number_of_mark_bits = 0;
 };
 
-TEST(marked_ptr, get_returns_correct_pointer)
-{
+TEST(marked_ptr, get_returns_correct_pointer) {
   Foo f;
   xenium::marked_ptr<Foo, 2> p(&f, 3);
   EXPECT_EQ(&f, p.get());
@@ -21,7 +20,7 @@ TEST(marked_ptr, get_returns_correct_pointer)
 
 TEST(marked_ptr, mark_returns_correct_value) {
   Foo f;
-  
+
   xenium::marked_ptr<Foo, 2> p(&f, 3);
   EXPECT_EQ(3, p.mark());
 
@@ -30,8 +29,7 @@ TEST(marked_ptr, mark_returns_correct_value) {
   EXPECT_EQ(mark, p2.mark());
 }
 
-TEST(marked_ptr, deref_works_correctly)
-{
+TEST(marked_ptr, deref_works_correctly) {
   Foo f;
   xenium::marked_ptr<Foo, 2> p(&f, 3);
   p->x = 42;
@@ -41,12 +39,11 @@ TEST(marked_ptr, deref_works_correctly)
   EXPECT_EQ(43, f.x);
 }
 
-TEST(marked_ptr, reset_sets_ptr_to_null)
-{
+TEST(marked_ptr, reset_sets_ptr_to_null) {
   Foo f;
   xenium::marked_ptr<Foo, 2> p(&f, 3);
   p.reset();
   EXPECT_EQ(nullptr, p.get());
 }
 
-}
+} // namespace

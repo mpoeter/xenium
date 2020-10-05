@@ -8,7 +8,7 @@
 
 #include <cstdint>
 #ifdef _M_AMD64
-#include <intrin.h>
+  #include <intrin.h>
 #endif
 
 namespace xenium { namespace utils {
@@ -24,10 +24,9 @@ namespace xenium { namespace utils {
       ++result;
     return result;
   }
-  
+
   template <typename T>
-  constexpr T next_power_of_two(T val)
-  {
+  constexpr T next_power_of_two(T val) {
     if (is_power_of_two(val))
       return val;
 
@@ -38,7 +37,7 @@ namespace xenium { namespace utils {
   struct modulo {
     T operator()(T a, T b) { return a % b; }
   };
-  
+
   // TODO - use intrinsics for rotate operation (if available)
   template <uintptr_t C>
   struct rotate {
@@ -46,7 +45,7 @@ namespace xenium { namespace utils {
       static_assert(C > 0, "should never happen!");
       return (v >> (64 - C)) | (v << C);
     }
-    
+
     static uintptr_t right(uintptr_t v) {
       static_assert(C > 0, "should never happen!");
       return (v >> C) | (v << (64 - C));
@@ -58,30 +57,26 @@ namespace xenium { namespace utils {
     static uintptr_t left(uintptr_t v) { return v; }
     static uintptr_t right(uintptr_t v) { return v; }
   };
-  
+
 #if defined(__sparc__)
   static inline std::uint64_t getticks(void) {
-      std::uint64_t ret;
-      __asm__("rd %%tick, %0" : "=r" (ret));
-      return ret;
+    std::uint64_t ret;
+    __asm__("rd %%tick, %0" : "=r"(ret));
+    return ret;
   }
 #elif defined(__x86_64__)
   static inline std::uint64_t getticks(void) {
-      std::uint32_t hi, lo;
-      __asm__ ("rdtsc" : "=a"(lo), "=d"(hi));
-      return (static_cast<std::uint64_t>(hi) << 32) | static_cast<std::uint64_t>(lo);
+    std::uint32_t hi, lo;
+    __asm__("rdtsc" : "=a"(lo), "=d"(hi));
+    return (static_cast<std::uint64_t>(hi) << 32) | static_cast<std::uint64_t>(lo);
   }
 #elif defined(_M_AMD64)
-  static inline std::uint64_t getticks(void) {
-    return __rdtsc();
-  }
+  static inline std::uint64_t getticks(void) { return __rdtsc(); }
 #else
   // TODO - add support for more compilers!
   #error "Unsupported compiler"
 #endif
 
-  inline std::uint64_t random() {
-    return getticks() >> 4;
-  }
-}}
+  inline std::uint64_t random() { return getticks() >> 4; }
+}} // namespace xenium::utils
 #endif

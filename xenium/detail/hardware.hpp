@@ -9,9 +9,9 @@
 #include <xenium/detail/port.hpp>
 
 #if defined(XENIUM_ARCH_X86)
-#include <emmintrin.h>
+  #include <emmintrin.h>
 #elif defined(XENIUM_ARCH_SPARC)
-#include <synch.h>
+  #include <synch.h>
 #endif
 
 namespace xenium { namespace detail {
@@ -22,11 +22,11 @@ namespace xenium { namespace detail {
 #elif defined(XENIUM_ARCH_SPARC)
     smt_pause();
 #else
-    #warning "No hardware_pause implementation available - falling back to local volatile noop."
+  #warning "No hardware_pause implementation available - falling back to local volatile noop."
     // this effectively prevents the compiler from optimizing away the whole backoff operation
     volatile int x = 0;
     (void)x;
 #endif
   }
-}}
+}} // namespace xenium::detail
 #endif

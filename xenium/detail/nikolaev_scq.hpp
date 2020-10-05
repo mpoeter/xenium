@@ -15,10 +15,10 @@
 namespace xenium { namespace detail {
 
   struct nikolaev_scq {
-    struct empty_tag{};
-    struct full_tag{};
-    struct first_used_tag{};
-    struct first_empty_tag{};
+    struct empty_tag {};
+    struct full_tag {};
+    struct first_used_tag {};
+    struct first_empty_tag {};
 
     nikolaev_scq(std::size_t capacity, std::size_t remap_shift, empty_tag);
     nikolaev_scq(std::size_t capacity, std::size_t remap_shift, full_tag);
@@ -34,14 +34,13 @@ namespace xenium { namespace detail {
       _tail.fetch_or(1, std::memory_order_relaxed);
       _finalized = true;
     }
-    void set_threshold(std::int64_t v) {
-      _threshold.store(v, std::memory_order_relaxed);
-    }
+    void set_threshold(std::int64_t v) { _threshold.store(v, std::memory_order_relaxed); }
 
     static constexpr std::size_t calc_remap_shift(std::size_t capacity) {
       assert(utils::is_power_of_two(capacity));
       return utils::find_last_bit_set(capacity / indexes_per_cacheline);
     }
+
   private:
     using index_t = std::uint64_t;
     using indexdiff_t = std::int64_t;
@@ -52,9 +51,7 @@ namespace xenium { namespace detail {
 
     void catchup(std::uint64_t tail, std::uint64_t head);
 
-    static inline indexdiff_t diff(index_t a, index_t b) { 
-      return static_cast<indexdiff_t>(a - b);
-    }
+    static inline indexdiff_t diff(index_t a, index_t b) { return static_cast<indexdiff_t>(a - b); }
 
     static inline index_t remap_index(index_t idx, std::size_t remap_shift, std::size_t n) {
       assert(remap_shift == 0 || (1 << remap_shift) * indexes_per_cacheline == n);
@@ -79,23 +76,21 @@ namespace xenium { namespace detail {
   };
 
   inline nikolaev_scq::nikolaev_scq(std::size_t capacity, std::size_t remap_shift, empty_tag) :
-    _head(0),
-    _threshold(-1),
-    _tail(0),
-    _data(new std::atomic<index_t>[capacity * 2])
-  {
+      _head(0),
+      _threshold(-1),
+      _tail(0),
+      _data(new std::atomic<index_t>[capacity * 2]) {
     const auto n = capacity * 2;
     for (std::size_t i = 0; i < n; ++i)
       _data[remap_index(i << 1, remap_shift, n)].store(static_cast<index_t>(-1), std::memory_order_relaxed);
   }
 
   inline nikolaev_scq::nikolaev_scq(std::size_t capacity, std::size_t remap_shift, full_tag) :
-    _head(0),
-    _threshold(capacity * 3 - 1),
-    _tail(capacity * index_inc),
-    _data(new std::atomic<index_t>[capacity * 2])
-  {
-    const auto n = capacity * 2;    
+      _head(0),
+      _threshold(capacity * 3 - 1),
+      _tail(capacity * index_inc),
+      _data(new std::atomic<index_t>[capacity * 2]) {
+    const auto n = capacity * 2;
     for (std::size_t i = 0; i < capacity; ++i)
       _data[remap_index(i << 1, remap_shift, n)].store(n + i, std::memory_order_relaxed);
     for (std::size_t i = capacity; i < n; ++i)
@@ -103,11 +98,10 @@ namespace xenium { namespace detail {
   }
 
   inline nikolaev_scq::nikolaev_scq(std::size_t capacity, std::size_t remap_shift, first_used_tag) :
-    _head(0),
-    _threshold(capacity * 3 - 1),
-    _tail(index_inc),
-    _data(new std::atomic<index_t>[capacity * 2])
-  {
+      _head(0),
+      _threshold(capacity * 3 - 1),
+      _tail(index_inc),
+      _data(new std::atomic<index_t>[capacity * 2]) {
     const auto n = capacity * 2;
     _data[remap_index(0, remap_shift, n)].store(n, std::memory_order_relaxed);
     for (std::size_t i = 1; i < n; ++i)
@@ -115,11 +109,10 @@ namespace xenium { namespace detail {
   }
 
   inline nikolaev_scq::nikolaev_scq(std::size_t capacity, std::size_t remap_shift, first_empty_tag) :
-    _head(index_inc),
-    _threshold(capacity * 3 - 1),
-    _tail(capacity * index_inc),
-    _data(new std::atomic<index_t>[capacity * 2])
-  {
+      _head(index_inc),
+      _threshold(capacity * 3 - 1),
+      _tail(capacity * index_inc),
+      _data(new std::atomic<index_t>[capacity * 2]) {
     const auto n = capacity * 2;
     _data[remap_index(0, remap_shift, n)].store(static_cast<index_t>(-1), std::memory_order_relaxed);
     for (std::size_t i = 1; i < capacity; ++i)
@@ -132,13 +125,13 @@ namespace xenium { namespace detail {
   inline bool nikolaev_scq::enqueue(std::uint64_t value, std::size_t capacity, std::size_t remap_shift) {
     assert(value < capacity);
     const std::size_t n = capacity * 2;
-    const std::size_t is_safe_and_value_mask = 2 * n -1;
+    const std::size_t is_safe_and_value_mask = 2 * n - 1;
 
     value ^= is_safe_and_value_mask;
 
     for (;;) {
       auto tail = _tail.fetch_add(index_inc, std::memory_order_relaxed);
-      if constexpr(Finalizable) {
+      if constexpr (Finalizable) {
         if (tail & finalized)
           return false;
       }
@@ -154,16 +147,14 @@ namespace xenium { namespace detail {
       const auto entry_cycle = entry | is_safe_and_value_mask;
       if (diff(entry_cycle, tail_cycle) < 0 &&
           (entry == entry_cycle ||
-            (entry == (entry_cycle ^ n) &&
-             diff(_head.load(std::memory_order_relaxed), tail) <= 0))) {
-
+           (entry == (entry_cycle ^ n) && diff(_head.load(std::memory_order_relaxed), tail) <= 0))) {
         // (2) - this release-CAS synchronizes-with the acquire-load (3) and the acquire-CAS (5)
         if (!_data[tidx].compare_exchange_weak(
-            entry, tail_cycle ^ value, std::memory_order_release, std::memory_order_relaxed))
+              entry, tail_cycle ^ value, std::memory_order_release, std::memory_order_relaxed))
           goto retry;
 
-        const std::int64_t threshold = n + capacity -1;
-        if constexpr(!Nonempty) {
+        const std::int64_t threshold = n + capacity - 1;
+        if constexpr (!Nonempty) {
           if (_threshold.load(std::memory_order_relaxed) != threshold) {
             _threshold.store(threshold, std::memory_order_relaxed);
           }
@@ -174,7 +165,7 @@ namespace xenium { namespace detail {
   }
 
   template <bool Nonempty, std::size_t PopRetries>
-  inline bool nikolaev_scq::dequeue(std::uint64_t& value, std::size_t capacity,  std::size_t remap_shift) {
+  inline bool nikolaev_scq::dequeue(std::uint64_t& value, std::size_t capacity, std::size_t remap_shift) {
     if constexpr (!Nonempty) {
       if (_threshold.load(std::memory_order_relaxed) < 0) {
         return false;
@@ -183,7 +174,7 @@ namespace xenium { namespace detail {
 
     const std::size_t n = capacity * 2;
     const std::size_t value_mask = n - 1;
-    const std::size_t is_safe_and_value_mask = 2 * n -1;
+    const std::size_t is_safe_and_value_mask = 2 * n - 1;
 
     for (;;) {
       const auto head = _head.fetch_add(index_inc, std::memory_order_relaxed);
@@ -220,13 +211,14 @@ namespace xenium { namespace detail {
           entry_new = head_cycle;
         }
       } while (diff(entry_cycle, head_cycle) < 0 &&
-           // (5) - in case of success, this release-CAS synchronizes with the acquire-load (1),
-           //       in case of failure, this acquire-CAS synchronizes with the release-CAS (2)
-           // It would be sufficient to use release for the success order, but this triggers a
-           // false positive in TSan (see https://github.com/google/sanitizers/issues/1264)
-          _data[hidx].compare_exchange_weak(entry, entry_new, std::memory_order_acq_rel, std::memory_order_acquire) == false);
+               // (5) - in case of success, this release-CAS synchronizes with the acquire-load (1),
+               //       in case of failure, this acquire-CAS synchronizes with the release-CAS (2)
+               // It would be sufficient to use release for the success order, but this triggers a
+               // false positive in TSan (see https://github.com/google/sanitizers/issues/1264)
+               _data[hidx].compare_exchange_weak(
+                 entry, entry_new, std::memory_order_acq_rel, std::memory_order_acquire) == false);
 
-      if constexpr(!Nonempty) {
+      if constexpr (!Nonempty) {
         auto tail = _tail.load(std::memory_order_relaxed);
         if (diff(tail, head + index_inc) <= 0) {
           catchup(tail, head + index_inc);
@@ -247,6 +239,6 @@ namespace xenium { namespace detail {
         break;
     }
   }
-}}
+}} // namespace xenium::detail
 
 #endif
