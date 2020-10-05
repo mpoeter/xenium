@@ -115,5 +115,13 @@ struct entries_per_node;
  */
 template <unsigned Value>
 struct padding_bytes;
+
+/**
+  * @brief Policy to configure the number of iterations to spin on a queue entry while waiting
+  * for a pending push operation to finish.
+  * @tparam Value
+  */
+template <unsigned Value>
+struct pop_retries;
 }}
 #endif

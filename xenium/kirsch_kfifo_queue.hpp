@@ -64,16 +64,20 @@ namespace xenium {
     kirsch_kfifo_queue& operator= (kirsch_kfifo_queue&&) = delete;
 
     /**
-     * Pushes the given value to the queue.
+     * @brief Pushes the given value to the queue.
+     *
      * This operation might have to allocate a new segment.
      * Progress guarantees: lock-free (may perform a memory allocation)
+     *
      * @param value
      */
     void push(value_type value);
 
     /**
-     * Tries to pop an object from the queue.
+     * @brief Tries to pop an object from the queue.
+     *
      * Progress guarantees: lock-free
+     *
      * @param result
      * @return `true` if the operation was successful, otherwise `false`
      */

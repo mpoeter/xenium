@@ -225,6 +225,10 @@ namespace {
     make_benchmark_builder<kirsch_bounded_kfifo_queue<QUEUE_ITEM*>>(),
 #endif
 
+#ifdef WITH_NIKOLAEV_BOUNDED_QUEUE
+      make_benchmark_builder<nikolaev_bounded_queue<QUEUE_ITEM>>(),
+#endif
+
 #ifdef WITH_CDS_MSQUEUE
       make_benchmark_builder<cds::container::MSQueue<cds::gc::HP, QUEUE_ITEM>>(),
 #endif

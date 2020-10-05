@@ -41,6 +41,10 @@
       "size": 256,
       "weak": false
     },
+    "nikolaev_bounded" : {
+      "type": "nikolaev_bounded_queue",
+      "capacity": 256
+    },
     "kirsch_kfifo" : {
       "type": "kirsch_kfifo_queue",
       "reclaimer": (reclaimers.EBR),
