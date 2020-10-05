@@ -6,6 +6,8 @@
 #ifndef XENIUM_DETAIL_NIKOLAEV_SCQ_HPP
 #define XENIUM_DETAIL_NIKOLAEV_SCQ_HPP
 
+#include "xenium/utils.hpp"
+
 #include <atomic>
 #include <cassert>
 #include <memory>
@@ -15,9 +17,13 @@ namespace xenium { namespace detail {
   struct nikolaev_scq {
     struct empty_tag{};
     struct full_tag{};
+    struct first_used_tag{};
+    struct first_empty_tag{};
 
     nikolaev_scq(std::size_t capacity, std::size_t remap_shift, empty_tag);
     nikolaev_scq(std::size_t capacity, std::size_t remap_shift, full_tag);
+    nikolaev_scq(std::size_t capacity, std::size_t remap_shift, first_used_tag);
+    nikolaev_scq(std::size_t capacity, std::size_t remap_shift, first_empty_tag);
 
     template <bool Nonempty, bool Finalizable>
     bool enqueue(std::uint64_t value, std::size_t capacity, std::size_t remap_shift);
@@ -26,6 +32,7 @@ namespace xenium { namespace detail {
 
     void finalize() {
       _tail.fetch_or(1, std::memory_order_relaxed);
+      _finalized = true;
     }
     void set_threshold(std::int64_t v) {
       _threshold.store(v, std::memory_order_relaxed);
@@ -64,6 +71,7 @@ namespace xenium { namespace detail {
     alignas(64) std::atomic<std::int64_t> _threshold;
     alignas(64) std::atomic<index_t> _tail;
     alignas(64) std::unique_ptr<std::atomic<std::uint64_t>[]> _data;
+    std::atomic<bool> _finalized{false};
 
     // the LSB is used for finaliziation
     static constexpr index_t finalized = 1;
@@ -84,11 +92,37 @@ namespace xenium { namespace detail {
   inline nikolaev_scq::nikolaev_scq(std::size_t capacity, std::size_t remap_shift, full_tag) :
     _head(0),
     _threshold(capacity * 3 - 1),
-    _tail(capacity << 1),
+    _tail(capacity * index_inc),
     _data(new std::atomic<index_t>[capacity * 2])
   {
     const auto n = capacity * 2;    
     for (std::size_t i = 0; i < capacity; ++i)
+      _data[remap_index(i << 1, remap_shift, n)].store(n + i, std::memory_order_relaxed);
+    for (std::size_t i = capacity; i < n; ++i)
+      _data[remap_index(i << 1, remap_shift, n)].store(-1, std::memory_order_relaxed);
+  }
+
+  inline nikolaev_scq::nikolaev_scq(std::size_t capacity, std::size_t remap_shift, first_used_tag) :
+    _head(0),
+    _threshold(capacity * 3 - 1),
+    _tail(index_inc),
+    _data(new std::atomic<index_t>[capacity * 2])
+  {
+    const auto n = capacity * 2;
+    _data[remap_index(0, remap_shift, n)].store(n, std::memory_order_relaxed);
+    for (std::size_t i = 1; i < n; ++i)
+      _data[remap_index(i << 1, remap_shift, n)].store(-1, std::memory_order_relaxed);
+  }
+
+  inline nikolaev_scq::nikolaev_scq(std::size_t capacity, std::size_t remap_shift, first_empty_tag) :
+    _head(index_inc),
+    _threshold(capacity * 3 - 1),
+    _tail(capacity * index_inc),
+    _data(new std::atomic<index_t>[capacity * 2])
+  {
+    const auto n = capacity * 2;
+    _data[remap_index(0, remap_shift, n)].store(-1, std::memory_order_relaxed);
+    for (std::size_t i = 1; i < capacity; ++i)
       _data[remap_index(i << 1, remap_shift, n)].store(n + i, std::memory_order_relaxed);
     for (std::size_t i = capacity; i < n; ++i)
       _data[remap_index(i << 1, remap_shift, n)].store(-1, std::memory_order_relaxed);
@@ -108,7 +142,9 @@ namespace xenium { namespace detail {
         if (tail & finalized)
           return false;
       }
-      assert((tail & finalized) == 0);
+      if (tail & finalized) {
+        assert((tail & finalized) == 0);
+      }
       const auto tail_cycle = tail | is_safe_and_value_mask;
       const auto tidx = remap_index(tail, remap_shift, n);
       // (1) - this acquire-load synchronizes-with the release-fetch_or (4) and the release-CAS (5)
@@ -152,6 +188,7 @@ namespace xenium { namespace detail {
 
     for (;;) {
       const auto head = _head.fetch_add(index_inc, std::memory_order_relaxed);
+      assert((head & finalized) == 0);
       const auto head_cycle = head | is_safe_and_value_mask;
       const auto hidx = remap_index(head, remap_shift, n);
       std::size_t attempt = 0;
