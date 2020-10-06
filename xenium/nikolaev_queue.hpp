@@ -97,7 +97,7 @@ namespace xenium {
 
     using storage_t = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
 
-    static constexpr unsigned remap_shift = detail::nikolaev_scq::calc_remap_shift(entries_per_node);
+    static constexpr std::size_t remap_shift = detail::nikolaev_scq::calc_remap_shift(entries_per_node);
     
     // TODO - preallocate memory for storage and queues together with node
     struct node : reclaimer::template enable_concurrent_ptr<node> {

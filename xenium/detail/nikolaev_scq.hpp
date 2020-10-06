@@ -86,7 +86,7 @@ namespace xenium { namespace detail {
   {
     const auto n = capacity * 2;
     for (std::size_t i = 0; i < n; ++i)
-      _data[remap_index(i << 1, remap_shift, n)].store(-1, std::memory_order_relaxed);
+      _data[remap_index(i << 1, remap_shift, n)].store(static_cast<index_t>(-1), std::memory_order_relaxed);
   }
 
   inline nikolaev_scq::nikolaev_scq(std::size_t capacity, std::size_t remap_shift, full_tag) :
@@ -99,7 +99,7 @@ namespace xenium { namespace detail {
     for (std::size_t i = 0; i < capacity; ++i)
       _data[remap_index(i << 1, remap_shift, n)].store(n + i, std::memory_order_relaxed);
     for (std::size_t i = capacity; i < n; ++i)
-      _data[remap_index(i << 1, remap_shift, n)].store(-1, std::memory_order_relaxed);
+      _data[remap_index(i << 1, remap_shift, n)].store(static_cast<index_t>(-1), std::memory_order_relaxed);
   }
 
   inline nikolaev_scq::nikolaev_scq(std::size_t capacity, std::size_t remap_shift, first_used_tag) :
@@ -111,7 +111,7 @@ namespace xenium { namespace detail {
     const auto n = capacity * 2;
     _data[remap_index(0, remap_shift, n)].store(n, std::memory_order_relaxed);
     for (std::size_t i = 1; i < n; ++i)
-      _data[remap_index(i << 1, remap_shift, n)].store(-1, std::memory_order_relaxed);
+      _data[remap_index(i << 1, remap_shift, n)].store(static_cast<index_t>(-1), std::memory_order_relaxed);
   }
 
   inline nikolaev_scq::nikolaev_scq(std::size_t capacity, std::size_t remap_shift, first_empty_tag) :
@@ -121,11 +121,11 @@ namespace xenium { namespace detail {
     _data(new std::atomic<index_t>[capacity * 2])
   {
     const auto n = capacity * 2;
-    _data[remap_index(0, remap_shift, n)].store(-1, std::memory_order_relaxed);
+    _data[remap_index(0, remap_shift, n)].store(static_cast<index_t>(-1), std::memory_order_relaxed);
     for (std::size_t i = 1; i < capacity; ++i)
       _data[remap_index(i << 1, remap_shift, n)].store(n + i, std::memory_order_relaxed);
     for (std::size_t i = capacity; i < n; ++i)
-      _data[remap_index(i << 1, remap_shift, n)].store(-1, std::memory_order_relaxed);
+      _data[remap_index(i << 1, remap_shift, n)].store(static_cast<index_t>(-1), std::memory_order_relaxed);
   }
 
   template <bool Nonempty, bool Finalizable>
@@ -171,7 +171,6 @@ namespace xenium { namespace detail {
         return true;
       }
     }
-    return true;
   }
 
   template <bool Nonempty, std::size_t PopRetries>

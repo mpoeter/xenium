@@ -272,12 +272,12 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type &result)
 
     if (value != nullptr) {
       // (14) - this acquire-load synchronizes-with the release-CAS (8)
-      h->entries[idx].value.load(std::memory_order_acquire);
+      (void)h->entries[idx].value.load(std::memory_order_acquire);
       traits::store(result, value.get());
       return true;
     } else {
       // (15) - this acquire-exchange synchronizes-with the release-CAS (8)
-      auto value = h->entries[idx].value.exchange(marked_value(nullptr, 1), std::memory_order_acquire);
+      value = h->entries[idx].value.exchange(marked_value(nullptr, 1), std::memory_order_acquire);
       if (value != nullptr) {
         traits::store(result, value.get());
         return true;

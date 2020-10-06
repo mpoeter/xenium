@@ -135,7 +135,7 @@ TYPED_TEST(NikolaevQueue, parallel_usage)
   std::vector<std::thread> threads;
   for (int i = 0; i < num_threads; ++i)
   {
-    threads.push_back(std::thread([i, &queue]
+    threads.push_back(std::thread([i, &queue, num_threads, thread_mask]
     {
       std::vector<int> last_seen(num_threads);
       int counter = 0;
