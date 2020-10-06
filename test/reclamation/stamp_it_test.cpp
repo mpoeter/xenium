@@ -8,10 +8,11 @@ using Reclaimer = xenium::reclamation::stamp_it;
 
 struct Foo : Reclaimer::enable_concurrent_ptr<Foo, 2> {
   Foo** instance;
-  Foo(Foo** instance) : instance(instance) {}
-  virtual ~Foo() {
-    if (instance)
+  explicit Foo(Foo** instance) : instance(instance) {}
+  ~Foo() override {
+    if (instance != nullptr) {
       *instance = nullptr;
+    }
   }
 };
 
@@ -25,10 +26,11 @@ struct StampIt : testing::Test {
   marked_ptr<Foo> mp = marked_ptr<Foo>(foo, 3);
 
   void TearDown() override {
-    if (mp == nullptr)
+    if (mp == nullptr) {
       assert(foo == nullptr);
-    else
+    } else {
       delete foo;
+    }
   }
 };
 
@@ -98,7 +100,7 @@ TEST_F(StampIt, move_constructor_moves_ownership_and_resets_source_object) {
   concurrent_ptr<Foo>::guard_ptr gp2(std::move(gp));
   gp2.reclaim();
   this->mp = nullptr;
-  EXPECT_EQ(nullptr, gp.get());
+  EXPECT_EQ(nullptr, gp.get()); // NOLINT (use-after-move)
   EXPECT_EQ(nullptr, foo);
 }
 
@@ -117,7 +119,7 @@ TEST_F(StampIt, move_assignment_moves_ownership_and_resets_source_object) {
   gp2 = std::move(gp);
   gp2.reclaim();
   this->mp = nullptr;
-  EXPECT_EQ(nullptr, gp.get());
+  EXPECT_EQ(nullptr, gp.get()); // NOLINT (use-after-move)
   EXPECT_EQ(nullptr, foo);
 }
 } // namespace

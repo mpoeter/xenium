@@ -17,9 +17,9 @@ struct benchmark_thread : execution_thread {
   benchmark_thread(queue_benchmark<T>& benchmark, std::uint32_t id, const execution& exec) :
       execution_thread(id, exec),
       _benchmark(benchmark) {}
-  virtual void initialize(std::uint32_t num_threads) override;
-  virtual void run() override;
-  virtual thread_report report() const override {
+  void initialize(std::uint32_t num_threads) override;
+  void run() override;
+  [[nodiscard]] thread_report report() const override {
     tao::json::value data{
       {"runtime", _runtime.count()},
       {"push", push_operations},
@@ -46,11 +46,12 @@ template <class T>
 struct push_thread : benchmark_thread<T> {
   push_thread(queue_benchmark<T>& benchmark, std::uint32_t id, const execution& exec) :
       benchmark_thread<T>(benchmark, id, exec) {}
-  virtual void setup(const config_t& config) override {
+  void setup(const config_t& config) override {
     benchmark_thread<T>::setup(config);
     auto ratio = config.optional<double>("pop_ratio").value_or(0.0);
-    if (ratio > 1.0 || ratio < 0.0)
+    if (ratio > 1.0 || ratio < 0.0) {
       throw std::runtime_error("Invalid pop_ratio value");
+    }
     this->set_pop_ratio(ratio);
   }
 };
@@ -59,27 +60,29 @@ template <class T>
 struct pop_thread : benchmark_thread<T> {
   pop_thread(queue_benchmark<T>& benchmark, std::uint32_t id, const execution& exec) :
       benchmark_thread<T>(benchmark, id, exec) {}
-  virtual void setup(const config_t& config) override {
+  void setup(const config_t& config) override {
     benchmark_thread<T>::setup(config);
     auto ratio = config.optional<double>("push_ratio").value_or(0.0);
-    if (ratio > 1.0 || ratio < 0.0)
+    if (ratio > 1.0 || ratio < 0.0) {
       throw std::runtime_error("Invalid push_ratio value");
+    }
     this->set_pop_ratio(1.0 - ratio);
   }
 };
 
 template <class T>
 struct queue_benchmark : benchmark {
-  virtual void setup(const config_t& config) override;
+  void setup(const config_t& config) override;
 
-  virtual std::unique_ptr<execution_thread>
+  std::unique_ptr<execution_thread>
     create_thread(std::uint32_t id, const execution& exec, const std::string& type) override {
-    if (type == "producer")
+    if (type == "producer") {
       return std::make_unique<push_thread<T>>(*this, id, exec);
-    else if (type == "consumer")
+    }
+    if (type == "consumer") {
       return std::make_unique<pop_thread<T>>(*this, id, exec);
-    else
-      throw std::runtime_error("Invalid thread type: " + type);
+    }
+    throw std::runtime_error("Invalid thread type: " + type);
   }
 
   std::unique_ptr<T> queue;
@@ -102,8 +105,9 @@ void benchmark_thread<T>::initialize(std::uint32_t num_threads) {
 
   [[maybe_unused]] region_guard_t<T> guard{};
   for (std::uint64_t i = 0, j = 0; i < cnt; ++i, j += 2) {
-    if (!try_push(*_benchmark.queue, static_cast<unsigned>(j)))
+    if (!try_push(*_benchmark.queue, static_cast<unsigned>(j))) {
       throw initialization_failure();
+    }
   }
 }
 
@@ -145,7 +149,7 @@ inline std::shared_ptr<benchmark_builder> make_benchmark_builder() {
 }
 
 auto benchmark_variations() {
-  using namespace xenium;
+  using namespace xenium; // NOLINT
   return benchmark_builders{
 #ifdef WITH_RAMALHETE_QUEUE
   #ifdef WITH_GENERIC_EPOCH_BASED

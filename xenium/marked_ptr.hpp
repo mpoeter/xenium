@@ -53,38 +53,39 @@ public:
   static_assert(sizeof(T*) == 8, "marked_ptr requires 64bit pointers.");
 
   /**
-   * @brief Construct a marked ptr with an optional mark value.
+   * @brief Construct a marked_ptr with an optional mark value.
    *
    * The `mark` value is automatically trimmed to `MarkBits` bits.
    */
-  marked_ptr(T* p = nullptr, uintptr_t mark = 0) noexcept : ptr(make_ptr(p, mark)) {}
+  marked_ptr(T* p = nullptr, uintptr_t mark = 0) noexcept : _ptr(make_ptr(p, mark)) {} // NOLINT
 
   /**
    * @brief Reset the pointer to `nullptr` and the mark to 0.
    */
-  void reset() noexcept { ptr = nullptr; }
+  void reset() noexcept { _ptr = nullptr; }
 
   /**
    * @brief Get the mark value.
    */
-  uintptr_t mark() const noexcept {
-    return utils::rotate<lower_mark_bits>::right(reinterpret_cast<uintptr_t>(ptr)) >> pointer_bits;
+  [[nodiscard]] uintptr_t mark() const noexcept {
+    return utils::rotate<lower_mark_bits>::right(reinterpret_cast<uintptr_t>(_ptr)) >> pointer_bits;
   }
 
   /**
    * @brief Get underlying pointer (with mark bits stripped off).
    */
-  T* get() const noexcept {
-    auto ip = reinterpret_cast<uintptr_t>(ptr);
-    if constexpr (number_of_mark_bits != 0)
+  [[nodiscard]] T* get() const noexcept {
+    auto ip = reinterpret_cast<uintptr_t>(_ptr);
+    if constexpr (number_of_mark_bits != 0) {
       ip &= pointer_mask;
+    }
     return reinterpret_cast<T*>(ip);
   }
 
   /**
    * @brief True if `get() != nullptr || mark() != 0`
    */
-  explicit operator bool() const noexcept { return ptr != nullptr; }
+  explicit operator bool() const noexcept { return _ptr != nullptr; }
 
   /**
    * @brief Get pointer with mark bits stripped off.
@@ -96,15 +97,15 @@ public:
    */
   T& operator*() const noexcept { return *get(); }
 
-  inline friend bool operator==(const marked_ptr& l, const marked_ptr& r) { return l.ptr == r.ptr; }
-  inline friend bool operator!=(const marked_ptr& l, const marked_ptr& r) { return l.ptr != r.ptr; }
+  inline friend bool operator==(const marked_ptr& l, const marked_ptr& r) { return l._ptr == r._ptr; }
+  inline friend bool operator!=(const marked_ptr& l, const marked_ptr& r) { return l._ptr != r._ptr; }
 
 private:
   T* make_ptr(T* p, uintptr_t mark) noexcept {
     assert((reinterpret_cast<uintptr_t>(p) & ~pointer_mask) == 0 &&
            "bits reserved for masking are occupied by the pointer");
 
-    uintptr_t ip = reinterpret_cast<uintptr_t>(p);
+    auto ip = reinterpret_cast<uintptr_t>(p);
     if constexpr (number_of_mark_bits == 0) {
       assert(mark == 0);
       return p;
@@ -114,7 +115,7 @@ private:
     }
   }
 
-  T* ptr;
+  T* _ptr;
 
 #ifdef _MSC_VER
   // These members are only for the VS debugger visualizer (natvis).
@@ -129,29 +130,29 @@ public:
   static constexpr uintptr_t number_of_mark_bits = 0;
 
   /**
-   * @brief Construct a marked ptr.
+   * @brief Construct a marked_ptr.
    */
-  marked_ptr(T* p = nullptr) noexcept { ptr = p; }
+  marked_ptr(T* p = nullptr) noexcept { _ptr = p; } // NOLINT
 
   /**
    * @brief Reset the pointer to `nullptr` and the mark to 0.
    */
-  void reset() noexcept { ptr = nullptr; }
+  void reset() noexcept { _ptr = nullptr; }
 
   /**
    * @brief Get the mark value.
    */
-  uintptr_t mark() const noexcept { return 0; }
+  [[nodiscard]] uintptr_t mark() const noexcept { return 0; }
 
   /**
    * @brief Get underlying pointer.
    */
-  T* get() const noexcept { return ptr; }
+  [[nodiscard]] T* get() const noexcept { return _ptr; }
 
   /**
    * @brief True if `get() != nullptr || mark() != 0`
    */
-  explicit operator bool() const noexcept { return ptr != nullptr; }
+  explicit operator bool() const noexcept { return _ptr != nullptr; }
 
   /**
    * @brief Get pointer with mark bits stripped off.
@@ -163,11 +164,11 @@ public:
    */
   T& operator*() const noexcept { return *get(); }
 
-  inline friend bool operator==(const marked_ptr& l, const marked_ptr& r) { return l.ptr == r.ptr; }
-  inline friend bool operator!=(const marked_ptr& l, const marked_ptr& r) { return l.ptr != r.ptr; }
+  inline friend bool operator==(const marked_ptr& l, const marked_ptr& r) { return l._ptr == r._ptr; }
+  inline friend bool operator!=(const marked_ptr& l, const marked_ptr& r) { return l._ptr != r._ptr; }
 
 private:
-  T* ptr;
+  T* _ptr;
 };
 } // namespace xenium
 

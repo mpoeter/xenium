@@ -118,8 +118,9 @@ TYPED_TEST(HarrisMichaelHashMap, find_returns_iterator_to_existing_element) {
 
 TYPED_TEST(HarrisMichaelHashMap, find_returns_end_iterator_for_non_existing_element) {
   for (int i = 0; i < 200; ++i) {
-    if (i != 42)
+    if (i != 42) {
       this->map.emplace(i, i);
+    }
   }
   EXPECT_EQ(this->map.end(), this->map.find(42));
 }
@@ -153,23 +154,27 @@ TYPED_TEST(HarrisMichaelHashMap, begin_returns_iterator_to_first_entry) {
 }
 
 TYPED_TEST(HarrisMichaelHashMap, drain_densely_populated_map_using_erase) {
-  for (int i = 0; i < 200; ++i)
+  for (int i = 0; i < 200; ++i) {
     this->map.emplace(i, i);
+  }
 
   auto it = this->map.begin();
-  while (it != this->map.end())
+  while (it != this->map.end()) {
     it = this->map.erase(std::move(it));
+  }
 
   EXPECT_EQ(this->map.end(), this->map.begin());
 }
 
 TYPED_TEST(HarrisMichaelHashMap, drain_sparsely_populated_map_using_erase) {
-  for (int i = 0; i < 4; ++i)
+  for (int i = 0; i < 4; ++i) {
     this->map.emplace(i * 7, i);
+  }
 
   auto it = this->map.begin();
-  while (it != this->map.end())
+  while (it != this->map.end()) {
     it = this->map.erase(std::move(it));
+  }
 
   EXPECT_EQ(this->map.end(), this->map.begin());
 }
@@ -180,11 +185,13 @@ TYPED_TEST(HarrisMichaelHashMap, iterator_covers_all_entries_in_densely_populate
     values[i] = false;
     this->map.emplace(i, i);
   }
-  for (auto& v : this->map)
+  for (auto& v : this->map) {
     values[v.first] = true;
+  }
 
-  for (auto& v : values)
+  for (auto& v : values) {
     EXPECT_TRUE(v.second) << v.first << " was not visited";
+  }
 }
 
 TYPED_TEST(HarrisMichaelHashMap, iterator_covers_all_entries_in_sparsely_populated_map) {
@@ -193,11 +200,13 @@ TYPED_TEST(HarrisMichaelHashMap, iterator_covers_all_entries_in_sparsely_populat
     values[i * 7] = false;
     this->map.emplace(i * 7, i);
   }
-  for (auto& v : this->map)
+  for (auto& v : this->map) {
     values[v.first] = true;
+  }
 
-  for (auto& v : values)
+  for (auto& v : values) {
     EXPECT_TRUE(v.second) << v.first << " was not visited";
+  }
 }
 
 TYPED_TEST(HarrisMichaelHashMap, operator_at_returns_accessor_to_existing_element) {
@@ -258,14 +267,16 @@ TYPED_TEST(HarrisMichaelHashMap, parallel_usage) {
         it.reset();
         EXPECT_FALSE(map.contains(k));
 
-        for (auto& v : map)
+        for (auto& v : map) {
           (void)v;
+        }
       }
     }));
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 TYPED_TEST(HarrisMichaelHashMap, parallel_usage_with_same_values) {
@@ -278,7 +289,7 @@ TYPED_TEST(HarrisMichaelHashMap, parallel_usage_with_same_values) {
   std::vector<std::thread> threads;
   for (int i = 0; i < 8; ++i) {
     threads.push_back(std::thread([&map] {
-      for (int j = 0; j < MaxIterations / 10; ++j)
+      for (int j = 0; j < MaxIterations / 10; ++j) {
         for (int i = 0; i < 10; ++i) {
           std::string k = std::to_string(i);
           [[maybe_unused]] typename Reclaimer::region_guard guard{};
@@ -294,14 +305,17 @@ TYPED_TEST(HarrisMichaelHashMap, parallel_usage_with_same_values) {
           }
           result.first.reset();
 
-          for (auto& v : map)
+          for (auto& v : map) {
             (void)v;
+          }
         }
+      }
     }));
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 } // namespace

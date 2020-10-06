@@ -14,19 +14,19 @@
   #include <synch.h>
 #endif
 
-namespace xenium { namespace detail {
-  inline void hardware_pause() {
-    // TODO - add pause implementations for ARM + Power
+namespace xenium::detail {
+inline void hardware_pause() {
+  // TODO - add pause implementations for ARM + Power
 #if defined(XENIUM_ARCH_X86)
-    _mm_pause();
+  _mm_pause();
 #elif defined(XENIUM_ARCH_SPARC)
-    smt_pause();
+  smt_pause();
 #else
   #warning "No hardware_pause implementation available - falling back to local volatile noop."
-    // this effectively prevents the compiler from optimizing away the whole backoff operation
-    volatile int x = 0;
-    (void)x;
+  // this effectively prevents the compiler from optimizing away the whole backoff operation
+  volatile int x = 0;
+  (void)x;
 #endif
-  }
-}} // namespace xenium::detail
+}
+} // namespace xenium::detail
 #endif

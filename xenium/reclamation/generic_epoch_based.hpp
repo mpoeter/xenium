@@ -307,7 +307,7 @@ namespace reclamation {
     enable_concurrent_ptr(enable_concurrent_ptr&&) noexcept = default;
     enable_concurrent_ptr& operator=(const enable_concurrent_ptr&) noexcept = default;
     enable_concurrent_ptr& operator=(enable_concurrent_ptr&&) noexcept = default;
-    ~enable_concurrent_ptr() noexcept = default;
+    ~enable_concurrent_ptr() noexcept override = default;
 
   private:
     friend detail::deletable_object_impl<T, Deleter>;
@@ -352,24 +352,24 @@ namespace reclamation {
 #include "impl/generic_epoch_based.hpp"
 #undef GENERIC_EPOCH_BASED_IMPL
 
-namespace xenium { namespace reclamation {
-  template <class... Policies>
-  using epoch_based = generic_epoch_based<>::with<policy::scan_frequency<100>,
-                                                  policy::scan<scan::all_threads>,
-                                                  policy::region_extension<region_extension::none>,
-                                                  Policies...>;
+namespace xenium::reclamation {
+template <class... Policies>
+using epoch_based = generic_epoch_based<>::with<policy::scan_frequency<100>,
+                                                policy::scan<scan::all_threads>,
+                                                policy::region_extension<region_extension::none>,
+                                                Policies...>;
 
-  template <class... Policies>
-  using new_epoch_based = generic_epoch_based<>::with<policy::scan_frequency<100>,
-                                                      policy::scan<scan::all_threads>,
-                                                      policy::region_extension<region_extension::eager>,
-                                                      Policies...>;
+template <class... Policies>
+using new_epoch_based = generic_epoch_based<>::with<policy::scan_frequency<100>,
+                                                    policy::scan<scan::all_threads>,
+                                                    policy::region_extension<region_extension::eager>,
+                                                    Policies...>;
 
-  template <class... Policies>
-  using debra = generic_epoch_based<>::with<policy::scan_frequency<20>,
-                                            policy::scan<scan::one_thread>,
-                                            policy::region_extension<region_extension::none>,
-                                            Policies...>;
-}} // namespace xenium::reclamation
+template <class... Policies>
+using debra = generic_epoch_based<>::with<policy::scan_frequency<20>,
+                                          policy::scan<scan::one_thread>,
+                                          policy::region_extension<region_extension::none>,
+                                          Policies...>;
+} // namespace xenium::reclamation
 
 #endif

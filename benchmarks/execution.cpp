@@ -18,20 +18,23 @@ execution::execution(std::uint32_t round, std::uint32_t runtime, std::shared_ptr
 
 execution::~execution() {
   _state.store(execution_state::stopped);
-  for (auto& thread : _threads)
-    if (thread->_thread.joinable())
+  for (auto& thread : _threads) {
+    if (thread->_thread.joinable()) {
       thread->_thread.join();
+    }
+  }
 }
 
 void execution::create_threads(const config_t& config) {
   std::uint32_t total_count = 0;
-  for (auto& it : config.get_object())
+  for (const auto& it : config.get_object()) {
     total_count += it.second.optional<std::uint32_t>("count").value_or(1);
+  }
 
   _threads.reserve(total_count);
 
   std::uint32_t cnt = 0;
-  for (auto& it : config.get_object()) {
+  for (const auto& it : config.get_object()) {
     auto count = it.second.optional<std::uint32_t>("count").value_or(1);
     for (std::uint32_t i = 0; i < count; ++i, ++cnt) {
       auto type = it.second.optional<std::string>("type").value_or(it.first);
@@ -71,27 +74,30 @@ round_report execution::run() {
 }
 
 round_report execution::build_report(double runtime) {
-  for (auto& thread : _threads)
+  for (auto& thread : _threads) {
     thread->_thread.join();
+  }
 
   std::vector<thread_report> thread_reports;
   thread_reports.reserve(_threads.size());
-  for (unsigned i = 0; i < _threads.size(); ++i) {
-    thread_reports.push_back(_threads[i]->report());
+  for (auto& thread : _threads) {
+    thread_reports.push_back(thread->report());
   }
   return {thread_reports, runtime};
 }
 
 void execution::wait_until_all_threads_are(thread_state state) {
-  for (auto& thread : _threads)
+  for (auto& thread : _threads) {
     wait_until_thread_state_is(*thread, state);
+  }
 }
 
-void execution::wait_until_thread_state_is(const execution_thread& thread, thread_state expected) const {
+void execution::wait_until_thread_state_is(const execution_thread& thread, thread_state expected) {
   auto state = thread._state.load(std::memory_order_relaxed);
   while (state != expected) {
-    if (state == thread_state::finished)
+    if (state == thread_state::finished) {
       throw std::runtime_error("worker thread finished prematurely");
+    }
     state = thread._state.load(std::memory_order_relaxed);
   }
 }
@@ -120,8 +126,9 @@ void execution_thread::thread_func() {
 }
 
 void execution_thread::do_run() {
-  if (_execution.state(std::memory_order_relaxed) == execution_state::stopped)
+  if (_execution.state(std::memory_order_relaxed) == execution_state::stopped) {
     return;
+  }
 
   _state.store(thread_state::running);
 
@@ -135,37 +142,43 @@ void execution_thread::do_run() {
 
   auto start = std::chrono::high_resolution_clock::now();
 
-  while (_execution.state() == execution_state::running)
+  while (_execution.state() == execution_state::running) {
     run();
+  }
 
   _runtime = std::chrono::high_resolution_clock::now() - start;
 }
 
 void execution_thread::setup(const config_t& config) {
-  auto workload = config.find("workload");
-  if (!workload)
+  const auto* workload = config.find("workload");
+  if (workload == nullptr) {
     return;
+  }
 
   workload_factory factory;
   _workload = factory(*workload);
 }
 
 void execution_thread::simulate_workload() {
-  if (_workload)
+  if (_workload) {
     _workload->simulate();
+  }
 }
 
 void execution_thread::wait_until_all_threads_are_started() {
-  while (_execution.state(std::memory_order_acquire) == execution_state::starting)
+  while (_execution.state(std::memory_order_acquire) == execution_state::starting) {
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
 }
 
 void execution_thread::wait_until_initialization() {
-  while (_execution.state() == execution_state::preparing)
+  while (_execution.state() == execution_state::preparing) {
     ;
+  }
 }
 
 void execution_thread::wait_until_benchmark_starts() {
-  while (_execution.state() == execution_state::initializing)
+  while (_execution.state() == execution_state::initializing) {
     ;
+  }
 }

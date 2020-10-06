@@ -38,7 +38,7 @@ TYPED_TEST_CASE(NikolaevQueue, Reclaimers);
 TYPED_TEST(NikolaevQueue, push_try_pop_returns_pushed_element) {
   xenium::nikolaev_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
   queue.push(42);
-  int elem;
+  int elem = 0;
   ASSERT_TRUE(queue.try_pop(elem));
   EXPECT_EQ(42, elem);
 }
@@ -47,8 +47,8 @@ TYPED_TEST(NikolaevQueue, push_two_items_pop_them_in_FIFO_order) {
   xenium::nikolaev_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
   queue.push(42);
   queue.push(43);
-  int elem1;
-  int elem2;
+  int elem1 = 0;
+  int elem2 = 0;
   EXPECT_TRUE(queue.try_pop(elem1));
   ASSERT_TRUE(queue.try_pop(elem2));
   EXPECT_EQ(42, elem1);
@@ -63,7 +63,7 @@ TYPED_TEST(NikolaevQueue, try_pop_returns_false_when_queue_is_empty) {
 
 TYPED_TEST(NikolaevQueue, supports_move_only_types) {
   xenium::nikolaev_queue<std::pair<int, std::unique_ptr<int>>, xenium::policy::reclaimer<TypeParam>> queue;
-  queue.push({41, std::unique_ptr<int>(new int(42))});
+  queue.push({41, std::make_unique<int>(42)});
 
   std::pair<int, std::unique_ptr<int>> elem;
   ASSERT_TRUE(queue.try_pop(elem));
@@ -85,7 +85,7 @@ TYPED_TEST(NikolaevQueue, deletes_remaining_entries) {
   unsigned delete_count = 0;
   struct dummy {
     unsigned& delete_count;
-    dummy(unsigned& delete_count) : delete_count(delete_count) {}
+    explicit dummy(unsigned& delete_count) : delete_count(delete_count) {}
     ~dummy() { ++delete_count; }
   };
   {
@@ -98,8 +98,9 @@ TYPED_TEST(NikolaevQueue, deletes_remaining_entries) {
 TYPED_TEST(NikolaevQueue, push_pop_in_fifo_order_with_remapped_indexes) {
   constexpr int capacity = 11;
   xenium::nikolaev_queue<int, xenium::policy::entries_per_node<8>, xenium::policy::reclaimer<TypeParam>> queue;
-  for (int i = 0; i < capacity; ++i)
+  for (int i = 0; i < capacity; ++i) {
     queue.push(i);
+  }
 
   for (int i = 0; i < capacity; ++i) {
     int value;
@@ -139,8 +140,9 @@ TYPED_TEST(NikolaevQueue, parallel_usage) {
     }));
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 TYPED_TEST(NikolaevQueue, parallel_usage_mostly_full) {
@@ -170,8 +172,9 @@ TYPED_TEST(NikolaevQueue, parallel_usage_mostly_full) {
     }));
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 TYPED_TEST(NikolaevQueue, parallel_usage_mostly_empty) {
@@ -198,7 +201,8 @@ TYPED_TEST(NikolaevQueue, parallel_usage_mostly_empty) {
     }));
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 } // namespace

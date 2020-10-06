@@ -32,10 +32,10 @@ struct thread_report {
 struct round_report {
   std::vector<thread_report> threads;
   double runtime; // runtime in milliseconds
-  std::uint64_t operations() const;
-  double throughput() const { return operations() / runtime; }
+  [[nodiscard]] std::uint64_t operations() const;
+  [[nodiscard]] double throughput() const { return static_cast<double>(operations()) / runtime; }
 
-  tao::json::value as_json() const;
+  [[nodiscard]] tao::json::value as_json() const;
 };
 
 struct report {
@@ -44,5 +44,5 @@ struct report {
   tao::config::value config;
   std::vector<round_report> rounds;
 
-  tao::json::value as_json() const;
+  [[nodiscard]] tao::json::value as_json() const;
 };

@@ -106,14 +106,14 @@ private:
         _allocated_queue(entries_per_node, remap_shift, detail::nikolaev_scq::empty_tag{}),
         _free_queue(entries_per_node, remap_shift, detail::nikolaev_scq::full_tag{}) {}
 
-    node(value_type&& value) :
+    explicit node(value_type&& value) :
         _storage(new storage_t[entries_per_node]),
         _allocated_queue(entries_per_node, remap_shift, detail::nikolaev_scq::first_used_tag{}),
         _free_queue(entries_per_node, remap_shift, detail::nikolaev_scq::first_empty_tag{}) {
       new (&_storage[0]) T(std::move(value));
     }
 
-    ~node() {
+    ~node() override {
       std::size_t eidx;
       while (_allocated_queue.dequeue<false, pop_retries>(eidx, entries_per_node, remap_shift)) {
         reinterpret_cast<T&>(_storage[eidx]).~T();
@@ -137,6 +137,11 @@ private:
       new (&_storage[eidx]) T(std::move(value));
       if (!_allocated_queue.enqueue<false, true>(eidx, entries_per_node, remap_shift)) {
         // queue has been finalized
+        // we have already moved the value, so we need to move it back and
+        // destroy the created storage item.
+        T& data = reinterpret_cast<T&>(_storage[eidx]);
+        value = std::move(data);
+        data.~T(); // NOLINT (use-after-move)
         _free_queue.enqueue<false, false>(eidx, entries_per_node, remap_shift);
         return false;
       }
@@ -145,13 +150,14 @@ private:
 
     bool try_pop(value_type& result) {
       std::size_t eidx;
-      if (!_allocated_queue.dequeue<false, pop_retries>(eidx, entries_per_node, remap_shift))
+      if (!_allocated_queue.dequeue<false, pop_retries>(eidx, entries_per_node, remap_shift)) {
         return false;
+      }
 
       assert(eidx < entries_per_node);
       T& data = reinterpret_cast<T&>(_storage[eidx]);
       result = std::move(data);
-      data.~T();
+      data.~T(); // NOLINT (use-after-move)
       _free_queue.enqueue<false, false>(eidx, entries_per_node, remap_shift);
       return true;
     }
@@ -194,15 +200,16 @@ void nikolaev_queue<T, Policies...>::push(value_type value) {
       // (2) - this acquire-load synchronizes-with the release-CAS (4)
       const auto next = n->_next.load(std::memory_order_acquire);
       marked_ptr expected = n;
-      // (3) - this release-CAS synchrnoizes with the acquire-load (1)
+      // (3) - this release-CAS synchronizes with the acquire-load (1)
       _tail.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed);
       continue;
     }
 
-    if (n->try_push(std::move(value)))
+    if (n->try_push(std::move(value))) {
       return;
+    }
 
-    auto next = new node(std::move(value));
+    auto next = new node(std::move(value)); // NOLINT (use-after-move)
     marked_ptr expected{nullptr};
     // (4) - this release-CAS synchronizes-with the acquire-load (2, 7)
     if (n->_next.compare_exchange_strong(expected, next, std::memory_order_release, std::memory_order_relaxed)) {
@@ -222,14 +229,17 @@ bool nikolaev_queue<T, Policies...>::try_pop(value_type& result) {
   for (;;) {
     // (6) - this acquire-load synchronizes-with the release-CAS (8)
     n.acquire(_head, std::memory_order_acquire);
-    if (n->try_pop(result))
+    if (n->try_pop(result)) {
       return true;
-    if (n->_next.load(std::memory_order_relaxed) == nullptr)
+    }
+    if (n->_next.load(std::memory_order_relaxed) == nullptr) {
       return false;
+    }
 
     n->_allocated_queue.set_threshold(3 * entries_per_node - 1);
-    if (n->try_pop(result))
+    if (n->try_pop(result)) {
       return true;
+    }
 
     // (7) - this acquire-load synchronizes-with (4)
     const auto next = n->_next.load(std::memory_order_acquire);

@@ -11,9 +11,10 @@ namespace {
 struct NikolaevSCQ : testing::Test {};
 
 namespace {
-  static constexpr std::size_t capacity = 8;
-  static constexpr std::size_t remap_shift = xenium::detail::nikolaev_scq::calc_remap_shift(capacity);
+  constexpr std::size_t capacity = 8;
+  constexpr std::size_t remap_shift = xenium::detail::nikolaev_scq::calc_remap_shift(capacity);
 } // namespace
+
 TEST(NikolaevSCQ, construct_empty) {
   xenium::detail::nikolaev_scq queue(capacity, remap_shift, xenium::detail::nikolaev_scq::empty_tag{});
   std::uint64_t v;

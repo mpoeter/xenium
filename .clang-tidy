@@ -1,0 +1,35 @@
+---
+Checks: 'clang-diagnostic-*,
+clang-analyzer-*,
+readability-*,
+-readability-magic-numbers,
+-readability-named-parameter,
+-readability-redundant-member-init,
+-readability-isolate-declaration,
+modernize-*,
+-modernize-avoid-c-arrays,
+-modernize-use-trailing-return-type,
+bugprone-*,
+misc-*,
+google-*,
+-google-readability-avoid-underscore-in-googletest-name,
+-google-readability-todo,
+-google-runtime-references,
+llvm-*,
+-llvm-header-guard,
+fuchsia-restrict-system-includes,
+'
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*\.hpp$'
+FormatStyle: 'file'
+CheckOptions:
+  - { key: google-runtime-int.TypeSufix,                     value: '_t' }
+  - { key: fuchsia-restrict-system-includes.Includes,        value: '*,-stdint.h,-stdbool.h,-assert.h' }
+  - { key: readability-identifier-naming.NamespaceCase,       value: snake_case }
+  - { key: readability-identifier-naming.ClassCase,           value: snake_case  }
+  - { key: readability-identifier-naming.PrivateMemberPrefix, value: _         }
+  - { key: readability-identifier-naming.StructCase,          value: snake_case  }
+  - { key: readability-identifier-naming.FunctionCase,        value: snake_case }
+  - { key: readability-identifier-naming.VariableCase,        value: snake_case }
+  - { key: readability-identifier-naming.GlobalConstantCase,  value: snake_case }
+  - { key: readability-braces-around-statements.ShortStatementLines, value: 2 }

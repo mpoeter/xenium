@@ -7,13 +7,13 @@ using config_t = tao::config::value;
 namespace {
 
 struct dummy_workload_simulator : workload_simulator {
-  dummy_workload_simulator(std::uint32_t iterations) : _iterations(iterations) {}
-  dummy_workload_simulator(const config_t& config) : _iterations(config.as<std::uint32_t>("iterations")) {}
+  explicit dummy_workload_simulator(std::uint32_t iterations) : _iterations(iterations) {}
+  explicit dummy_workload_simulator(const config_t& config) : _iterations(config.as<std::uint32_t>("iterations")) {}
 
   void simulate() override {
     // use volatile here to prevent the compiler from eliminating the empty loop
     for (volatile std::uint32_t i = 0; i < _iterations; ++i) {
-      if (i % 64) {
+      if ((i % 64) != 0) {
         // TODO - pause?
       }
     }
@@ -46,7 +46,8 @@ std::shared_ptr<workload_simulator> workload_factory::operator()(const config_t&
 
   auto type = config.as<std::string>("type");
   auto it = _builders.find(type);
-  if (it == _builders.end())
+  if (it == _builders.end()) {
     throw std::runtime_error("Invalid workload type " + type);
+  }
   return it->second(config);
 }

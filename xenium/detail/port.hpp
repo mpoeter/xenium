@@ -8,7 +8,7 @@
 
 #if !defined(__SANITIZE_THREAD__) && defined(__has_feature)
   #if __has_feature(thread_sanitizer)
-    #define __SANITIZE_THREAD__
+    #define __SANITIZE_THREAD__ // NOLINT
   #endif
 #endif
 

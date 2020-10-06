@@ -22,20 +22,21 @@ struct HazardEras : ::testing::Test {
 
   struct Foo : HE::template enable_concurrent_ptr<Foo, 2> {
     Foo** instance;
-    Foo(Foo** instance) : instance(instance) {}
-    virtual ~Foo() {
-      if (instance)
+    explicit Foo(Foo** instance) : instance(instance) {}
+    ~Foo() override {
+      if (instance) {
         *instance = nullptr;
+      }
     }
   };
 
   struct Bar {
     int x;
-    virtual ~Bar() {}
+    virtual ~Bar() = default;
   };
 
   struct FooBar : Bar, Foo {
-    FooBar(Foo** instance) : Foo(instance) {}
+    explicit FooBar(Foo** instance) : Foo(instance) {}
   };
 
   struct WithCustomDeleter;
@@ -64,10 +65,11 @@ struct HazardEras : ::testing::Test {
     // In order to do so we create a guard for a dummy object and mark it for reclamation.
     // This triggers reclamation of all the objects in the retired_list.
     advance_era();
-    if (mp == nullptr)
+    if (mp == nullptr) {
       assert(foo == nullptr);
-    else
+    } else {
       delete foo;
+    }
   }
 
   Foo* dummy2 = nullptr;
@@ -137,8 +139,9 @@ TYPED_TEST(HazardEras, acquire_if_equal_returns_false_and_resets_guard_when_valu
   EXPECT_EQ(nullptr, gp.get());
 }
 TYPED_TEST(HazardEras, static_policy_throws_bad_hazard_era_alloc_when_HE_pool_is_exceeded) {
-  if (std::is_same<TypeParam, my_dynamic_allocation_strategy>::value)
+  if (std::is_same<TypeParam, my_dynamic_allocation_strategy>::value) {
     return;
+  }
 
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;
   guard_ptr gp1{this->mp};
@@ -195,7 +198,7 @@ TYPED_TEST(HazardEras, move_constructor_moves_ownership_and_resets_source_object
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;
   guard_ptr gp(this->mp);
   guard_ptr gp2(std::move(gp));
-  EXPECT_EQ(nullptr, gp.get());
+  EXPECT_EQ(nullptr, gp.get()); // NOLINT (use-after-move)
   gp2.reclaim();
   this->mp = nullptr;
   EXPECT_EQ(nullptr, gp2.get());
@@ -219,13 +222,14 @@ TYPED_TEST(HazardEras, move_assignment_moves_ownership_and_resets_source_object)
   gp2 = std::move(gp);
   gp2.reclaim();
   this->mp = nullptr;
-  EXPECT_EQ(nullptr, gp.get());
+  EXPECT_EQ(nullptr, gp.get()); // NOLINT (use-after-move)
   EXPECT_EQ(nullptr, this->foo);
 }
 
 TYPED_TEST(HazardEras, dynamic_policy_can_protect_more_than_K_objects) {
-  if (std::is_same<TypeParam, my_static_allocation_strategy>::value)
+  if (std::is_same<TypeParam, my_static_allocation_strategy>::value) {
     return;
+  }
 
   const size_t count = 100;
 
@@ -242,20 +246,24 @@ TYPED_TEST(HazardEras, dynamic_policy_can_protect_more_than_K_objects) {
     guards2[i] = guard_ptr(foos[i]);
   }
 
-  for (size_t i = 0; i < count; ++i)
+  for (size_t i = 0; i < count; ++i) {
     guards[i].reclaim();
+  }
 
-  for (size_t i = 0; i < count; ++i)
+  for (size_t i = 0; i < count; ++i) {
     ASSERT_NE(nullptr, foos[i]);
+  }
 
-  for (size_t i = 0; i < count; ++i)
+  for (size_t i = 0; i < count; ++i) {
     guards2[i].reset();
+  }
 
   // reclaim another dummy node to enforce a rescan and reclamation of the retired nodes.
   Foo* dummy = new Foo(&dummy);
   guard_ptr{dummy}.reclaim();
 
-  for (size_t i = 0; i < count; ++i)
+  for (size_t i = 0; i < count; ++i) {
     EXPECT_EQ(nullptr, foos[i]);
+  }
 }
 } // namespace

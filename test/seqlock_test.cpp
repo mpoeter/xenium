@@ -6,21 +6,21 @@
 namespace {
 
 struct Foo {
-  int32_t v1;
-  float v2;
-  double v3;
-  int64_t v4;
+  int32_t v1 = 0;
+  float v2 = 0;
+  double v3 = 0;
+  int64_t v4 = 0;
 
   Foo& operator++() {
     ++v1;
-    ++v2;
+    ++v2; // NOLINT
     ++v3;
     ++v4;
     return *this;
   }
 
-  bool verify() const { return v1 == v2 && v2 == v3 && v3 == v4; }
-  bool operator==(const Foo& rhs) const { return v1 == rhs.v1 && v2 == rhs.v2 && v3 == rhs.v3 && v4 == rhs.v4; }
+  [[nodiscard]] bool verify() const { return v1 == v2 && v2 == v3 && v3 == v4; } // NOLINT
+  bool operator==(const Foo& rhs) const { return v1 == rhs.v1 && v2 == rhs.v2 && v3 == rhs.v3 && v4 == rhs.v4; } // NOLINT
 };
 
 TEST(SeqLock, load_returns_initial_value) {
@@ -127,8 +127,9 @@ TEST(SeqLock, parallel_usage) {
     });
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 } // namespace

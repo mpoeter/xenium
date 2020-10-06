@@ -32,8 +32,8 @@ TYPED_TEST_CASE(MichaelScottQueue, Reclaimers);
 TYPED_TEST(MichaelScottQueue, push_try_pop_returns_pushed_element) {
   xenium::michael_scott_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
   queue.push(42);
-  int elem;
-  EXPECT_TRUE(queue.try_pop(elem));
+  int elem = 0;
+  ASSERT_TRUE(queue.try_pop(elem));
   EXPECT_EQ(42, elem);
 }
 
@@ -41,7 +41,8 @@ TYPED_TEST(MichaelScottQueue, push_two_items_pop_them_in_FIFO_order) {
   xenium::michael_scott_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
   queue.push(42);
   queue.push(43);
-  int elem1, elem2;
+  int elem1 = 0;
+  int elem2 = 0;
   EXPECT_TRUE(queue.try_pop(elem1));
   EXPECT_TRUE(queue.try_pop(elem2));
   EXPECT_EQ(42, elem1);
@@ -50,7 +51,7 @@ TYPED_TEST(MichaelScottQueue, push_two_items_pop_them_in_FIFO_order) {
 
 TYPED_TEST(MichaelScottQueue, supports_move_only_types) {
   xenium::michael_scott_queue<std::unique_ptr<int>, xenium::policy::reclaimer<TypeParam>> queue;
-  queue.push(std::unique_ptr<int>(new int(42)));
+  queue.push(std::make_unique<int>(42));
 
   std::unique_ptr<int> elem;
   ASSERT_TRUE(queue.try_pop(elem));
@@ -79,7 +80,8 @@ TYPED_TEST(MichaelScottQueue, parallel_usage) {
     }));
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 } // namespace

@@ -77,31 +77,31 @@ private:
   using guard_ptr = typename concurrent_ptr::guard_ptr;
 
   struct node : reclaimer::template enable_concurrent_ptr<node> {
-    node() : value(){};
-    node(T&& v) : value(std::move(v)) {}
+    node() : _value(){};
+    explicit node(T&& v) : _value(std::move(v)) {}
 
-    T value;
-    concurrent_ptr next;
+    T _value;
+    concurrent_ptr _next;
   };
 
-  alignas(64) concurrent_ptr head;
-  alignas(64) concurrent_ptr tail;
+  alignas(64) concurrent_ptr _head;
+  alignas(64) concurrent_ptr _tail;
 };
 
 template <class T, class... Policies>
 michael_scott_queue<T, Policies...>::michael_scott_queue() {
   auto n = new node();
-  head.store(n, std::memory_order_relaxed);
-  tail.store(n, std::memory_order_relaxed);
+  _head.store(n, std::memory_order_relaxed);
+  _tail.store(n, std::memory_order_relaxed);
 }
 
 template <class T, class... Policies>
 michael_scott_queue<T, Policies...>::~michael_scott_queue() {
   // (1) - this acquire-load synchronizes-with the release-CAS (11)
-  auto n = head.load(std::memory_order_acquire);
+  auto n = _head.load(std::memory_order_acquire);
   while (n) {
     // (2) - this acquire-load synchronizes-with the release-CAS (6)
-    auto next = n->next.load(std::memory_order_acquire);
+    auto next = n->_next.load(std::memory_order_acquire);
     delete n.get();
     n = next;
   }
@@ -115,25 +115,26 @@ void michael_scott_queue<T, Policies...>::push(T value) {
 
   guard_ptr t;
   for (;;) {
-    // Get the old tail pointer.
+    // Get the old _tail pointer.
     // (3) - this acquire-load synchronizes-with the release-CAS (5, 7, 10)
-    t.acquire(tail, std::memory_order_acquire);
+    t.acquire(_tail, std::memory_order_acquire);
 
-    // Help update the tail pointer if needed.
+    // Help update the _tail pointer if needed.
     // (4) - this acquire-load synchronizes-with the release-CAS (6)
-    auto next = t->next.load(std::memory_order_acquire);
+    auto next = t->_next.load(std::memory_order_acquire);
     if (next.get() != nullptr) {
       marked_ptr expected(t.get());
       // (5) - this release-CAS synchronizes-with the acquire-load (3)
-      tail.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed);
+      _tail.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed);
       continue;
     }
 
     // Attempt to link in the new element.
     marked_ptr null{};
     // (6) - this release-CAS synchronizes-with the acquire-load (2, 4, 9).
-    if (t->next.compare_exchange_weak(null, n, std::memory_order_release, std::memory_order_relaxed))
+    if (t->_next.compare_exchange_weak(null, n, std::memory_order_release, std::memory_order_relaxed)) {
       break;
+    }
 
     backoff();
   }
@@ -141,7 +142,7 @@ void michael_scott_queue<T, Policies...>::push(T value) {
   // Swing the tail to the new element.
   marked_ptr expected = t.get();
   // (7) - this release-CAS synchronizes-with the acquire-load (3)
-  tail.compare_exchange_strong(expected, n, std::memory_order_release, std::memory_order_relaxed);
+  _tail.compare_exchange_strong(expected, n, std::memory_order_release, std::memory_order_relaxed);
 }
 
 template <class T, class... Policies>
@@ -150,36 +151,38 @@ bool michael_scott_queue<T, Policies...>::try_pop(T& result) {
 
   guard_ptr h;
   for (;;) {
-    // Get the old head and tail elements.
+    // Get the old _head and _tail elements.
     // (8) - this acquire-load synchronizes-with the release-CAS (11)
-    h.acquire(head, std::memory_order_acquire);
+    h.acquire(_head, std::memory_order_acquire);
 
-    // Get the head element's successor.
+    // Get the _head element's successor.
     // (9) - this acquire-load synchronizes-with the release-CAS (6).
-    auto next = acquire_guard(h->next, std::memory_order_acquire);
-    if (head.load(std::memory_order_relaxed).get() != h.get())
-      continue;
-
-    // If the head (dummy) element is the only one, return false to signal that
-    // the operation has failed (no element has been returned).
-    if (next.get() == nullptr)
-      return false;
-
-    marked_ptr t = tail.load(std::memory_order_relaxed);
-
-    // There are multiple elements. Help update tail if needed.
-    if (h.get() == t.get()) {
-      // (10) - this release-CAS synchronizes-with the acquire-load (3)
-      tail.compare_exchange_weak(t, next, std::memory_order_release, std::memory_order_relaxed);
+    auto next = acquire_guard(h->_next, std::memory_order_acquire);
+    if (_head.load(std::memory_order_relaxed).get() != h.get()) {
       continue;
     }
 
-    // Attempt to update the head pointer so that it points to the new dummy node.
+    // If the _head (dummy) element is the only one, return false to signal that
+    // the operation has failed (no element has been returned).
+    if (next.get() == nullptr) {
+      return false;
+    }
+
+    marked_ptr t = _tail.load(std::memory_order_relaxed);
+
+    // There are multiple elements. Help update _tail if needed.
+    if (h.get() == t.get()) {
+      // (10) - this release-CAS synchronizes-with the acquire-load (3)
+      _tail.compare_exchange_weak(t, next, std::memory_order_release, std::memory_order_relaxed);
+      continue;
+    }
+
+    // Attempt to update the _head pointer so that it points to the new dummy node.
     marked_ptr expected(h.get());
     // (11) - this release-CAS synchronizes-with the acquire-load (1, 8)
-    if (head.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed)) {
-      // return the data of head's successor; it is the new dummy node.
-      result = std::move(next->value);
+    if (_head.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed)) {
+      // return the data of _head's successor; it is the new dummy node.
+      result = std::move(next->_value);
       break;
     }
 

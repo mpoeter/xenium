@@ -29,11 +29,13 @@ struct exponential_backoff {
   static_assert(Max > 0, "Max must be greater than zero. If you don't want to backoff use the `no_backoff` class.");
 
   void operator()() {
-    for (unsigned i = 0; i < count; ++i)
+    for (unsigned i = 0; i < count; ++i) {
       detail::hardware_pause();
+    }
     count = std::min(Max, count * 2);
   }
 
+private:
   unsigned count = 1;
 };
 

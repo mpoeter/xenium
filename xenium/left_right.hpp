@@ -43,7 +43,7 @@ struct left_right {
    *
    * @param source the source used to initialize the two underlying instances.
    */
-  left_right(T source) : left(source), right(std::move(source)) {}
+  explicit left_right(T source) : _left(source), _right(std::move(source)) {}
 
   /**
    * @brief Initializes the two underlying instances withe the specified sources.
@@ -53,7 +53,7 @@ struct left_right {
    * @param left the source to initialize the left instance
    * @param right the source to initialize the right instance
    */
-  left_right(T left, T right) : left(std::move(left)), right(std::move(right)) {}
+  left_right(T left, T right) : _left(std::move(left)), _right(std::move(right)) {}
 
   /**
    * @brief Default constructs both underlying instances.
@@ -77,7 +77,7 @@ struct left_right {
   auto read(Func&& func) const {
     read_guard guard(*this);
     // (1) - this seq-cst-load enforces a total order with the seq-cst-store (2, 3)
-    const T& inst = lr_indicator.load(std::memory_order_seq_cst) == READ_LEFT ? left : right;
+    const T& inst = _lr_indicator.load(std::memory_order_seq_cst) == READ_LEFT ? _left : _right;
     return func(inst);
   }
 
@@ -92,95 +92,97 @@ struct left_right {
    */
   template <typename Func>
   void update(Func&& func) {
-    std::lock_guard<std::mutex> lock(writer_mutex);
-    assert(lr_indicator.load() == version_index.load());
-    if (lr_indicator.load(std::memory_order_relaxed) == READ_LEFT) {
-      func(right);
+    std::lock_guard<std::mutex> lock(_writer_mutex);
+    assert(_lr_indicator.load() == _version_index.load());
+    if (_lr_indicator.load(std::memory_order_relaxed) == READ_LEFT) {
+      func(_right);
       // (2) - this seq-cst-store enforces a total order with the seq-cst-load (1)
-      lr_indicator.store(READ_RIGHT, std::memory_order_seq_cst);
+      _lr_indicator.store(READ_RIGHT, std::memory_order_seq_cst);
       toggle_version_and_wait();
-      func(left);
+      func(_left);
     } else {
-      func(left);
+      func(_left);
       // (3) - this seq-cst-store enforces a total order with the seq-cst-load (1)
-      lr_indicator.store(READ_LEFT, std::memory_order_seq_cst);
+      _lr_indicator.store(READ_LEFT, std::memory_order_seq_cst);
       toggle_version_and_wait();
-      func(right);
+      func(_right);
     }
   }
 
 private:
   struct alignas(64) read_indicator {
-    void arrive(void) {
+    void arrive() {
       // (4) - this seq-cst-fetch-add enforces a total order with the seq-cst-load (6)
-      counter.fetch_add(1, std::memory_order_seq_cst);
+      _counter.fetch_add(1, std::memory_order_seq_cst);
     }
-    void depart(void) {
+    void depart() {
       // (5) - this release-fetch-sub synchronizes-with the seq-cst-load (6)
-      counter.fetch_sub(1, std::memory_order_release);
+      _counter.fetch_sub(1, std::memory_order_release);
       // Note: even though this method is only called by reader threads that (usually)
       // do not change the underlying data structure, we still have to use release
       // order here to ensure that the read operations is properly ordered before a
       // subsequent update operation.
     }
-    bool empty(void) {
+    bool empty() {
       // (6) - this seq-cst-load enforces a total order with the seq-cst-fetch-add (4)
       //       and synchronizes-with the release-fetch-add (5)
-      return counter.load(std::memory_order_seq_cst) == 0;
+      return _counter.load(std::memory_order_seq_cst) == 0;
     }
 
   private:
-    std::atomic<uint64_t> counter{0};
+    std::atomic<uint64_t> _counter{0};
   };
 
   struct read_guard {
-    read_guard(const left_right& inst) :
-        indicator(inst.get_read_indicator(inst.version_index.load(std::memory_order_relaxed))) {
-      indicator.arrive();
+    explicit read_guard(const left_right& inst) :
+        _indicator(inst.get_read_indicator(inst._version_index.load(std::memory_order_relaxed))) {
+      _indicator.arrive();
     }
-    ~read_guard() { indicator.depart(); }
+    ~read_guard() { _indicator.depart(); }
 
   private:
-    read_indicator& indicator;
+    read_indicator& _indicator;
   };
   friend struct read_guard;
 
-  void toggle_version_and_wait(void) {
-    const int current_version = version_index.load(std::memory_order_relaxed);
+  void toggle_version_and_wait() {
+    const int current_version = _version_index.load(std::memory_order_relaxed);
     const int current_idx = current_version & 0x1;
     const int next_idx = (current_version + 1) & 0x1;
 
     wait_for_readers(next_idx);
-    version_index.store(next_idx, std::memory_order_relaxed);
+    _version_index.store(next_idx, std::memory_order_relaxed);
     wait_for_readers(current_idx);
   }
 
   void wait_for_readers(int idx) {
     auto& indicator = get_read_indicator(idx);
-    while (!indicator.empty())
+    while (!indicator.empty()) {
       std::this_thread::yield();
+    }
   }
 
   read_indicator& get_read_indicator(int idx) const {
     assert(idx == 0 || idx == 1);
-    if (idx == 0)
-      return read_indicator1;
-    return read_indicator2;
+    if (idx == 0) {
+      return _read_indicator1;
+    }
+    return _read_indicator2;
   }
 
   static constexpr int READ_LEFT = 0;
   static constexpr int READ_RIGHT = 1;
 
   // TODO: make mutex type configurable via policy
-  std::mutex writer_mutex;
-  std::atomic<int> version_index{0};
-  std::atomic<int> lr_indicator{READ_LEFT};
+  std::mutex _writer_mutex;
+  std::atomic<int> _version_index{0};
+  std::atomic<int> _lr_indicator{READ_LEFT};
 
-  mutable read_indicator read_indicator1;
-  T left;
+  mutable read_indicator _read_indicator1;
+  T _left;
 
-  mutable read_indicator read_indicator2;
-  T right;
+  mutable read_indicator _read_indicator2;
+  T _right;
 };
 } // namespace xenium
 

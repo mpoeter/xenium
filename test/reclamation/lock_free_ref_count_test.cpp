@@ -7,8 +7,8 @@ namespace {
 
 struct Foo : xenium::reclamation::lock_free_ref_count<>::enable_concurrent_ptr<Foo, 2> {
   Foo** instance;
-  Foo(Foo** instance) : instance(instance) {}
-  virtual ~Foo() { *instance = nullptr; }
+  explicit Foo(Foo** instance) : instance(instance) {}
+  ~Foo() override { *instance = nullptr; }
 };
 
 template <typename T>
@@ -67,7 +67,7 @@ TEST_F(LockFreeRefCount, move_constructor_does_not_increment_ref_count_and_reset
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2(std::move(gp));
   EXPECT_EQ(2u, mp->refs());
-  EXPECT_EQ(nullptr, gp.get());
+  EXPECT_EQ(nullptr, gp.get()); // NOLINT (use-after-move)
 }
 
 TEST_F(LockFreeRefCount, copy_assignment_increments_ref_count) {
@@ -82,7 +82,7 @@ TEST_F(LockFreeRefCount, move_assignment_does_not_increment_ref_count_and_resets
   concurrent_ptr<Foo>::guard_ptr gp2{};
   gp2 = std::move(gp);
   EXPECT_EQ(2u, mp->refs());
-  EXPECT_EQ(nullptr, gp.get());
+  EXPECT_EQ(nullptr, gp.get()); // NOLINT (use-after-move)
 }
 
 TEST_F(LockFreeRefCount, guard_destructor_decrements_ref_count) {
@@ -95,18 +95,19 @@ TEST_F(LockFreeRefCount, parallel_allocation_and_deallocation_of_nodes) {
 
   std::vector<std::thread> threads;
   for (int i = 0; i < 16; ++i) {
-    threads.push_back(std::thread([] {
+    threads.emplace_back([] {
       const int MaxIterations = 10000;
       for (int j = 0; j < MaxIterations; ++j) {
-        auto o = new Dummy;
+        auto* o = new Dummy;
         guard_ptr<Dummy> g(new Dummy);
         delete o;
         g.reclaim();
       }
-    }));
+    });
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 } // namespace

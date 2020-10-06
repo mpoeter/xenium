@@ -32,6 +32,8 @@ TEST(marked_ptr, mark_returns_correct_value) {
 TEST(marked_ptr, deref_works_correctly) {
   Foo f;
   xenium::marked_ptr<Foo, 2> p(&f, 3);
+  ASSERT_EQ(&f, p.get());
+
   p->x = 42;
   EXPECT_EQ(42, f.x);
 

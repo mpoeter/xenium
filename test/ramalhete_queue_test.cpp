@@ -35,7 +35,7 @@ TYPED_TEST_CASE(RamalheteQueue, Reclaimers);
 TYPED_TEST(RamalheteQueue, push_try_pop_returns_pushed_element) {
   xenium::ramalhete_queue<int*, xenium::policy::reclaimer<TypeParam>> queue;
   queue.push(v1);
-  int* elem;
+  int* elem = nullptr;
   EXPECT_TRUE(queue.try_pop(elem));
   EXPECT_EQ(v1, elem);
 }
@@ -51,25 +51,25 @@ TYPED_TEST(RamalheteQueue, supports_unique_ptr) {
 TYPED_TEST(RamalheteQueue, supports_trivially_copyable_types_smaller_than_a_pointer) {
   {
     xenium::ramalhete_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
-    int elem;
     queue.push(42);
     queue.push(-42);
-    EXPECT_TRUE(queue.try_pop(elem));
+    int elem = 0;
+    ASSERT_TRUE(queue.try_pop(elem));
     EXPECT_EQ(42, elem);
-    EXPECT_TRUE(queue.try_pop(elem));
+    ASSERT_TRUE(queue.try_pop(elem));
     EXPECT_EQ(-42, elem);
   }
 
   {
     struct dummy {
-      char c;
-      bool b;
+      char c = 0;
+      bool b = false;
       bool operator==(const dummy& rhs) const { return c == rhs.c && b == rhs.b; }
     };
     xenium::ramalhete_queue<dummy, xenium::policy::reclaimer<TypeParam>> queue;
-    dummy elem;
     queue.push({'a', true});
     queue.push({'b', false});
+    dummy elem;
     EXPECT_TRUE(queue.try_pop(elem));
     dummy expected = {'a', true};
     EXPECT_EQ(expected, elem);
@@ -83,7 +83,7 @@ TYPED_TEST(RamalheteQueue, deletes_remaining_unique_ptr_entries) {
   unsigned delete_count = 0;
   struct dummy {
     unsigned& delete_count;
-    dummy(unsigned& delete_count) : delete_count(delete_count) {}
+    explicit dummy(unsigned& delete_count) : delete_count(delete_count) {}
     ~dummy() { ++delete_count; }
   };
   {
@@ -97,8 +97,8 @@ TYPED_TEST(RamalheteQueue, push_two_items_pop_them_in_FIFO_order) {
   xenium::ramalhete_queue<int*, xenium::policy::reclaimer<TypeParam>> queue;
   queue.push(v1);
   queue.push(v2);
-  int* elem1;
-  int* elem2;
+  int* elem1 = nullptr;
+  int* elem2 = nullptr;
   EXPECT_TRUE(queue.try_pop(elem1));
   EXPECT_TRUE(queue.try_pop(elem2));
   EXPECT_EQ(v1, elem1);
@@ -128,7 +128,8 @@ TYPED_TEST(RamalheteQueue, parallel_usage) {
     }));
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 } // namespace

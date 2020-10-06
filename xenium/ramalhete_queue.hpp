@@ -120,35 +120,36 @@ private:
     concurrent_ptr next;
 
     // Start with the first entry pre-filled
-    node(raw_value_type item) : pop_idx{0}, push_idx{step_size}, next{nullptr} {
+    explicit node(raw_value_type item) : pop_idx{0}, push_idx{step_size}, next{nullptr} {
       entries[0].value.store(item, std::memory_order_relaxed);
-      for (unsigned i = 1; i < entries_per_node; i++)
+      for (unsigned i = 1; i < entries_per_node; i++) {
         entries[i].value.store(nullptr, std::memory_order_relaxed);
+      }
     }
 
-    ~node() {
+    ~node() override {
       for (unsigned i = pop_idx; i < push_idx; i += step_size) {
         traits::delete_value(entries[i % entries_per_node].value.load(std::memory_order_relaxed).get());
       }
     }
   };
 
-  alignas(64) concurrent_ptr head;
-  alignas(64) concurrent_ptr tail;
+  alignas(64) concurrent_ptr _head;
+  alignas(64) concurrent_ptr _tail;
 };
 
 template <class T, class... Policies>
 ramalhete_queue<T, Policies...>::ramalhete_queue() {
   auto n = new node(nullptr);
   n->push_idx.store(0, std::memory_order_relaxed);
-  head.store(n, std::memory_order_relaxed);
-  tail.store(n, std::memory_order_relaxed);
+  _head.store(n, std::memory_order_relaxed);
+  _tail.store(n, std::memory_order_relaxed);
 }
 
 template <class T, class... Policies>
 ramalhete_queue<T, Policies...>::~ramalhete_queue() {
   // (1) - this acquire-load synchronizes-with the release-CAS (13)
-  auto n = head.load(std::memory_order_acquire);
+  auto n = _head.load(std::memory_order_acquire);
   while (n) {
     // (2) - this acquire-load synchronizes-with the release-CAS (4)
     auto next = n->next.load(std::memory_order_acquire);
@@ -160,20 +161,22 @@ ramalhete_queue<T, Policies...>::~ramalhete_queue() {
 template <class T, class... Policies>
 void ramalhete_queue<T, Policies...>::push(value_type value) {
   raw_value_type raw_val = traits::get_raw(value);
-  if (raw_val == nullptr)
+  if (raw_val == nullptr) {
     throw std::invalid_argument("value can not be nullptr");
+  }
 
   backoff backoff;
   guard_ptr t;
   for (;;) {
     // (3) - this acquire-load synchronizes-with the release-CAS (5, 7)
-    t.acquire(tail, std::memory_order_acquire);
+    t.acquire(_tail, std::memory_order_acquire);
 
     unsigned idx = t->push_idx.fetch_add(step_size, std::memory_order_relaxed);
     if (idx >= max_idx) {
       // This node is full
-      if (t != tail.load(std::memory_order_relaxed))
+      if (t != _tail.load(std::memory_order_relaxed)) {
         continue; // some other thread already added a new node.
+      }
 
       auto next = t->next.load(std::memory_order_relaxed);
       if (next == nullptr) {
@@ -185,7 +188,7 @@ void ramalhete_queue<T, Policies...>::push(value_type value) {
         if (t->next.compare_exchange_strong(expected, new_node, std::memory_order_release, std::memory_order_relaxed)) {
           expected = t;
           // (5) - this release-CAS synchronizes-with the acquire-load (3)
-          tail.compare_exchange_strong(expected, new_node, std::memory_order_release, std::memory_order_relaxed);
+          _tail.compare_exchange_strong(expected, new_node, std::memory_order_release, std::memory_order_relaxed);
           return;
         }
         // prevent the pre-stored value from beeing deleted
@@ -197,7 +200,7 @@ void ramalhete_queue<T, Policies...>::push(value_type value) {
         next = t->next.load(std::memory_order_acquire);
         marked_ptr expected = t;
         // (7) - this release-CAS synchronizes-with the acquire-load (3)
-        tail.compare_exchange_strong(expected, next, std::memory_order_release, std::memory_order_relaxed);
+        _tail.compare_exchange_strong(expected, next, std::memory_order_release, std::memory_order_relaxed);
       }
       continue;
     }
@@ -222,15 +225,16 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type& result) {
   guard_ptr h;
   for (;;) {
     // (9) - this acquire-load synchronizes-with the release-CAS (13)
-    h.acquire(head, std::memory_order_acquire);
+    h.acquire(_head, std::memory_order_acquire);
 
     // (10) - this acquire-load synchronizes-with the release-fetch-add (11)
     const auto pop_idx = h->pop_idx.load(std::memory_order_acquire);
     // This synchronization is necessary to avoid a situation where we see an up-to-date
     // pop_idx, but an out-of-date push_idx and would (falsly) assume that the queue is empty.
     const auto push_idx = h->push_idx.load(std::memory_order_relaxed);
-    if (pop_idx >= push_idx && h->next.load(std::memory_order_relaxed) == nullptr)
+    if (pop_idx >= push_idx && h->next.load(std::memory_order_relaxed) == nullptr) {
       break;
+    }
 
     // (11) - this release-fetch-add synchronizes with the acquire-load (10)
     unsigned idx = h->pop_idx.fetch_add(step_size, std::memory_order_release);
@@ -238,13 +242,15 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type& result) {
       // This node has been drained, check if there is another one
       // (12) - this acquire-load synchronizes-with the release-CAS (4)
       auto next = h->next.load(std::memory_order_acquire);
-      if (next == nullptr)
+      if (next == nullptr) {
         break; // No more nodes in the queue
+      }
 
       marked_ptr expected = h;
       // (13) - this release-CAS synchronizes-with the acquire-load (1, 9)
-      if (head.compare_exchange_strong(expected, next, std::memory_order_release, std::memory_order_relaxed))
+      if (_head.compare_exchange_strong(expected, next, std::memory_order_release, std::memory_order_relaxed)) {
         h.reclaim(); // The old node has been unlinked -> reclaim it.
+      }
 
       continue;
     }
@@ -262,16 +268,16 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type& result) {
 
     if (value != nullptr) {
       // (14) - this acquire-load synchronizes-with the release-CAS (8)
-      (void)h->entries[idx].value.load(std::memory_order_acquire);
+      std::ignore = h->entries[idx].value.load(std::memory_order_acquire);
       traits::store(result, value.get());
       return true;
-    } else {
-      // (15) - this acquire-exchange synchronizes-with the release-CAS (8)
-      value = h->entries[idx].value.exchange(marked_value(nullptr, 1), std::memory_order_acquire);
-      if (value != nullptr) {
-        traits::store(result, value.get());
-        return true;
-      }
+    }
+
+    // (15) - this acquire-exchange synchronizes-with the release-CAS (8)
+    value = h->entries[idx].value.exchange(marked_value(nullptr, 1), std::memory_order_acquire);
+    if (value != nullptr) {
+      traits::store(result, value.get());
+      return true;
     }
 
     backoff();

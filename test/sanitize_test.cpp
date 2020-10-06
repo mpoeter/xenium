@@ -75,8 +75,9 @@ TYPED_TEST(Sanitize, guard_ptrs) {
         guard_ptr guard;
         for (int j = 0; j < NumPtrs; ++j) {
           guard.acquire(ptrs[j], std::memory_order_acquire);
-          if (guard)
+          if (guard) {
             guard->dummy = 42;
+          }
         }
       }
     });

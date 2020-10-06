@@ -109,12 +109,14 @@ namespace reclamation {
   template <class Traits>
   template <class T, std::size_t N, class DeleterT>
   class lock_free_ref_count<Traits>::enable_concurrent_ptr : private detail::tracked_object<lock_free_ref_count> {
-  protected:
-    enable_concurrent_ptr() noexcept { destroyed().store(false, std::memory_order_relaxed); }
+  public:
     enable_concurrent_ptr(const enable_concurrent_ptr&) noexcept = delete;
     enable_concurrent_ptr(enable_concurrent_ptr&&) noexcept = delete;
     enable_concurrent_ptr& operator=(const enable_concurrent_ptr&) noexcept = delete;
     enable_concurrent_ptr& operator=(enable_concurrent_ptr&&) noexcept = delete;
+
+  protected:
+    enable_concurrent_ptr() noexcept { destroyed().store(false, std::memory_order_relaxed); }
     virtual ~enable_concurrent_ptr() noexcept {
       assert(!is_destroyed());
       destroyed().store(true, std::memory_order_relaxed);
@@ -126,14 +128,14 @@ namespace reclamation {
                   "lock_free_ref_count reclamation can only be used with std::default_delete as Deleter.");
 
     static constexpr std::size_t number_of_mark_bits = N;
-    unsigned refs() const { return getHeader()->ref_count.load(std::memory_order_relaxed) >> 1; }
+    [[nodiscard]] unsigned refs() const { return getHeader()->ref_count.load(std::memory_order_relaxed) >> 1; }
 
     void* operator new(size_t sz);
     void operator delete(void* p);
 
   private:
     bool decrement_refcnt();
-    bool is_destroyed() const { return getHeader()->destroyed.load(std::memory_order_relaxed); }
+    [[nodiscard]] bool is_destroyed() const { return getHeader()->destroyed.load(std::memory_order_relaxed); }
     void push_to_free_list() { global_free_list.push(static_cast<T*>(this)); }
 
     struct unpadded_header {
@@ -146,7 +148,9 @@ namespace reclamation {
     };
     using header = std::conditional_t<Traits::insert_padding, padded_header, unpadded_header>;
     header* getHeader() { return static_cast<header*>(static_cast<void*>(this)) - 1; }
-    const header* getHeader() const { return static_cast<const header*>(static_cast<const void*>(this)) - 1; }
+    [[nodiscard]] const header* getHeader() const {
+      return static_cast<const header*>(static_cast<const void*>(this)) - 1;
+    }
 
     std::atomic<unsigned>& ref_count() { return getHeader()->ref_count; }
     std::atomic<bool>& destroyed() { return getHeader()->destroyed; }

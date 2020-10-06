@@ -18,7 +18,7 @@ struct descriptor<xenium::ramalhete_queue<T, Policies...>> {
   }
 };
 
-namespace {
+namespace { // NOLINT
 template <class T, class... Policies>
 bool try_push(xenium::ramalhete_queue<T*, Policies...>& queue, T item) {
   queue.push(new T(item));
@@ -49,7 +49,7 @@ struct descriptor<xenium::michael_scott_queue<T, Policies...>> {
   }
 };
 
-namespace {
+namespace { // NOLINT
 template <class T, class... Policies>
 bool try_push(xenium::michael_scott_queue<T, Policies...>& queue, T item) {
   queue.push(std::move(item));
@@ -78,8 +78,9 @@ template <class T, class... Policies>
 struct queue_builder<xenium::vyukov_bounded_queue<T, Policies...>> {
   static auto create(const tao::config::value& config) {
     auto size = config.as<size_t>("size");
-    if (!xenium::utils::is_power_of_two(size))
+    if (!xenium::utils::is_power_of_two(size)) {
       throw std::runtime_error("vyukov_bounded_queue size must be a power of two");
+    }
     return std::make_unique<xenium::vyukov_bounded_queue<T, Policies...>>(size);
   }
 };
@@ -91,7 +92,7 @@ struct region_guard<xenium::vyukov_bounded_queue<T, Policies...>> {
   struct type {};
 };
 
-namespace {
+namespace { // NOLINT
 template <class T, class... Policies>
 bool try_push(xenium::vyukov_bounded_queue<T, Policies...>& queue, T item) {
   return queue.try_push(std::move(item));
@@ -125,7 +126,7 @@ struct queue_builder<xenium::kirsch_kfifo_queue<T, Policies...>> {
   }
 };
 
-namespace {
+namespace { // NOLINT
 template <class T, class... Policies>
 bool try_push(xenium::kirsch_kfifo_queue<T*, Policies...>& queue, T item) {
   queue.push(new T(item));
@@ -173,10 +174,10 @@ struct region_guard<xenium::kirsch_bounded_kfifo_queue<T, Policies...>> {
   struct type {};
 };
 
-namespace {
+namespace { // NOLINT
 template <class T, class... Policies>
 bool try_push(xenium::kirsch_bounded_kfifo_queue<T*, Policies...>& queue, T item) {
-  return queue.try_push(new T(item));
+  return queue.try_push(new T(item)); // NOLINT
 }
 
 template <class T, class... Policies>
@@ -215,7 +216,7 @@ struct region_guard<xenium::nikolaev_bounded_queue<T, Policies...>> {
   struct type {};
 };
 
-namespace {
+namespace { // NOLINT
 template <class T, class... Policies>
 bool try_push(xenium::nikolaev_bounded_queue<T, Policies...>& queue, T item) {
   return queue.try_push(std::move(item));

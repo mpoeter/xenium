@@ -8,10 +8,11 @@ using Reclaimer = xenium::reclamation::quiescent_state_based;
 
 struct Foo : Reclaimer::enable_concurrent_ptr<Foo, 2> {
   Foo** instance;
-  Foo(Foo** instance) : instance(instance) {}
-  virtual ~Foo() {
-    if (instance)
+  explicit Foo(Foo** instance) : instance(instance) {}
+  ~Foo() override {
+    if (instance != nullptr) {
       *instance = nullptr;
+    }
   }
 };
 
@@ -24,14 +25,14 @@ struct QuiescentStateBased : testing::Test {
   Foo* foo = new Foo(&foo);
   marked_ptr<Foo> mp = marked_ptr<Foo>(foo, 3);
 
-  void update_epoch() {
+  static void update_epoch() {
     // UpdateThreshold is set to 0, so we simply need create a guard_ptr to some dummy object
     // to trigger and epoch update.
     Foo dummy(nullptr);
     concurrent_ptr<Foo>::guard_ptr gp(&dummy);
   }
 
-  void wrap_around_epochs() {
+  static void wrap_around_epochs() {
     update_epoch();
     update_epoch();
     update_epoch();
@@ -39,10 +40,11 @@ struct QuiescentStateBased : testing::Test {
 
   void TearDown() override {
     wrap_around_epochs();
-    if (mp == nullptr)
+    if (mp == nullptr) {
       assert(foo == nullptr);
-    else
+    } else {
       delete foo;
+    }
   }
 };
 
@@ -117,7 +119,7 @@ TEST_F(QuiescentStateBased, move_constructor_moves_ownership_and_resets_source_o
   gp2.reclaim();
   this->mp = nullptr;
   wrap_around_epochs();
-  EXPECT_EQ(nullptr, gp.get());
+  EXPECT_EQ(nullptr, gp.get()); // NOLINT (use-after-move)
   EXPECT_EQ(nullptr, foo);
 }
 
@@ -138,7 +140,7 @@ TEST_F(QuiescentStateBased, move_assignment_moves_ownership_and_resets_source_ob
   gp2.reclaim();
   this->mp = nullptr;
   wrap_around_epochs();
-  EXPECT_EQ(nullptr, gp.get());
+  EXPECT_EQ(nullptr, gp.get()); // NOLINT (use-after-move)
   EXPECT_EQ(nullptr, foo);
 }
 } // namespace

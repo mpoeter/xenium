@@ -1,4 +1,4 @@
-# clang-format -i -style=file $(find . -name '[^.]*.[hc]pp')
+# clang-format-10 -i -style=file $(find . -name '[^.]*.[hc]pp')
 
 Language: Cpp
 Standard: c++17

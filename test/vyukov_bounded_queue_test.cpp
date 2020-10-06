@@ -11,7 +11,7 @@ struct VyukovBoundedQueue : testing::Test {};
 
 TEST(VyukovBoundedQueue, push_try_pop_returns_pushed_element) {
   xenium::vyukov_bounded_queue<int> queue(2);
-  static_assert(xenium::vyukov_bounded_queue<int>::default_to_weak == false, "");
+  static_assert(!xenium::vyukov_bounded_queue<int>::default_to_weak);
   EXPECT_TRUE(queue.try_push(42));
   int elem;
   EXPECT_TRUE(queue.try_pop(elem));
@@ -55,7 +55,7 @@ TEST(VyukovBoundedQueue, try_push_returns_false_when_queue_is_full) {
 
 TEST(VyukovBoundedQueue, supports_move_only_types) {
   xenium::vyukov_bounded_queue<std::pair<int, std::unique_ptr<int>>> queue(2);
-  queue.try_push(41, std::unique_ptr<int>(new int(42)));
+  queue.try_push(41, std::make_unique<int>(42));
 
   std::pair<int, std::unique_ptr<int>> elem;
   ASSERT_TRUE(queue.try_pop(elem));
@@ -69,7 +69,7 @@ TEST(VyukovBoundedQueue, parallel_usage) {
 
   std::vector<std::thread> threads;
   for (int i = 0; i < 4; ++i) {
-    threads.push_back(std::thread([i, &queue] {
+    threads.emplace_back([i, &queue] {
 #ifdef DEBUG
       const int MaxIterations = 40000;
 #else
@@ -81,11 +81,12 @@ TEST(VyukovBoundedQueue, parallel_usage) {
         EXPECT_TRUE(queue.try_pop(elem));
         EXPECT_TRUE(elem >= 0 && elem <= 4);
       }
-    }));
+    });
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 TEST(VyukovBoundedQueue, parallel_usage_of_weak_operations) {
@@ -93,7 +94,7 @@ TEST(VyukovBoundedQueue, parallel_usage_of_weak_operations) {
 
   std::vector<std::thread> threads;
   for (int i = 0; i < 4; ++i) {
-    threads.push_back(std::thread([i, &queue] {
+    threads.emplace_back([i, &queue] {
 #ifdef DEBUG
       const int MaxIterations = 40000;
 #else
@@ -106,11 +107,12 @@ TEST(VyukovBoundedQueue, parallel_usage_of_weak_operations) {
           EXPECT_TRUE(elem >= 0 && elem <= 4);
         }
       }
-    }));
+    });
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 } // namespace

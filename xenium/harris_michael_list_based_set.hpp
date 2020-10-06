@@ -11,6 +11,7 @@
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
 
+#include <cassert>
 #include <functional>
 
 namespace xenium {
@@ -243,7 +244,7 @@ struct harris_michael_list_based_set<Key, Policies...>::node : reclaimer::templa
   const Key key;
   concurrent_ptr next;
   template <class... Args>
-  node(Args&&... args) : key(std::forward<Args>(args)...), next() {}
+  explicit node(Args&&... args) : key(std::forward<Args>(args)...), next() {}
 };
 
 template <class Key, class... Policies>
@@ -306,11 +307,13 @@ retry:
 
   for (;;) {
     // (5) - this acquire-load synchronizes-with the release-CAS (7, 8, 10, 13)
-    if (!info.cur.acquire_if_equal(*info.prev, info.next, std::memory_order_acquire))
+    if (!info.cur.acquire_if_equal(*info.prev, info.next, std::memory_order_acquire)) {
       goto retry;
+    }
 
-    if (!info.cur)
+    if (!info.cur) {
       return false;
+    }
 
     info.next = info.cur->next.load(std::memory_order_relaxed);
     if (info.next.mark() != 0) {
@@ -331,13 +334,15 @@ retry:
       }
       info.cur.reclaim();
     } else {
-      if (info.prev->load(std::memory_order_relaxed) != info.cur.get())
+      if (info.prev->load(std::memory_order_relaxed) != info.cur.get()) {
         goto retry; // cur might be cut from list.
+      }
 
       const Key& ckey = info.cur->key;
       compare compare;
-      if (compare(ckey, key) == false)
-        return compare(key, ckey) == false;
+      if (!compare(ckey, key)) {
+        return !compare(key, ckey);
+      }
 
       info.prev = &info.cur->next;
       std::swap(info.save, info.cur);
@@ -356,8 +361,9 @@ template <class Key, class... Policies>
 auto harris_michael_list_based_set<Key, Policies...>::find(const Key& key) -> iterator {
   find_info info{&head};
   backoff backoff;
-  if (find(key, info, backoff))
+  if (find(key, info, backoff)) {
     return iterator(*this, std::move(info));
+  }
   return end();
 }
 
@@ -403,14 +409,16 @@ bool harris_michael_list_based_set<Key, Policies...>::erase(const Key& key) {
   find_info info{&head};
   // Find node in list with matching key and mark it for reclamation.
   for (;;) {
-    if (!find(key, info, backoff))
+    if (!find(key, info, backoff)) {
       return false; // No such node in the list
+    }
 
     // (9) - this acquire-CAS synchronizes with the release-CAS (7, 8, 10, 13)
     //       and is part of a release sequence headed by those operations
     if (info.cur->next.compare_exchange_weak(
-          info.next, marked_ptr(info.next.get(), 1), std::memory_order_acquire, std::memory_order_relaxed))
+          info.next, marked_ptr(info.next.get(), 1), std::memory_order_acquire, std::memory_order_relaxed)) {
       break;
+    }
 
     backoff();
   }
@@ -423,11 +431,12 @@ bool harris_michael_list_based_set<Key, Policies...>::erase(const Key& key) {
   // (10) - this release-CAS synchronizes with the acquire-load (1, 2, 3, 4, 5, 6, 11)
   //        and the acquire-CAS (9, 12)
   //        it is the head of a potential release sequence containing (9, 12)
-  if (info.prev->compare_exchange_weak(expected, info.next, std::memory_order_release, std::memory_order_relaxed))
+  if (info.prev->compare_exchange_weak(expected, info.next, std::memory_order_release, std::memory_order_relaxed)) {
     info.cur.reclaim();
-  else
+  } else {
     // Another thread interfered -> rewalk the list to ensure reclamation of marked node before returning.
     find(key, info, backoff);
+  }
 
   return true;
 }
@@ -440,8 +449,9 @@ auto harris_michael_list_based_set<Key, Policies...>::erase(iterator pos) -> ite
   while (next.mark() == 0) {
     // (12) - this acquire-CAS synchronizes-with the release-CAS (7, 8, 10, 13)
     //        and is part of a release sequence headed by those operations
-    if (pos.info.cur->next.compare_exchange_weak(next, marked_ptr(next.get(), 1), std::memory_order_acquire))
+    if (pos.info.cur->next.compare_exchange_weak(next, marked_ptr(next.get(), 1), std::memory_order_acquire)) {
       break;
+    }
 
     backoff();
   }

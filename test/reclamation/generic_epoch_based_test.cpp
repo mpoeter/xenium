@@ -8,10 +8,11 @@ using Reclaimer = xenium::reclamation::generic_epoch_based<>::with<xenium::polic
 
 struct Foo : Reclaimer::enable_concurrent_ptr<Foo, 2> {
   Foo** instance;
-  Foo(Foo** instance) : instance(instance) {}
-  virtual ~Foo() {
-    if (instance)
+  explicit Foo(Foo** instance) : instance(instance) {}
+  ~Foo() override {
+    if (instance != nullptr) {
       *instance = nullptr;
+    }
   }
 };
 
@@ -24,14 +25,14 @@ struct GenericEpochBased : testing::Test {
   Foo* foo = new Foo(&foo);
   marked_ptr<Foo> mp = marked_ptr<Foo>(foo, 3);
 
-  void update_epoch() {
+  static void update_epoch() {
     // UpdateThreshold is set to 0, so we simply need create a guard_ptr to some dummy object
     // to trigger and epoch update.
     Foo dummy(nullptr);
     concurrent_ptr<Foo>::guard_ptr gp(&dummy);
   }
 
-  void wrap_around_epochs() {
+  static void wrap_around_epochs() {
     update_epoch();
     update_epoch();
     update_epoch();
@@ -39,10 +40,11 @@ struct GenericEpochBased : testing::Test {
 
   void TearDown() override {
     wrap_around_epochs();
-    if (mp == nullptr)
+    if (mp == nullptr) {
       assert(foo == nullptr);
-    else
+    } else {
       delete foo;
+    }
   }
 };
 
@@ -115,7 +117,7 @@ TEST_F(GenericEpochBased, copy_constructor_leads_to_shared_ownership_preventing_
 TEST_F(GenericEpochBased, move_constructor_moves_ownership_and_resets_source_object) {
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2(std::move(gp));
-  EXPECT_EQ(nullptr, gp.get());
+  EXPECT_EQ(nullptr, gp.get()); // NOLINT (use-after-move)
 
   gp2.reclaim();
   this->mp = nullptr;
@@ -137,7 +139,7 @@ TEST_F(GenericEpochBased, move_assignment_moves_ownership_and_resets_source_obje
   concurrent_ptr<Foo>::guard_ptr gp(mp);
   concurrent_ptr<Foo>::guard_ptr gp2{};
   gp2 = std::move(gp);
-  EXPECT_EQ(nullptr, gp.get());
+  EXPECT_EQ(nullptr, gp.get()); // NOLINT (use-after-move)
 
   gp2.reclaim();
   this->mp = nullptr;

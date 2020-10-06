@@ -68,10 +68,11 @@ public:
    * @brief Constructs a new instance with the specified maximum size.
    * @param size max number of elements in the queue; must be a power of two greater one.
    */
-  vyukov_bounded_queue(std::size_t size) : cells(new cell[size]), index_mask(size - 1) {
+  explicit vyukov_bounded_queue(std::size_t size) : cells(new cell[size]), index_mask(size - 1) {
     assert(size >= 2 && utils::is_power_of_two(size));
-    for (std::size_t i = 0; i < size; ++i)
+    for (std::size_t i = 0; i < size; ++i) {
       cells[i].sequence.store(i, std::memory_order_relaxed);
+    }
     enqueue_pos.store(0, std::memory_order_relaxed);
     dequeue_pos.store(0, std::memory_order_relaxed);
   }
@@ -192,18 +193,20 @@ private:
       // (3) - this acquire-load synchronizes-with the release-store (2)
       std::size_t seq = c->sequence.load(std::memory_order_acquire);
       if (seq == pos) {
-        if (enqueue_pos.compare_exchange_weak(pos, pos + 1, std::memory_order_relaxed))
+        if (enqueue_pos.compare_exchange_weak(pos, pos + 1, std::memory_order_relaxed)) {
           break;
+        }
       } else {
         if (Weak) {
-          if (seq < pos)
+          if (seq < pos) {
             return false;
-          else
-            pos = enqueue_pos.load(std::memory_order_relaxed);
+          }
+          pos = enqueue_pos.load(std::memory_order_relaxed);
         } else {
           auto pos2 = enqueue_pos.load(std::memory_order_relaxed);
-          if (pos2 == pos && dequeue_pos.load(std::memory_order_relaxed) + index_mask + 1 == pos)
+          if (pos2 == pos && dequeue_pos.load(std::memory_order_relaxed) + index_mask + 1 == pos) {
             return false;
+          }
           pos = pos2;
         }
       }
@@ -224,17 +227,20 @@ private:
       std::size_t seq = c->sequence.load(std::memory_order_acquire);
       auto new_pos = pos + 1;
       if (seq == new_pos) {
-        if (dequeue_pos.compare_exchange_weak(pos, new_pos, std::memory_order_relaxed))
+        if (dequeue_pos.compare_exchange_weak(pos, new_pos, std::memory_order_relaxed)) {
           break;
+        }
       } else {
         if (Weak) {
-          if (seq < new_pos)
+          if (seq < new_pos) {
             return false;
+          }
           pos = dequeue_pos.load(std::memory_order_relaxed);
         } else {
           auto pos2 = dequeue_pos.load(std::memory_order_relaxed);
-          if (pos2 == pos && enqueue_pos.load(std::memory_order_relaxed) == pos)
+          if (pos2 == pos && enqueue_pos.load(std::memory_order_relaxed) == pos) {
             return false;
+          }
           pos = pos2;
         }
       }

@@ -11,12 +11,12 @@ struct Foo {
 
 template <class T, class MarkedPtr>
 struct my_guard_ptr {
-  my_guard_ptr(const MarkedPtr& p = MarkedPtr()) : p(p) {}
-  MarkedPtr p;
+  my_guard_ptr(const MarkedPtr& p = MarkedPtr()) : p(p) {} // NOLINT
+  MarkedPtr p;                                             // NOLINT
 
-  T* get() const { return p.get(); }
-  uintptr_t mark() const { return p.mark(); }
-  operator MarkedPtr() const noexcept { return p; }
+  [[nodiscard]] T* get() const { return p.get(); }
+  [[nodiscard]] uintptr_t mark() const { return p.mark(); }
+  operator MarkedPtr() const noexcept { return p; } // NOLINT
 };
 
 template <typename T>

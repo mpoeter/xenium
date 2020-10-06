@@ -16,31 +16,34 @@ struct benchmark_thread : execution_thread {
   benchmark_thread(hash_map_benchmark<T>& benchmark, std::uint32_t id, const execution& exec) :
       execution_thread(id, exec),
       _benchmark(benchmark) {}
-  virtual void setup(const config_t& config) override {
+  void setup(const config_t& config) override {
     execution_thread::setup(config);
 
     _key_range = config.optional<std::uint64_t>("key_range").value_or(_benchmark.key_range);
     _key_offset = config.optional<std::uint64_t>("key_offset").value_or(_benchmark.key_offset);
 
     auto remove_ratio = config.optional<double>("remove_ratio").value_or(0.2);
-    if (remove_ratio < 0.0 || remove_ratio > 1.0)
+    if (remove_ratio < 0.0 || remove_ratio > 1.0) {
       throw std::runtime_error("remove_ratio must be >= 0.0 and <= 1.0");
+    }
 
     auto insert_ratio = config.optional<double>("insert_ratio").value_or(0.2);
-    if (insert_ratio < 0.0 || insert_ratio > 1.0)
+    if (insert_ratio < 0.0 || insert_ratio > 1.0) {
       throw std::runtime_error("insert_ratio must be >= 0.0 and <= 1.0");
+    }
 
     auto update_ratio = remove_ratio + insert_ratio;
-    if (update_ratio > 1.0)
+    if (update_ratio > 1.0) {
       throw std::runtime_error("The sum of remove_ratio and insert_ratio must be <= 1.0");
+    }
 
     constexpr auto rand_range = std::numeric_limits<std::uint64_t>::max();
-    _scale_insert = static_cast<std::uint64_t>(insert_ratio * rand_range);
-    _scale_remove = static_cast<std::uint64_t>(update_ratio * rand_range);
+    _scale_insert = static_cast<std::uint64_t>(insert_ratio * static_cast<double>(rand_range));
+    _scale_remove = static_cast<std::uint64_t>(update_ratio * static_cast<double>(rand_range));
   }
-  virtual void initialize(std::uint32_t num_threads) override;
-  virtual void run() override;
-  virtual thread_report report() const override {
+  void initialize(std::uint32_t num_threads) override;
+  void run() override;
+  [[nodiscard]] thread_report report() const override {
     tao::json::value data{
       {"runtime", _runtime.count()},
       {"insert", insert_operations},
@@ -66,12 +69,13 @@ private:
 
 template <class T>
 struct hash_map_benchmark : benchmark {
-  virtual void setup(const config_t& config) override;
+  void setup(const config_t& config) override;
 
-  virtual std::unique_ptr<execution_thread>
+  std::unique_ptr<execution_thread>
     create_thread(std::uint32_t id, const execution& exec, const std::string& type) override {
-    if (type == "mixed")
+    if (type == "mixed") {
       return std::make_unique<benchmark_thread<T>>(*this, id, exec);
+    }
 
     throw std::runtime_error("Invalid thread type: " + type);
   }
@@ -92,8 +96,9 @@ void hash_map_benchmark<T>::setup(const tao::config::value& config) {
 
   // by default we prefill 10% of the configured key-range
   prefill.setup(config, key_range / 10);
-  if (this->prefill.count > key_range)
+  if (this->prefill.count > key_range) {
     throw std::runtime_error("prefill.count must be less or equal key_range");
+  }
 }
 
 template <class T>
@@ -128,14 +133,17 @@ void benchmark_thread<T>::run() {
     auto key = static_cast<unsigned>((r % _key_range) + _key_offset);
 
     if (r < _scale_insert) {
-      if (try_emplace(hash_map, key))
+      if (try_emplace(hash_map, key)) {
         ++insert;
+      }
     } else if (r < _scale_remove) {
-      if (try_remove(hash_map, key))
+      if (try_remove(hash_map, key)) {
         ++remove;
+      }
     } else {
-      if (try_get(hash_map, key))
+      if (try_get(hash_map, key)) {
         ++get;
+      }
     }
 
     simulate_workload();
@@ -153,7 +161,7 @@ inline std::shared_ptr<benchmark_builder> make_benchmark_builder() {
 }
 
 auto benchmark_variations() {
-  using namespace xenium;
+  using namespace xenium; // NOLINT
   return benchmark_builders{
 #ifdef WITH_VYUKOV_HASH_MAP
   #ifdef WITH_GENERIC_EPOCH_BASED

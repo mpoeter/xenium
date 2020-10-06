@@ -83,7 +83,7 @@ TYPED_TEST(HarrisMichaelListBasedSet, find_returns_matching_iterator_for_existin
 TYPED_TEST(HarrisMichaelListBasedSet, comparer_policy_defines_order_of_entries) {
   using my_list = xenium::harris_michael_list_based_set<int,
                                                         xenium::policy::reclaimer<TypeParam>,
-                                                        xenium::policy::compare<std::greater<int>>>;
+                                                        xenium::policy::compare<std::greater<>>>;
   my_list list;
   list.emplace(42);
   list.emplace(43);
@@ -172,14 +172,16 @@ TYPED_TEST(HarrisMichaelListBasedSet, parallel_usage) {
         EXPECT_TRUE(result.second);
         list.erase(std::move(result.first));
 
-        for (auto& v : list)
+        for (auto& v : list) {
           EXPECT_TRUE(v >= 0 && v < 8);
+        }
       }
     }));
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 TYPED_TEST(HarrisMichaelListBasedSet, parallel_usage_with_same_values) {
@@ -189,7 +191,7 @@ TYPED_TEST(HarrisMichaelListBasedSet, parallel_usage_with_same_values) {
   std::vector<std::thread> threads;
   for (int i = 0; i < 8; ++i) {
     threads.push_back(std::thread([&list] {
-      for (int j = 0; j < MaxIterations / 10; ++j)
+      for (int j = 0; j < MaxIterations / 10; ++j) {
         for (int i = 0; i < 10; ++i) {
           [[maybe_unused]] typename Reclaimer::region_guard guard{};
           list.contains(i);
@@ -204,14 +206,17 @@ TYPED_TEST(HarrisMichaelListBasedSet, parallel_usage_with_same_values) {
           }
           result.first.reset();
 
-          for (auto& v : list)
+          for (auto& v : list) {
             EXPECT_TRUE(v >= 0 && v < 10);
+          }
         }
+      }
     }));
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 } // namespace

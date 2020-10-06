@@ -25,27 +25,27 @@ namespace xenium {
 
 template <class Key, class Value, class... Policies>
 struct vyukov_hash_map<Key, Value, Policies...>::bucket_state {
-  bucket_state() noexcept : value() {}
-
-  bucket_state locked() const noexcept { return value | lock; }
-  bucket_state clear_lock() const {
+  bucket_state() = default;
+  
+  [[nodiscard]] bucket_state locked() const noexcept { return bucket_state(value | lock); }
+  [[nodiscard]] bucket_state clear_lock() const {
     assert(value & lock);
-    return value ^ lock;
+    return bucket_state(value ^ lock);
   }
-  bucket_state new_version() const noexcept { return value + version_inc; }
-  bucket_state inc_item_count() const {
+  [[nodiscard]] bucket_state new_version() const noexcept { return bucket_state(value + version_inc); }
+  [[nodiscard]] bucket_state inc_item_count() const {
     assert(item_count() < bucket_item_count);
     bucket_state result(value + item_count_inc);
     assert(result.item_count() == item_count() + 1);
     return result;
   }
-  bucket_state dec_item_count() const {
+  [[nodiscard]] bucket_state dec_item_count() const {
     assert(item_count() > 0);
     bucket_state result(value - item_count_inc);
     assert(result.item_count() == item_count() - 1);
     return result;
   }
-  bucket_state set_delete_marker(std::uint32_t marker) const {
+  [[nodiscard]] bucket_state set_delete_marker(std::uint32_t marker) const {
     assert(delete_marker() == 0);
     bucket_state result(value | (marker << delete_marker_shift));
     assert(result.delete_marker() == marker);
@@ -55,15 +55,17 @@ struct vyukov_hash_map<Key, Value, Policies...>::bucket_state {
   bool operator==(bucket_state r) const noexcept { return this->value == r.value; }
   bool operator!=(bucket_state r) const noexcept { return this->value != r.value; }
 
-  std::uint32_t item_count() const noexcept { return (value >> 1) & item_count_mask; }
-  std::uint32_t delete_marker() const noexcept { return (value >> delete_marker_shift) & item_count_mask; }
-  std::uint32_t version() const noexcept { return value >> version_shift; }
-  bool is_locked() const noexcept { return (value & lock) != 0; }
+  [[nodiscard]] std::uint32_t item_count() const noexcept { return (value >> 1) & item_count_mask; }
+  [[nodiscard]] std::uint32_t delete_marker() const noexcept {
+    return (value >> delete_marker_shift) & item_count_mask;
+  }
+  [[nodiscard]] std::uint32_t version() const noexcept { return value >> version_shift; }
+  [[nodiscard]] bool is_locked() const noexcept { return (value & lock) != 0; }
 
 private:
-  bucket_state(std::uint32_t value) noexcept : value(value) {}
+  explicit bucket_state(std::uint32_t value) noexcept : value(value) {}
 
-  std::uint32_t value;
+  std::uint32_t value{};
 
   /*
     value has the same structure as the following bit field:
@@ -119,11 +121,13 @@ struct vyukov_hash_map<Key, Value, Policies...>::extension_bucket {
   void acquire_lock() {
     backoff backoff;
     for (;;) {
-      while (lock.load(std::memory_order_relaxed))
+      while (lock.load(std::memory_order_relaxed) != 0) {
         ;
+      }
       // (1) - this acquire-exchange synchronizes-with the release-store (2)
-      if (lock.exchange(1, std::memory_order_acquire) == 0)
+      if (lock.exchange(1, std::memory_order_acquire) == 0) {
         return;
+      }
       backoff();
     }
   }
@@ -141,10 +145,10 @@ struct alignas(64) vyukov_hash_map<Key, Value, Policies...>::block : reclaimer::
   extension_bucket* extension_buckets;
 
   // TODO - adapt to be customizable via map_to_bucket policy
-  std::uint32_t index(const key_type& key) const { return static_cast<std::uint32_t>(key & mask); }
+  [[nodiscard]] std::uint32_t index(const key_type& key) const { return static_cast<std::uint32_t>(key & mask); }
   bucket* buckets() { return reinterpret_cast<bucket*>(this + 1); }
 
-  void operator delete(void* p) { ::operator delete(p, cacheline_size); }
+  void operator delete(void* p) { ::operator delete(p, cacheline_size); } // NOLINT (new-delete-overloads)
 };
 
 template <class Key, class Value, class... Policies>
@@ -173,8 +177,9 @@ private:
 template <class Key, class Value, class... Policies>
 vyukov_hash_map<Key, Value, Policies...>::vyukov_hash_map(std::size_t initial_capacity) : resize_lock(0) {
   auto b = allocate_block(static_cast<std::uint32_t>(utils::next_power_of_two(initial_capacity)));
-  if (b == nullptr)
+  if (b == nullptr) {
     throw std::bad_alloc();
+  }
   data_block.store(b, std::memory_order_relaxed);
 }
 
@@ -183,9 +188,16 @@ vyukov_hash_map<Key, Value, Policies...>::~vyukov_hash_map() {
   // delete all remaining entries - this also reclaims any internally allocated
   // nodes as well as managed_ptr instances.
   // This could be implemented in a more efficient way, but it works for now!
-  auto it = begin();
-  while (it != end())
-    erase(it);
+  try {
+    auto it = begin();
+    while (it != end()) {
+      try {
+        erase(it);
+      } catch(...) {
+      }
+    }
+  } catch(...) {
+  }
   delete data_block.load().get();
 }
 
@@ -233,12 +245,13 @@ retry:
 
   std::uint32_t item_count = state.item_count();
 
-  for (std::uint32_t i = 0; i != item_count; ++i)
+  for (std::uint32_t i = 0; i != item_count; ++i) {
     if (traits::template compare_key<AcquireAccessor>(bucket.key[i], bucket.value[i], key, h, acc)) {
       callback(std::move(acc), bucket.value[i]);
       unlocker.unlock(state, std::memory_order_relaxed);
       return false;
     }
+  }
 
   if (item_count < bucket_item_count) {
     traits::template store_item<AcquireAccessor>(
@@ -314,11 +327,13 @@ restart:
   bucket_state state = bucket.state.load(std::memory_order_relaxed);
   std::uint32_t item_count = state.item_count();
 
-  if (item_count == 0)
+  if (item_count == 0) {
     return false; // no items to check
+  }
 
-  if (state.is_locked())
+  if (state.is_locked()) {
     goto restart;
+  }
 
   auto locked_state = state.locked();
   // (7) - this acquire-CAS synchronizes-with the release-store (3, 5, 11, 13, 14, 36, 38)
@@ -407,85 +422,87 @@ restart:
 }
 
 template <class Key, class Value, class... Policies>
-void vyukov_hash_map<Key, Value, Policies...>::erase(iterator& it) {
-  if (it.extension) {
+void vyukov_hash_map<Key, Value, Policies...>::erase(iterator& pos) {
+  if (pos.extension) {
     // the item we are currently looking at is an extension item
-    auto next = it.extension->next.load(std::memory_order_relaxed);
-    it.prev->store(next, std::memory_order_relaxed);
-    auto new_state = it.current_bucket_state.locked().new_version();
+    auto next = pos.extension->next.load(std::memory_order_relaxed);
+    pos.prev->store(next, std::memory_order_relaxed);
+    auto new_state = pos.current_bucket_state.locked().new_version();
     // (15) - this release-store synchronizes-with the acquire-load (23)
-    it.current_bucket->state.store(new_state, std::memory_order_release);
+    pos.current_bucket->state.store(new_state, std::memory_order_release);
 
-    free_extension_item(it.extension);
-    it.extension = next;
-    if (next == nullptr)
-      it.move_to_next_bucket();
+    free_extension_item(pos.extension);
+    pos.extension = next;
+    if (next == nullptr) {
+      pos.move_to_next_bucket();
+    }
     return;
   }
 
   // the item we are currently looking at is in the bucket array
 
-  auto extension = it.current_bucket->head.load(std::memory_order_relaxed);
+  auto extension = pos.current_bucket->head.load(std::memory_order_relaxed);
   if (extension) {
-    auto locked_state = it.current_bucket_state.locked();
-    auto marked_state = locked_state.set_delete_marker(it.index + 1);
-    it.current_bucket->state.store(marked_state, std::memory_order_relaxed);
-    assert(it.current_bucket->state.load().is_locked());
+    auto locked_state = pos.current_bucket_state.locked();
+    auto marked_state = locked_state.set_delete_marker(pos.index + 1);
+    pos.current_bucket->state.store(marked_state, std::memory_order_relaxed);
+    assert(pos.current_bucket->state.load().is_locked());
 
     auto k = extension->key.load(std::memory_order_relaxed);
     auto v = extension->value.load(std::memory_order_relaxed);
-    it.current_bucket->key[it.index].store(k, std::memory_order_relaxed);
+    pos.current_bucket->key[pos.index].store(k, std::memory_order_relaxed);
     // (16) - this release-store synchronizes-with the acquire-load (24)
-    it.current_bucket->value[it.index].store(v, std::memory_order_release);
+    pos.current_bucket->value[pos.index].store(v, std::memory_order_release);
 
     // reset the delete marker
     locked_state = locked_state.new_version();
     // (17) - this release-store synchronizes-with the acquire-load (23)
-    it.current_bucket->state.store(locked_state, std::memory_order_release);
-    assert(it.current_bucket->state.load().is_locked());
+    pos.current_bucket->state.store(locked_state, std::memory_order_release);
+    assert(pos.current_bucket->state.load().is_locked());
 
     auto next = extension->next.load(std::memory_order_relaxed);
     // (18) - this release-store synchronizes-with the acquire-load (25)
-    it.current_bucket->head.store(next, std::memory_order_release);
+    pos.current_bucket->head.store(next, std::memory_order_release);
 
     // increase the version but keep the lock
     // (19) - this release-store synchronizes-with the acquire-load (23)
-    it.current_bucket->state.store(locked_state.new_version(), std::memory_order_release);
-    assert(it.current_bucket->state.load().is_locked());
+    pos.current_bucket->state.store(locked_state.new_version(), std::memory_order_release);
+    assert(pos.current_bucket->state.load().is_locked());
     free_extension_item(extension);
   } else {
-    auto max_index = it.current_bucket_state.item_count() - 1;
-    if (it.index != max_index) {
+    auto max_index = pos.current_bucket_state.item_count() - 1;
+    if (pos.index != max_index) {
       // signal which item we are deleting
-      auto locked_state = it.current_bucket_state.locked();
-      auto marked_state = locked_state.set_delete_marker(it.index + 1);
-      it.current_bucket->state.store(marked_state, std::memory_order_relaxed);
-      assert(it.current_bucket->state.load().is_locked());
+      auto locked_state = pos.current_bucket_state.locked();
+      auto marked_state = locked_state.set_delete_marker(pos.index + 1);
+      pos.current_bucket->state.store(marked_state, std::memory_order_relaxed);
+      assert(pos.current_bucket->state.load().is_locked());
 
-      auto k = it.current_bucket->key[max_index].load(std::memory_order_relaxed);
-      auto v = it.current_bucket->value[max_index].load(std::memory_order_relaxed);
-      it.current_bucket->key[it.index].store(k, std::memory_order_relaxed);
+      auto k = pos.current_bucket->key[max_index].load(std::memory_order_relaxed);
+      auto v = pos.current_bucket->value[max_index].load(std::memory_order_relaxed);
+      pos.current_bucket->key[pos.index].store(k, std::memory_order_relaxed);
       // (20) - this release-store synchronizes-with the acquire-load  (24)
-      it.current_bucket->value[it.index].store(v, std::memory_order_release);
+      pos.current_bucket->value[pos.index].store(v, std::memory_order_release);
     }
 
-    auto new_state = it.current_bucket_state.new_version().dec_item_count();
-    it.current_bucket_state = new_state;
+    auto new_state = pos.current_bucket_state.new_version().dec_item_count();
+    pos.current_bucket_state = new_state;
 
     // (21) - this release store synchronizes-with the acquire-load (23)
-    it.current_bucket->state.store(new_state.locked(), std::memory_order_release);
-    assert(it.current_bucket->state.load().is_locked());
-    if (it.index == new_state.item_count()) {
-      it.prev = &it.current_bucket->head;
-      it.extension = it.current_bucket->head.load(std::memory_order_relaxed);
-      if (it.extension == nullptr)
-        it.move_to_next_bucket();
+    pos.current_bucket->state.store(new_state.locked(), std::memory_order_release);
+    assert(pos.current_bucket->state.load().is_locked());
+    if (pos.index == new_state.item_count()) {
+      pos.prev = &pos.current_bucket->head;
+      pos.extension = pos.current_bucket->head.load(std::memory_order_relaxed);
+      if (pos.extension == nullptr) {
+        pos.move_to_next_bucket();
+      }
     }
   }
 }
 
 template <class Key, class Value, class... Policies>
-bool vyukov_hash_map<Key, Value, Policies...>::try_get_value(const key_type& key, accessor& value) const {
+bool vyukov_hash_map<Key, Value, Policies...>::try_get_value(const key_type& key, accessor& result) const {
   const hash_t h = hash{}(key);
 
   // (22) - this acquire-load synchronizes-with the release-store (31)
@@ -532,10 +549,11 @@ retry:
         continue;
       }
 
-      if (!traits::compare_nontrivial_key(acc, key))
+      if (!traits::compare_nontrivial_key(acc, key)) {
         continue;
+      }
 
-      value = std::move(acc);
+      result = std::move(acc);
       return true;
     }
   }
@@ -557,10 +575,11 @@ retry:
         goto retry;
       }
 
-      if (!traits::compare_nontrivial_key(acc, key))
+      if (!traits::compare_nontrivial_key(acc, key)) {
         continue;
+      }
 
-      value = std::move(acc);
+      result = std::move(acc);
       return true;
     }
 
@@ -597,12 +616,13 @@ void vyukov_hash_map<Key, Value, Policies...>::grow(bucket& bucket, bucket_state
   // the resize_lock, to avoid the situation where we might miss a resize
   // performed by some other thread.
 
-  if (already_resizing) {
+  if (already_resizing != 0) {
     backoff backoff;
     // another thread is already resizing -> wait for it to finish
     // (28) - this acquire-load synchronizes-with the release-store (32)
-    while (resize_lock.load(std::memory_order_acquire) != 0)
+    while (resize_lock.load(std::memory_order_acquire) != 0) {
       backoff();
+    }
 
     return;
   }
@@ -629,12 +649,14 @@ void vyukov_hash_map<Key, Value, Policies...>::do_grow() {
     backoff backoff;
     for (;;) {
       auto st = bucket.state.load(std::memory_order_relaxed);
-      if (st.is_locked())
+      if (st.is_locked()) {
         continue;
+      }
 
       // (30) - this acquire-CAS synchronizes-with the release-store (3, 5, 11, 13, 14, 36, 38)
-      if (bucket.state.compare_exchange_strong(st, st.locked(), std::memory_order_acquire, std::memory_order_relaxed))
+      if (bucket.state.compare_exchange_strong(st, st.locked(), std::memory_order_acquire, std::memory_order_relaxed)) {
         break; // we've got the lock
+      }
 
       backoff();
     }
@@ -696,11 +718,12 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_block(std::uint32_t buck
                      sizeof(extension_bucket) * (static_cast<size_t>(extension_bucket_count) + 1);
 
   void* mem = ::operator new(size, cacheline_size, std::nothrow);
-  if (mem == nullptr)
+  if (mem == nullptr) {
     return nullptr;
+  }
 
   std::memset(mem, 0, size);
-  block* b = new (mem) block;
+  auto* b = new (mem) block;
   b->mask = bucket_count - 1;
   b->bucket_count = bucket_count;
   b->extension_bucket_count = extension_bucket_count;
@@ -757,8 +780,9 @@ template <class Key, class Value, class... Policies>
 auto vyukov_hash_map<Key, Value, Policies...>::begin() -> iterator {
   iterator result;
   result.current_bucket = &lock_bucket(0, result.block, result.current_bucket_state);
-  if (result.current_bucket_state.item_count() == 0)
+  if (result.current_bucket_state.item_count() == 0) {
     result.move_to_next_bucket();
+  }
   return result;
 }
 
@@ -772,8 +796,9 @@ auto vyukov_hash_map<Key, Value, Policies...>::lock_bucket(hash_t hash, guarded_
     const std::size_t bucket_idx = hash & block->mask;
     auto& bucket = block->buckets()[bucket_idx];
     bucket_state st = bucket.state.load(std::memory_order_relaxed);
-    if (st.is_locked())
+    if (st.is_locked()) {
       continue;
+    }
 
     // (34) - this acquire-CAS synchronizes-with the release-store (3, 5, 11, 13, 14, 36, 38)
     if (bucket.state.compare_exchange_strong(st, st.locked(), std::memory_order_acquire, std::memory_order_relaxed)) {
@@ -793,8 +818,9 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_extension_item(block* b,
       const std::size_t extension_bucket_idx = (hash + idx) & mod_mask;
       extension_bucket& extension_bucket = b->extension_buckets[extension_bucket_idx];
 
-      if (extension_bucket.head.load(std::memory_order_relaxed) == nullptr)
+      if (extension_bucket.head.load(std::memory_order_relaxed) == nullptr) {
         continue;
+      }
 
       extension_bucket.acquire_lock();
       auto item = extension_bucket.head.load(std::memory_order_relaxed);
@@ -811,7 +837,7 @@ auto vyukov_hash_map<Key, Value, Policies...>::allocate_extension_item(block* b,
 
 template <class Key, class Value, class... Policies>
 void vyukov_hash_map<Key, Value, Policies...>::free_extension_item(extension_item* item) {
-  std::size_t item_addr = reinterpret_cast<std::size_t>(item);
+  auto item_addr = reinterpret_cast<std::uintptr_t>(item);
   auto bucket = reinterpret_cast<extension_bucket*>(item_addr - item_addr % sizeof(extension_bucket));
 
   bucket->acquire_lock();
@@ -823,15 +849,6 @@ void vyukov_hash_map<Key, Value, Policies...>::free_extension_item(extension_ite
   bucket->head.store(item, std::memory_order_relaxed);
   bucket->release_lock();
 }
-
-template <class Key, class Value, class... Policies>
-vyukov_hash_map<Key, Value, Policies...>::iterator::iterator() :
-    block(),
-    current_bucket(),
-    current_bucket_state(),
-    index(),
-    extension(),
-    prev() {}
 
 template <class Key, class Value, class... Policies>
 vyukov_hash_map<Key, Value, Policies...>::iterator::iterator(iterator&& other) :
@@ -906,8 +923,9 @@ auto vyukov_hash_map<Key, Value, Policies...>::iterator::operator++() -> iterato
   if (extension) {
     prev = &extension->next;
     extension = extension->next.load(std::memory_order_relaxed);
-    if (extension == nullptr)
+    if (extension == nullptr) {
       move_to_next_bucket();
+    }
     return *this;
   }
 
@@ -915,8 +933,9 @@ auto vyukov_hash_map<Key, Value, Policies...>::iterator::operator++() -> iterato
   if (index == current_bucket_state.item_count()) {
     prev = &current_bucket->head;
     extension = current_bucket->head.load(std::memory_order_relaxed);
-    if (extension == nullptr)
+    if (extension == nullptr) {
       move_to_next_bucket();
+    }
   }
   return *this;
 }
@@ -956,8 +975,9 @@ void vyukov_hash_map<Key, Value, Policies...>::iterator::move_to_next_bucket() {
   backoff backoff;
   for (;;) {
     auto st = current_bucket->state.load(std::memory_order_relaxed);
-    if (st.is_locked())
+    if (st.is_locked()) {
       continue;
+    }
 
     // (37) - this acquire-CAS synchronizes-with the release-store (3, 5, 11, 13, 14, 36, 38)
     if (current_bucket->state.compare_exchange_strong(
@@ -974,8 +994,9 @@ void vyukov_hash_map<Key, Value, Policies...>::iterator::move_to_next_bucket() {
   index = 0;
   extension = nullptr;
   prev = nullptr;
-  if (current_bucket_state.item_count() == 0)
+  if (current_bucket_state.item_count() == 0) {
     move_to_next_bucket();
+  }
 }
 
 } // namespace xenium

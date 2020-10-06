@@ -16,7 +16,7 @@ struct prefill {
   bool serial = false;
   std::uint64_t count = 0;
   void setup(const tao::config::value& config, std::uint64_t default_count);
-  std::uint64_t get_thread_quota(std::uint32_t thread_id, std::uint32_t num_threads);
+  [[nodiscard]] std::uint64_t get_thread_quota(std::uint32_t thread_id, std::uint32_t num_threads) const;
 };
 } // namespace config
 

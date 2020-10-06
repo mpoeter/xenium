@@ -135,7 +135,7 @@ private:
   using sequence_t = uintptr_t;
   using copy_t = uintptr_t;
 
-  bool is_write_pending(sequence_t seq) const { return (seq & 1) != 0; }
+  [[nodiscard]] bool is_write_pending(sequence_t seq) const { return (seq & 1) != 0; }
 
   sequence_t acquire_lock();
   void release_lock(sequence_t seq);
@@ -173,8 +173,9 @@ T seqlock<T, Policies...>::load() const {
 
     // (3) - this acquire-load synchronizes-with the release-store (5)
     auto seq2 = _seq.load(std::memory_order_acquire);
-    if (seq2 - seq < (2 * slots - 1))
+    if (seq2 - seq < (2 * slots - 1)) {
       break;
+    }
     seq = seq2;
   }
   return result;
@@ -204,13 +205,15 @@ template <class T, class... Policies>
 auto seqlock<T, Policies...>::acquire_lock() -> sequence_t {
   auto seq = _seq.load(std::memory_order_relaxed);
   for (;;) {
-    while (is_write_pending(seq))
+    while (is_write_pending(seq)) {
       seq = _seq.load(std::memory_order_relaxed);
+    }
 
     assert(is_write_pending(seq) == false);
     // (4) - this acquire-CAS synchronizes-with the release-store (5)
-    if (_seq.compare_exchange_weak(seq, seq + 1, std::memory_order_acquire, std::memory_order_relaxed))
+    if (_seq.compare_exchange_weak(seq, seq + 1, std::memory_order_acquire, std::memory_order_relaxed)) {
       return seq + 1;
+    }
   }
 }
 
@@ -225,9 +228,9 @@ void seqlock<T, Policies...>::release_lock(sequence_t seq) {
 
 template <class T, class... Policies>
 void seqlock<T, Policies...>::read_data(T& dest, const storage_t& src) const {
-  copy_t* pdest = reinterpret_cast<copy_t*>(&dest);
-  copy_t* pend = pdest + (sizeof(T) / sizeof(copy_t));
-  const std::atomic<copy_t>* psrc = reinterpret_cast<const std::atomic<copy_t>*>(&src);
+  auto* pdest = reinterpret_cast<copy_t*>(&dest);
+  auto* pend = pdest + (sizeof(T) / sizeof(copy_t));
+  const auto* psrc = reinterpret_cast<const std::atomic<copy_t>*>(&src);
   for (; pdest != pend; ++psrc, ++pdest) {
     *pdest = psrc->load(std::memory_order_relaxed);
   }
@@ -247,9 +250,9 @@ void seqlock<T, Policies...>::store_data(const T& src, storage_t& dest) {
   // (7) - this release-fence synchronizes-with the acquire-fence (6)
   std::atomic_thread_fence(std::memory_order_release);
 
-  const copy_t* psrc = reinterpret_cast<const copy_t*>(&src);
-  const copy_t* pend = psrc + (sizeof(T) / sizeof(copy_t));
-  std::atomic<copy_t>* pdest = reinterpret_cast<std::atomic<copy_t>*>(&dest);
+  const auto* psrc = reinterpret_cast<const copy_t*>(&src);
+  const auto* pend = psrc + (sizeof(T) / sizeof(copy_t));
+  auto* pdest = reinterpret_cast<std::atomic<copy_t>*>(&dest);
   for (; psrc != pend; ++psrc, ++pdest) {
     pdest->store(*psrc, std::memory_order_relaxed);
   }

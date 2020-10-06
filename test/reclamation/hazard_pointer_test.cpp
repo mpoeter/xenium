@@ -22,17 +22,17 @@ struct HazardPointer : ::testing::Test {
 
   struct Foo : HP::template enable_concurrent_ptr<Foo, 2> {
     Foo** instance;
-    Foo(Foo** instance) : instance(instance) {}
-    virtual ~Foo() { *instance = nullptr; }
+    explicit Foo(Foo** instance) : instance(instance) {}
+    ~Foo() override { *instance = nullptr; }
   };
 
   struct Bar {
     int x{};
-    virtual ~Bar() {}
+    virtual ~Bar() = default;
   };
 
   struct FooBar : Bar, Foo {
-    FooBar(Foo** instance) : Foo(instance) {}
+    explicit FooBar(Foo** instance) : Foo(instance) {}
   };
 
   struct WithCustomDeleter;
@@ -58,10 +58,11 @@ struct HazardPointer : ::testing::Test {
 
   void TearDown() override {
     trigger_reclamation();
-    if (mp == nullptr)
+    if (mp == nullptr) {
       assert(foo == nullptr);
-    else
+    } else {
       delete foo;
+    }
   }
 
   void trigger_reclamation() {
@@ -131,8 +132,9 @@ TYPED_TEST(HazardPointer, acquire_if_equal_returns_false_and_resets_guard_when_v
   EXPECT_EQ(nullptr, gp.get());
 }
 TYPED_TEST(HazardPointer, static_allocation_strategy_throws_bad_hazard_pointer_when_HP_pool_is_exceeded) {
-  if (std::is_same<TypeParam, my_dynamic_allocation_strategy>::value)
+  if (std::is_same<TypeParam, my_dynamic_allocation_strategy>::value) {
     return;
+  }
 
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;
   guard_ptr gp1{this->mp};
@@ -189,7 +191,7 @@ TYPED_TEST(HazardPointer, move_constructor_moves_ownership_and_resets_source_obj
   guard_ptr gp2(std::move(gp));
   gp2.reclaim();
   this->mp = nullptr;
-  EXPECT_EQ(nullptr, gp.get());
+  EXPECT_EQ(nullptr, gp.get()); // NOLINT (use-after-move)
   EXPECT_EQ(nullptr, this->foo);
 }
 
@@ -210,7 +212,7 @@ TYPED_TEST(HazardPointer, move_assignment_moves_ownership_and_resets_source_obje
   gp2 = std::move(gp);
   gp2.reclaim();
   this->mp = nullptr;
-  EXPECT_EQ(nullptr, gp.get());
+  EXPECT_EQ(nullptr, gp.get()); // NOLINT (use-after-move)
   EXPECT_EQ(nullptr, this->foo);
 }
 
@@ -233,8 +235,9 @@ TYPED_TEST(HazardPointer, guard_ptr_protects_the_same_object_via_different_base_
 }
 
 TYPED_TEST(HazardPointer, dynamic_allocation_strategy_can_protect_more_than_K_objects) {
-  if (std::is_same<TypeParam, my_static_allocation_strategy>::value)
+  if (std::is_same<TypeParam, my_static_allocation_strategy>::value) {
     return;
+  }
 
   const size_t count = 100;
 
@@ -251,20 +254,24 @@ TYPED_TEST(HazardPointer, dynamic_allocation_strategy_can_protect_more_than_K_ob
     guards2[i] = guard_ptr(foos[i]);
   }
 
-  for (size_t i = 0; i < count; ++i)
+  for (size_t i = 0; i < count; ++i) {
     guards[i].reclaim();
+  }
 
-  for (size_t i = 0; i < count; ++i)
+  for (size_t i = 0; i < count; ++i) {
     ASSERT_NE(nullptr, foos[i]);
+  }
 
-  for (size_t i = 0; i < count; ++i)
+  for (size_t i = 0; i < count; ++i) {
     guards2[i].reset();
+  }
 
   // reclaim another dummy node to enforce a rescan and reclamation of the retired nodes.
   Foo* dummy = new Foo(&dummy);
   guard_ptr{dummy}.reclaim();
 
-  for (size_t i = 0; i < count; ++i)
+  for (size_t i = 0; i < count; ++i) {
     EXPECT_EQ(nullptr, foos[i]);
+  }
 }
 } // namespace

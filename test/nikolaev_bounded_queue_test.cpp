@@ -50,7 +50,7 @@ TEST(NikolaevBoundedQueue, try_push_returns_false_when_queue_is_full) {
 
 TEST(NikolaevBoundedQueue, supports_move_only_types) {
   xenium::nikolaev_bounded_queue<std::pair<int, std::unique_ptr<int>>> queue(2);
-  queue.try_push({41, std::unique_ptr<int>(new int(42))});
+  queue.try_push({41, std::make_unique<int>(42)});
 
   std::pair<int, std::unique_ptr<int>> elem;
   ASSERT_TRUE(queue.try_pop(elem));
@@ -72,7 +72,7 @@ TEST(NikolaevBoundedQueue, deletes_remaining_entries) {
   unsigned delete_count = 0;
   struct dummy {
     unsigned& delete_count;
-    dummy(unsigned& delete_count) : delete_count(delete_count) {}
+    explicit dummy(unsigned& delete_count) : delete_count(delete_count) {}
     ~dummy() { ++delete_count; }
   };
   {
@@ -85,8 +85,9 @@ TEST(NikolaevBoundedQueue, deletes_remaining_entries) {
 TEST(NikolaevBoundedQueue, push_pop_in_fifo_order_with_remapped_indexes) {
   constexpr int capacity = 32;
   xenium::nikolaev_bounded_queue<int> queue(capacity);
-  for (int i = 0; i < capacity; ++i)
+  for (int i = 0; i < capacity; ++i) {
     ASSERT_TRUE(queue.try_push(i));
+  }
 
   for (int i = 0; i < capacity; ++i) {
     int value;
@@ -109,7 +110,7 @@ TEST(NikolaevBoundedQueue, parallel_usage) {
 
   std::vector<std::thread> threads;
   for (int i = 0; i < num_threads; ++i) {
-    threads.push_back(std::thread([i, &queue] {
+    threads.emplace_back([i, &queue] {
       std::vector<int> last_seen(num_threads);
       int counter = 0;
       for (int j = 0; j < MaxIterations; ++j) {
@@ -121,11 +122,12 @@ TEST(NikolaevBoundedQueue, parallel_usage) {
         EXPECT_GT(elem, last_seen[thread]);
         last_seen[thread] = elem;
       }
-    }));
+    });
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 TEST(NikolaevBoundedQueue, parallel_usage_mostly_full) {
@@ -136,7 +138,7 @@ TEST(NikolaevBoundedQueue, parallel_usage_mostly_full) {
 
   std::vector<std::thread> threads;
   for (int i = 0; i < 4; ++i) {
-    threads.push_back(std::thread([i, &queue] {
+    threads.emplace_back([i, &queue] {
       std::mt19937_64 rand;
       rand.seed(i);
 
@@ -150,11 +152,12 @@ TEST(NikolaevBoundedQueue, parallel_usage_mostly_full) {
           }
         }
       }
-    }));
+    });
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 TEST(NikolaevBoundedQueue, parallel_usage_mostly_empty) {
@@ -162,7 +165,7 @@ TEST(NikolaevBoundedQueue, parallel_usage_mostly_empty) {
 
   std::vector<std::thread> threads;
   for (int i = 0; i < 4; ++i) {
-    threads.push_back(std::thread([i, &queue] {
+    threads.emplace_back([i, &queue] {
       std::mt19937_64 rand;
       rand.seed(i);
 
@@ -176,11 +179,12 @@ TEST(NikolaevBoundedQueue, parallel_usage_mostly_empty) {
           }
         }
       }
-    }));
+    });
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 } // namespace

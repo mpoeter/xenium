@@ -26,7 +26,6 @@ file(GLOB_RECURSE BENCHMARK_FILES benchmarks/*.cpp)
 include_directories(.)
 
 add_executable(gtest ${TEST_FILES} ${XENIUM_FILES})
-target_include_directories(gtest SYSTEM PRIVATE ${GTEST_INCLUDE_DIRS})
 target_link_libraries(gtest googletest)
 
 add_executable(benchmark ${BENCHMARK_FILES} ${XENIUM_FILES})

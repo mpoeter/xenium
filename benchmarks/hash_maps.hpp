@@ -28,7 +28,7 @@ struct hash_map_builder<xenium::vyukov_hash_map<Key, Value, Policies...>> {
   }
 };
 
-namespace {
+namespace { // NOLINT
 template <class Key, class Value, class... Policies>
 bool try_emplace(xenium::vyukov_hash_map<Key, Value, Policies...>& hash_map, Key key) {
   return hash_map.emplace(key, key);
@@ -60,7 +60,7 @@ struct descriptor<xenium::harris_michael_hash_map<Key, Value, Policies...>> {
   }
 };
 
-namespace {
+namespace { // NOLINT
 template <class Key, class Value, class... Policies>
 bool try_emplace(xenium::harris_michael_hash_map<Key, Value, Policies...>& hash_map, Key key) {
   return hash_map.emplace(key, key);

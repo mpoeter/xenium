@@ -20,7 +20,7 @@ namespace {
 // exceptions can be caused by the construction of guard_ptr instances (e.g.,
 // when using hazard_pointer reclaimer).
 struct throwing_key {
-  throwing_key(int v) noexcept : v(v) {}
+  explicit throwing_key(int v) noexcept : v(v) {}
   int v;
   bool operator==(const throwing_key&) const { throw std::runtime_error("test exception"); }
 };
@@ -122,8 +122,9 @@ TYPED_TEST(VyukovHashMap, find_returns_iterator_to_existing_element) {
 
 TYPED_TEST(VyukovHashMap, find_returns_end_iterator_for_non_existing_element) {
   for (int i = 0; i < 200; ++i) {
-    if (i != 42)
+    if (i != 42) {
       this->map.emplace(i, i);
+    }
   }
   EXPECT_EQ(this->map.end(), this->map.find(42));
 }
@@ -147,13 +148,14 @@ TYPED_TEST(VyukovHashMap, extract_existing_element_returns_true_and_removes_elem
 }
 
 TYPED_TEST(VyukovHashMap, map_grows_if_needed) {
-  for (int i = 0; i < 10000; ++i)
+  for (int i = 0; i < 10000; ++i) {
     EXPECT_TRUE(this->map.emplace(i, i));
+  }
 }
 
 TYPED_TEST(VyukovHashMap, with_managed_pointer_value) {
   struct node : TypeParam::template enable_concurrent_ptr<node> {
-    node(int v) : v(v) {}
+    explicit node(int v) : v(v) {}
     int v;
   };
 
@@ -259,7 +261,7 @@ TYPED_TEST(VyukovHashMap, with_string_key) {
 
 TYPED_TEST(VyukovHashMap, with_string_key_and_managed_ptr_value) {
   struct node : TypeParam::template enable_concurrent_ptr<node> {
-    node(int v) : v(v) {}
+    explicit node(int v) : v(v) {}
     int v;
   };
 
@@ -356,23 +358,27 @@ TYPED_TEST(VyukovHashMap, begin_returns_iterator_to_first_entry) {
 }
 
 TYPED_TEST(VyukovHashMap, drain_densely_populated_map_using_erase) {
-  for (int i = 0; i < 200; ++i)
+  for (int i = 0; i < 200; ++i) {
     this->map.emplace(i, i);
+  }
 
   auto it = this->map.begin();
-  while (it != this->map.end())
+  while (it != this->map.end()) {
     this->map.erase(it);
+  }
 
   EXPECT_EQ(this->map.end(), this->map.begin());
 }
 
 TYPED_TEST(VyukovHashMap, drain_sparsely_populated_map_using_erase) {
-  for (int i = 0; i < 4; ++i)
+  for (int i = 0; i < 4; ++i) {
     this->map.emplace(i * 7, i);
+  }
 
   auto it = this->map.begin();
-  while (it != this->map.end())
+  while (it != this->map.end()) {
     this->map.erase(it);
+  }
 
   EXPECT_EQ(this->map.end(), this->map.begin());
 }
@@ -383,10 +389,12 @@ TYPED_TEST(VyukovHashMap, iterator_covers_all_entries_in_densely_populated_map) 
     values[i] = false;
     this->map.emplace(i, i);
   }
-  for (auto v : this->map)
+  for (auto v : this->map) {
     values[v.first] = true;
-  for (auto& v : values)
+  }
+  for (auto& v : values) {
     EXPECT_TRUE(v.second) << v.first << " was not visited";
+  }
 }
 
 TYPED_TEST(VyukovHashMap, iterator_covers_all_entries_in_sparsely_populated_map) {
@@ -395,11 +403,13 @@ TYPED_TEST(VyukovHashMap, iterator_covers_all_entries_in_sparsely_populated_map)
     values[i * 7] = false;
     this->map.emplace(i * 7, i);
   }
-  for (auto v : this->map)
+  for (auto v : this->map) {
     values[v.first] = true;
+  }
 
-  for (auto& v : values)
+  for (auto& v : values) {
     EXPECT_TRUE(v.second) << v.first << " was not visited";
+  }
 }
 
 #ifdef DEBUG
@@ -449,8 +459,9 @@ TYPED_TEST(VyukovHashMap, parallel_usage) {
     }));
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 TYPED_TEST(VyukovHashMap, parallel_usage_with_nontrivial_types) {
@@ -495,8 +506,9 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_nontrivial_types) {
     }));
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 TYPED_TEST(VyukovHashMap, parallel_usage_with_same_values) {
@@ -508,7 +520,7 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_same_values) {
   std::vector<std::thread> threads;
   for (int i = 0; i < 8; ++i) {
     threads.push_back(std::thread([&map] {
-      for (int j = 0; j < MaxIterations / 10; ++j)
+      for (int j = 0; j < MaxIterations / 10; ++j) {
         for (int i = 0; i < 10; ++i) {
           int k = i;
           [[maybe_unused]] typename Reclaimer::region_guard guard{};
@@ -519,21 +531,25 @@ TYPED_TEST(VyukovHashMap, parallel_usage_with_same_values) {
           }
 
           if (j % 8 == 0) {
-            for (auto v : map)
+            for (auto v : map) {
               (void)v;
+            }
           } else if (j % 4 == 0) {
             auto it = map.find(k);
-            if (it != map.end())
+            if (it != map.end()) {
               map.erase(it);
+            }
           } else {
             map.erase(k);
           }
         }
+      }
     }));
   }
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 
 } // namespace

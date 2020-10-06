@@ -34,7 +34,7 @@ namespace policy {
 namespace impl {
   template <class Key, class Value, class ValueReclaimer, class Reclaimer, bool TrivialKey, bool TrivialValue>
   struct vyukov_hash_map_traits;
-}
+} // namespace impl
 
 /**
  * @brief A helper struct to define that the lifetime of value objects of type `T`
@@ -152,7 +152,7 @@ private:
                                                        detail::vyukov_supported_type<Value>::value>;
 
 public:
-  vyukov_hash_map(std::size_t initial_capacity = 128);
+  explicit vyukov_hash_map(std::size_t initial_capacity = 128);
   ~vyukov_hash_map();
 
   class iterator;
@@ -339,7 +339,7 @@ private:
   template <bool AcquireAccessor, class Factory, class Callback>
   bool do_get_or_emplace(Key&& key, Factory&& factory, Callback&& callback);
 
-  bool do_extract(const key_type& key, accessor& value);
+  bool do_extract(const key_type& key, accessor& result);
 
   static extension_item* allocate_extension_item(block* b, hash_t hash);
   static void free_extension_item(extension_item* item);
@@ -372,7 +372,7 @@ public:
   using reference = typename traits::iterator_reference;
   using pointer = value_type*;
 
-  iterator();
+  iterator() = default;
   ~iterator();
 
   iterator(iterator&&);
@@ -396,12 +396,12 @@ public:
   void reset();
 
 private:
-  guarded_block block;
-  bucket* current_bucket;
-  bucket_state current_bucket_state;
-  std::uint32_t index;
-  extension_item* extension;
-  std::atomic<extension_item*>* prev;
+  guarded_block block{};
+  bucket* current_bucket{};
+  bucket_state current_bucket_state{};
+  std::uint32_t index{};
+  extension_item* extension{};
+  std::atomic<extension_item*>* prev{};
   friend struct vyukov_hash_map;
 
   void move_to_next_bucket();

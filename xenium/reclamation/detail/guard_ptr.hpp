@@ -8,45 +8,46 @@
 
 #include <utility>
 
-namespace xenium { namespace reclamation { namespace detail {
+namespace xenium::reclamation::detail {
 
-  template <class T, class MarkedPtr, class Derived>
-  class guard_ptr {
-  public:
-    ~guard_ptr() { self().reset(); }
+template <class T, class MarkedPtr, class Derived>
+class guard_ptr {
+public:
+  ~guard_ptr() { self().reset(); }
 
-    // Get underlying pointer
-    T* get() const noexcept { return ptr.get(); }
+  // Get underlying pointer
+  [[nodiscard]] T* get() const noexcept { return ptr.get(); }
 
-    // Get mark bits
-    uintptr_t mark() const noexcept { return ptr.mark(); }
+  // Get mark bits
+  [[nodiscard]] uintptr_t mark() const noexcept { return ptr.mark(); }
 
-    operator MarkedPtr() const noexcept { return ptr; }
+  operator MarkedPtr() const noexcept { return ptr; } // NOLINT (explicit)
 
-    // True if get() != nullptr || mark() != 0
-    explicit operator bool() const noexcept { return static_cast<bool>(ptr); }
+  // True if get() != nullptr || mark() != 0
+  explicit operator bool() const noexcept { return static_cast<bool>(ptr); }
 
-    // Get pointer with mark bits stripped off. Undefined if target has been reclaimed.
-    T* operator->() const noexcept { return ptr.get(); }
+  // Get pointer with mark bits stripped off. Undefined if target has been reclaimed.
+  T* operator->() const noexcept { return ptr.get(); }
 
-    // Get reference to target of pointer. Undefined if target has been reclaimed.
-    T& operator*() const noexcept { return *ptr; }
+  // Get reference to target of pointer. Undefined if target has been reclaimed.
+  T& operator*() const noexcept { return *ptr; }
 
-    // Swap two guards
-    void swap(Derived& g) noexcept {
-      std::swap(ptr, g.ptr);
-      self().do_swap(g);
-    }
+  // Swap two guards
+  void swap(Derived& g) noexcept {
+    std::swap(ptr, g.ptr);
+    self().do_swap(g);
+  }
 
-  protected:
-    guard_ptr(const MarkedPtr& p = MarkedPtr{}) noexcept : ptr(p) {}
-    MarkedPtr ptr;
+protected:
+  // NOLINTNEXTLINE (explicit-constructor)
+  guard_ptr(const MarkedPtr& p = MarkedPtr{}) noexcept : ptr(p) {}
+  MarkedPtr ptr;
 
-    void do_swap(Derived&) noexcept {} // empty dummy
+  void do_swap(Derived&) noexcept {} // empty dummy
 
-  private:
-    Derived& self() { return static_cast<Derived&>(*this); }
-  };
-}}} // namespace xenium::reclamation::detail
+private:
+  Derived& self() { return static_cast<Derived&>(*this); }
+};
+} // namespace xenium::reclamation::detail
 
 #endif

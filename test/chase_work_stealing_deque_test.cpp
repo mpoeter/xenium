@@ -68,15 +68,17 @@ TEST(ChaseWorkStealingDeque, push_pop_steal_many) {
   xenium::chase_work_stealing_deque<node> queue;
 
   for (int x = 0; x < 3; ++x) {
-    for (unsigned i = 0; i < count; ++i)
+    for (unsigned i = 0; i < count; ++i) {
       ASSERT_TRUE(queue.try_push(n.get()));
+    }
 
     node* v;
     for (unsigned i = 0; i < count; ++i) {
-      if (i % 2 == 0)
+      if (i % 2 == 0) {
         ASSERT_TRUE(queue.try_pop(v));
-      else
+      } else {
         ASSERT_TRUE(queue.try_steal(v));
+      }
     }
   }
 }
@@ -102,7 +104,7 @@ TEST(ChaseWorkStealingDeque, parallel_usage) {
 
   std::atomic<bool> start{false};
 
-  for (unsigned i = 0; i < num_threads; ++i) {
+  for (unsigned i = 0; i < num_threads; ++i) { // NOLINT (modernize-loop-convert)
     threads[i] = std::thread([thread_idx = i, &start, &queues, num_threads, MaxIterations]() {
       // oh my... MSVC complains if these variables are NOT captured; clang complains if they ARE captured.
       (void)num_threads;
@@ -112,8 +114,9 @@ TEST(ChaseWorkStealingDeque, parallel_usage) {
       rand.seed(thread_idx);
       node* n = nullptr;
 
-      while (!start.load())
+      while (!start.load()) {
         ; // wait for start signal
+      }
 
       for (int j = 0; j < MaxIterations; ++j) {
         if (n != nullptr) {
@@ -148,7 +151,8 @@ TEST(ChaseWorkStealingDeque, parallel_usage) {
 
   start.store(true);
 
-  for (auto& thread : threads)
+  for (auto& thread : threads) {
     thread.join();
+  }
 }
 } // namespace

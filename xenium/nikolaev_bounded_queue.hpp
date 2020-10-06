@@ -82,7 +82,7 @@ public:
   /**
    * @brief Returns the (rounded) capacity of the queue.
    */
-  std::size_t capacity() const noexcept { return _capacity; }
+  [[nodiscard]] std::size_t capacity() const noexcept { return _capacity; }
 
 private:
   using storage_t = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
@@ -115,8 +115,9 @@ template <class T, class... Policies>
 bool nikolaev_bounded_queue<T, Policies...>::try_push(value_type value) {
   std::size_t eidx;
   // TODO - make nonempty checks configurable
-  if (!_free_queue.dequeue<false, pop_retries>(eidx, _capacity, _remap_shift))
+  if (!_free_queue.dequeue<false, pop_retries>(eidx, _capacity, _remap_shift)) {
     return false;
+  }
 
   assert(eidx < _capacity);
   new (&_storage[eidx]) T(std::move(value));
@@ -128,13 +129,14 @@ template <class T, class... Policies>
 bool nikolaev_bounded_queue<T, Policies...>::try_pop(value_type& result) {
   std::size_t eidx;
   // TODO - make nonempty checks configurable
-  if (!_allocated_queue.dequeue<false, pop_retries>(eidx, _capacity, _remap_shift))
+  if (!_allocated_queue.dequeue<false, pop_retries>(eidx, _capacity, _remap_shift)) {
     return false;
+  }
 
   assert(eidx < _capacity);
   T& data = reinterpret_cast<T&>(_storage[eidx]);
   result = std::move(data);
-  data.~T();
+  data.~T(); // NOLINT (use-after-move)
   _free_queue.enqueue<false, false>(eidx, _capacity, _remap_shift);
   return true;
 }
