@@ -116,7 +116,7 @@ namespace xenium {
       }
 
       ~node() {
-        std::size_t eidx;
+        std::uint64_t eidx;
         while (_allocated_queue.dequeue<false, pop_retries>(eidx, entries_per_node, remap_shift)) {
           reinterpret_cast<T&>(_storage[eidx]).~T();
         }
@@ -129,7 +129,7 @@ namespace xenium {
       }
 
       bool try_push(value_type&& value) {
-        std::size_t eidx;
+        std::uint64_t eidx;
         if (!_free_queue.dequeue<false, pop_retries>(eidx, entries_per_node, remap_shift)) {
           _allocated_queue.finalize();
           return false;
@@ -146,7 +146,7 @@ namespace xenium {
       }
 
       bool try_pop(value_type& result) {
-        std::size_t eidx;
+        std::uint64_t eidx;
         if (!_allocated_queue.dequeue<false, pop_retries>(eidx, entries_per_node, remap_shift))
           return false;
 
