@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <stdexcept>
 
 namespace xenium {
   /**
