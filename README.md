@@ -155,7 +155,7 @@ make benchmark
 <tr>
     <td valign="top"><a name="ref-michael-2002"></a>[Mic02]</td>
     <td>Maged M. Michael.
-    <a href=http://www.liblfds.org/downloads/white%20papers/%5BHash%5D%20-%20%5BMichael%5D%20-%20High%20Performance%20Dynamic%20Lock-Free%20Hash%20Tables%20and%20List-Based%20Sets.pdf>
+    <a href=https://www.liblfds.org/downloads/white%20papers/%5BHash%5D%20-%20%5BMichael%5D%20-%20High%20Performance%20Dynamic%20Lock-Free%20Hash%20Tables%20and%20List-Based%20Sets.pdf>
     High performance dynamic lock-free hash tables and list-based sets</a>.
     In <i>Proceedings of the 14th Annual ACM Symposium on Parallel Algorithms and Architectures
     (SPAA)</i>, pages 73–82. ACM, 2002.</td>
