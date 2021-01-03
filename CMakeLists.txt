@@ -1,6 +1,9 @@
 project(xenium)
 cmake_minimum_required(VERSION 3.0)
 
+include(CheckCXXCompilerFlag)
+include(CMakePushCheckState)
+
 include(gtest.cmake)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -11,6 +14,7 @@ enable_testing()
 find_package(Threads REQUIRED)
 find_package(Doxygen)
 
+option(WITH_TSAN "Build tests and benchmarks with ThreadSanitizer" ON)
 option(BUILD_DOCUMENTATION "Create the HTML based documentation (requires Doxygen)" ${DOXYGEN_FOUND})
 
 file(GLOB_RECURSE XENIUM_FILES xenium/*.hpp)
@@ -41,6 +45,16 @@ if(WITH_LIBCDS)
 	find_package(LibCDS CONFIG REQUIRED)
 	target_link_libraries(benchmark LibCDS::cds)
 	target_compile_definitions(benchmark PRIVATE WITH_LIBCDS CDS_THREADING_CXX11)
+endif()
+
+if(WITH_TSAN AND NOT MSVC)
+	cmake_push_check_state()
+	set(CMAKE_REQUIRED_FLAGS -fsanitize=thread)
+	check_cxx_compiler_flag("" TSAN_FLAG_WORKS)
+	cmake_pop_check_state()
+	if(TSAN_FLAG_WORKS)
+		string(APPEND CMAKE_CXX_FLAGS " -fsanitize=thread")
+	endif()
 endif()
 
 if(MSVC)
