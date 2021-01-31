@@ -19,18 +19,20 @@ file(GLOB_RECURSE TEST_FILES test/*.cpp)
 
 file(GLOB_RECURSE BENCHMARK_FILES benchmarks/*.cpp)
 
-include_directories(
-	.
-	${GTEST_INCLUDE_DIRS}
+include_directories(.)
+
+add_executable(gtest ${TEST_FILES} ${XENIUM_FILES})
+target_include_directories(gtest SYSTEM PRIVATE ${GTEST_INCLUDE_DIRS})
+target_link_libraries(gtest googletest)
+
+add_executable(benchmark ${BENCHMARK_FILES} ${XENIUM_FILES})
+target_include_directories(
+	benchmark
+	SYSTEM
+	PRIVATE
 	./3rdParty/json/include
 	./3rdParty/config/include
 )
-
-add_executable(gtest ${TEST_FILES} ${XENIUM_FILES})
-
-add_executable(benchmark ${BENCHMARK_FILES} ${XENIUM_FILES})
-
-target_link_libraries(gtest googletest)
 
 if(CMAKE_THREAD_LIBS_INIT)
 	target_link_libraries(gtest "${CMAKE_THREAD_LIBS_INIT}")
