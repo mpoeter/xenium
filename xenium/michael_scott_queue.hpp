@@ -49,17 +49,21 @@ public:
   ~michael_scott_queue();
 
   /**
-   * Pushes the given value to the queue.
+   * @brief Pushes the given value to the queue.
+   *
    * This operation always allocates a new node.
    * Progress guarantees: lock-free (always performs a memory allocation)
+   *
    * @param value
    */
   void push(T value);
 
   /**
-   * Tries to pop an object from the queue. If the operation is
-   * successful, the object will be moved to `result`. 
+   * @brief Tries to pop an object from the queue. If the operation is
+   * successful, the object will be moved to `result`.
+   *
    * Progress guarantees: lock-free
+   *
    * @param result
    * @return `true` if the operation was successful, otherwise `false`
    */

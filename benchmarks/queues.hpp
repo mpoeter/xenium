@@ -208,6 +208,47 @@ namespace {
 }
 #endif
 
+#ifdef WITH_NIKOLAEV_BOUNDED_QUEUE
+#include <xenium/nikolaev_bounded_queue.hpp>
+
+template <class T, class... Policies>
+struct descriptor<xenium::nikolaev_bounded_queue<T, Policies...>> {
+  static tao::json::value generate() {
+    return {
+      {"type", "nikolaev_bounded_queue"},
+      {"capacity", DYNAMIC_PARAM}
+    };
+  }
+};
+
+template <class T, class... Policies>
+struct queue_builder<xenium::nikolaev_bounded_queue<T, Policies...>> {
+  static auto create(const tao::config::value& config) {
+    auto capacity = config.as<size_t>("capacity");
+    return std::make_unique<xenium::nikolaev_bounded_queue<T, Policies...>>(capacity);
+  }
+};
+
+template <class T, class... Policies>
+struct region_guard<xenium::nikolaev_bounded_queue<T, Policies...>> {
+  // nikolaev_bounded_queue does not have a reclaimer, so we define an
+  // empty dummy type as region_guard placeholder.
+  struct type{};
+};
+
+namespace {
+  template <class T, class... Policies>
+  bool try_push(xenium::nikolaev_bounded_queue<T, Policies...>& queue, T item) {
+    return queue.try_push(std::move(item));
+  }
+
+  template <class T, class... Policies>
+  bool try_pop(xenium::nikolaev_bounded_queue<T, Policies...>& queue, T& item) {
+    return queue.try_pop(item);
+  }
+}
+#endif
+
 #ifdef WITH_LIBCDS
 #include <cds/gc/hp.h>
 #include <cds/gc/dhp.h>

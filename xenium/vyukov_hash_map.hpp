@@ -208,7 +208,7 @@ public:
    *
    * Progress guarantees: blocking
    * 
-   * @tparam Func
+   * @tparam Factory
    * @param key the key of element to be inserted.
    * @param factory a functor that is used to create the `Value` instance when constructing
    * the new element to be inserted.

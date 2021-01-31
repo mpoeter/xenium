@@ -63,15 +63,19 @@ namespace xenium {
 
     /**
      * @brief Tries to push a new element to the queue.
+     *
      * Progress guarantees: lock-free
+     *
      * @param value
      * @return `true` if the operation was successful, otherwise `false`
      */
     bool try_push(value_type value);
 
     /**
-     * Tries to pop an element from the queue.
+     * @brief Tries to pop an element from the queue.
+     *
      * Progress guarantees: lock-free
+     *
      * @param result
      * @return `true` if the operation was successful, otherwise `false`
      */
