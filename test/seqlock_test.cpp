@@ -4,7 +4,7 @@
 #include <thread>
 
 namespace {
- 
+
 struct Foo {
   int32_t v1;
   float v2;
@@ -111,15 +111,12 @@ TEST(SeqLock, read_returns_value_stored_by_update_with_multiple_slots)
   }
 }
 
-TEST(SeqLock, parallel_usage)
-{
-  xenium::seqlock<Foo, xenium::policy::slots<8>> data{{0, 0, 0, 0}};
+TEST(SeqLock, parallel_usage) {
+  xenium::seqlock<Foo, xenium::policy::slots<2>> data{{0, 0, 0, 0}};
 
   std::vector<std::thread> threads;
-  for (int i = 0; i < 4; ++i)
-  {
-    threads.push_back(std::thread([&data]
-    {
+  for (int i = 0; i < 8; ++i) {
+    threads.emplace_back([&data, i] {
     #ifdef DEBUG
       const int MaxIterations = 5000;
     #else
@@ -132,12 +129,14 @@ TEST(SeqLock, parallel_usage)
 
         d = data.load();
         EXPECT_TRUE(d.verify());
-        data.update([](Foo& f) {
-          EXPECT_TRUE(f.verify());
-          ++f;
-        });
+        if (i < 2) {
+          data.update([](Foo& f) {
+            EXPECT_TRUE(f.verify());
+            ++f;
+          });
+        }
       }
-    }));
+    });
   }
 
   for (auto& thread : threads)

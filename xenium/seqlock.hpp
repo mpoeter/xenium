@@ -78,9 +78,7 @@ struct seqlock {
   /**
    * @brief Constructs an object of type T via copy construction.
    */
-  explicit seqlock(const T& data) {
-    new(&_data) T(data);
-  }
+  explicit seqlock(const T& data) { new (&_data[0]) T(data); }
 
   /**
    * @brief Constructs an object of type T using args as the parameter list for the constructor of T.
@@ -90,7 +88,7 @@ struct seqlock {
    */
   template <class... Args>
   explicit seqlock(Args&&... args) {
-    new(&_data) T(std::forward<Args>(args)...);
+    new (&_data[0]) T(std::forward<Args>(args)...);
   }
 
   seqlock(const seqlock&) = delete;
@@ -155,7 +153,7 @@ T seqlock<T, Policies...>::load() const {
   sequence_t seq = _seq.load(std::memory_order_acquire);
   for (;;) {
     unsigned idx;
-    if (slots == 1) {
+    if constexpr (slots == 1) {
       // wait while update is in progress...
       // this is only necessary if we have a single slot, since otherwise we let
       // reader and writer operate on separate slots.
@@ -165,7 +163,9 @@ T seqlock<T, Policies...>::load() const {
       }
       idx = 0;
     } else {
-      idx = (seq >> 1) % slots;
+      seq >>= 1;
+      idx = seq % slots;
+      seq <<= 1; // we have to ignore a potential write flag here
     }
 
     read_data(result, _data[idx]);
