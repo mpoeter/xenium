@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.0)
 include(CheckCXXCompilerFlag)
 include(CMakePushCheckState)
 
-include(gtest.cmake)
+include(3rdParty/gtest.cmake)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
