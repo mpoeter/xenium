@@ -110,7 +110,11 @@ TEST(NikolaevBoundedQueue, parallel_usage) {
 
   std::vector<std::thread> threads;
   for (int i = 0; i < num_threads; ++i) {
-    threads.emplace_back([i, &queue] {
+    threads.emplace_back([i, &queue, num_threads, thread_mask] {
+      // oh my... MSVC complains if these variables are NOT captured; clang complains if they ARE captured.
+      (void)num_threads;
+      (void)thread_mask;
+
       std::vector<int> last_seen(num_threads);
       int counter = 0;
       for (int j = 0; j < MaxIterations; ++j) {
