@@ -14,14 +14,6 @@ stages:
               compiler: g++-8
               buildConfiguration: Debug
               image: 'ubuntu-18.04'
-            clang8-Release:
-              compiler: clang++-8
-              buildConfiguration: Release
-              image: 'ubuntu-18.04'
-            clang8-Debug:
-              compiler: clang++-8
-              buildConfiguration: Debug
-              image: 'ubuntu-18.04'
             clang9-Release:
               compiler: clang++-9
               buildConfiguration: Release
