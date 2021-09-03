@@ -51,7 +51,7 @@ using Reclaimers =
                    xenium::reclamation::epoch_based<>::with<xenium::policy::scan_frequency<10>>,
                    xenium::reclamation::new_epoch_based<>::with<xenium::policy::scan_frequency<10>>,
                    xenium::reclamation::debra<>::with<xenium::policy::scan_frequency<10>>>;
-TYPED_TEST_CASE(VyukovHashMap, Reclaimers);
+TYPED_TEST_SUITE(VyukovHashMap, Reclaimers);
 
 TYPED_TEST(VyukovHashMap, emplace_returns_true_for_successful_insert) {
   EXPECT_TRUE(this->map.emplace(42, 42));

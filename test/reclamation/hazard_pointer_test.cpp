@@ -83,7 +83,7 @@ void HazardPointer<Policy>::DummyDeleter::operator()(WithCustomDeleter* obj) con
 }
 
 using Policies = ::testing::Types<my_static_allocation_strategy, my_dynamic_allocation_strategy>;
-TYPED_TEST_CASE(HazardPointer, Policies);
+TYPED_TEST_SUITE(HazardPointer, Policies);
 
 TYPED_TEST(HazardPointer, mark_returns_the_same_mark_as_the_original_marked_ptr) {
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;

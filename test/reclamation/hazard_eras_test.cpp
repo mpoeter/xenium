@@ -91,7 +91,7 @@ void HazardEras<Policy>::DummyDeleter::operator()(WithCustomDeleter* obj) const 
 }
 
 using Policies = ::testing::Types<my_static_allocation_strategy, my_dynamic_allocation_strategy>;
-TYPED_TEST_CASE(HazardEras, Policies);
+TYPED_TEST_SUITE(HazardEras, Policies);
 
 TYPED_TEST(HazardEras, mark_returns_the_same_mark_as_the_original_marked_ptr) {
   using guard_ptr = typename TestFixture::template concurrent_ptr<typename TestFixture::Foo>::guard_ptr;

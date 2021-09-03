@@ -28,7 +28,7 @@ using Reclaimers =
                    xenium::reclamation::epoch_based<>::with<xenium::policy::scan_frequency<10>>,
                    xenium::reclamation::new_epoch_based<>::with<xenium::policy::scan_frequency<10>>,
                    xenium::reclamation::stamp_it>;
-TYPED_TEST_CASE(KirschKFifoQueue, Reclaimers);
+TYPED_TEST_SUITE(KirschKFifoQueue, Reclaimers);
 
 TYPED_TEST(KirschKFifoQueue, push_try_pop_returns_pushed_element) {
   xenium::kirsch_kfifo_queue<int*, xenium::policy::reclaimer<TypeParam>> queue(1);

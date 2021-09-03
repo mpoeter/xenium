@@ -27,7 +27,7 @@ using Reclaimers =
                    xenium::reclamation::epoch_based<>::with<xenium::policy::scan_frequency<10>>,
                    xenium::reclamation::new_epoch_based<>::with<xenium::policy::scan_frequency<10>>,
                    xenium::reclamation::debra<>::with<xenium::policy::scan_frequency<10>>>;
-TYPED_TEST_CASE(HarrisMichaelListBasedSet, Reclaimers);
+TYPED_TEST_SUITE(HarrisMichaelListBasedSet, Reclaimers);
 
 TYPED_TEST(HarrisMichaelListBasedSet, emplace_same_element_twice_fails_second_time) {
   xenium::harris_michael_list_based_set<int, xenium::policy::reclaimer<TypeParam>> list;

@@ -37,7 +37,7 @@ using Reclaimers =
                    xenium::reclamation::epoch_based<>::with<xenium::policy::scan_frequency<10>>,
                    xenium::reclamation::new_epoch_based<>::with<xenium::policy::scan_frequency<10>>,
                    xenium::reclamation::debra<>>;
-TYPED_TEST_CASE(HarrisMichaelHashMap, Reclaimers);
+TYPED_TEST_SUITE(HarrisMichaelHashMap, Reclaimers);
 
 TYPED_TEST(HarrisMichaelHashMap, emplace_or_get_returns_an_iterator_and_true_when_successful) {
   auto result = this->map.emplace_or_get(42, 43);

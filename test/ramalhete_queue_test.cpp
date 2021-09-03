@@ -30,7 +30,7 @@ using Reclaimers =
                    xenium::reclamation::debra<>::with<xenium::policy::scan_frequency<10>>,
                    xenium::reclamation::quiescent_state_based,
                    xenium::reclamation::stamp_it>;
-TYPED_TEST_CASE(RamalheteQueue, Reclaimers);
+TYPED_TEST_SUITE(RamalheteQueue, Reclaimers);
 
 TYPED_TEST(RamalheteQueue, push_try_pop_returns_pushed_element) {
   xenium::ramalhete_queue<int*, xenium::policy::reclaimer<TypeParam>> queue;

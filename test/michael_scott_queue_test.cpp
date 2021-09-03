@@ -27,7 +27,7 @@ using Reclaimers =
                    xenium::reclamation::epoch_based<>::with<xenium::policy::scan_frequency<10>>,
                    xenium::reclamation::new_epoch_based<>::with<xenium::policy::scan_frequency<10>>,
                    xenium::reclamation::debra<>::with<xenium::policy::scan_frequency<10>>>;
-TYPED_TEST_CASE(MichaelScottQueue, Reclaimers);
+TYPED_TEST_SUITE(MichaelScottQueue, Reclaimers);
 
 TYPED_TEST(MichaelScottQueue, push_try_pop_returns_pushed_element) {
   xenium::michael_scott_queue<int, xenium::policy::reclaimer<TypeParam>> queue;

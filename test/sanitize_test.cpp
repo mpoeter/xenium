@@ -37,7 +37,7 @@ using Reclaimers =
                    xenium::reclamation::new_epoch_based<>::with<xenium::policy::scan_frequency<1>>,
                    xenium::reclamation::quiescent_state_based,
                    xenium::reclamation::stamp_it>;
-TYPED_TEST_CASE(Sanitize, Reclaimers);
+TYPED_TEST_SUITE(Sanitize, Reclaimers);
 
   #ifdef DEBUG
 const int MaxIterations = 1000;

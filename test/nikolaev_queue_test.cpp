@@ -33,7 +33,7 @@ using Reclaimers =
                    xenium::reclamation::epoch_based<>::with<xenium::policy::scan_frequency<10>>,
                    xenium::reclamation::new_epoch_based<>::with<xenium::policy::scan_frequency<10>>,
                    xenium::reclamation::debra<>::with<xenium::policy::scan_frequency<10>>>;
-TYPED_TEST_CASE(NikolaevQueue, Reclaimers);
+TYPED_TEST_SUITE(NikolaevQueue, Reclaimers);
 
 TYPED_TEST(NikolaevQueue, push_try_pop_returns_pushed_element) {
   xenium::nikolaev_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
