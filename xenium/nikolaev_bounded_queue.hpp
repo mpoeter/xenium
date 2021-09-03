@@ -105,7 +105,7 @@ nikolaev_bounded_queue<T, Policies...>::nikolaev_bounded_queue(std::size_t capac
 
 template <class T, class... Policies>
 nikolaev_bounded_queue<T, Policies...>::~nikolaev_bounded_queue() {
-  std::size_t eidx;
+  std::uint64_t eidx;
   while (_allocated_queue.dequeue<false, pop_retries>(eidx, _capacity, _remap_shift)) {
     reinterpret_cast<T&>(_storage[eidx]).~T();
   }
@@ -113,7 +113,7 @@ nikolaev_bounded_queue<T, Policies...>::~nikolaev_bounded_queue() {
 
 template <class T, class... Policies>
 bool nikolaev_bounded_queue<T, Policies...>::try_push(value_type value) {
-  std::size_t eidx;
+  std::uint64_t eidx;
   // TODO - make nonempty checks configurable
   if (!_free_queue.dequeue<false, pop_retries>(eidx, _capacity, _remap_shift)) {
     return false;
@@ -127,7 +127,7 @@ bool nikolaev_bounded_queue<T, Policies...>::try_push(value_type value) {
 
 template <class T, class... Policies>
 bool nikolaev_bounded_queue<T, Policies...>::try_pop(value_type& result) {
-  std::size_t eidx;
+  std::uint64_t eidx;
   // TODO - make nonempty checks configurable
   if (!_allocated_queue.dequeue<false, pop_retries>(eidx, _capacity, _remap_shift)) {
     return false;
