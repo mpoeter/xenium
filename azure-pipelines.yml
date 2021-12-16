@@ -6,22 +6,22 @@ stages:
 
         strategy:
           matrix:
-            gcc8-Release:
-              compiler: g++-8
+            gcc9-Release:
+              compiler: g++-9
               buildConfiguration: Release
-              image: 'ubuntu-18.04'
+              image: 'ubuntu-20.04'
             gcc8-Debug:
-              compiler: g++-8
+              compiler: g++-9
               buildConfiguration: Debug
-              image: 'ubuntu-18.04'
+              image: 'ubuntu-20.04'
             clang9-Release:
-              compiler: clang++-9
+              compiler: clang++-10
               buildConfiguration: Release
-              image: 'ubuntu-18.04'
+              image: 'ubuntu-20.04'
             clang9-Debug:
-              compiler: clang++-9
+              compiler: clang++-10
               buildConfiguration: Debug
-              image: 'ubuntu-18.04'
+              image: 'ubuntu-20.04'
             clang10-Mac-Debug:
               compiler: clang++
               buildConfiguration: Debug
@@ -34,12 +34,6 @@ stages:
         pool:
           vmImage: $(image)
         steps:
-        - script: |
-            sudo apt-get update -y
-            sudo apt-get install -y g++-8
-          displayName: Install GCC 8
-          condition: eq(variables['compiler'], 'g++-8')
-
         - script: |
             $(compiler) --version
             git submodule update --init --recursive
@@ -58,7 +52,7 @@ stages:
 
         - publish: $(Build.BinariesDirectory)/build/benchmark
           artifact: benchmark
-          condition: and(eq(variables.compiler, 'g++-8'), eq(variables.buildConfiguration, 'Release'))
+          condition: and(eq(variables.compiler, 'g++-9'), eq(variables.buildConfiguration, 'Release'))
 
         - task: PublishTestResults@2
           inputs:
@@ -116,7 +110,7 @@ stages:
     - job: BenchmarkSmokeTest
       displayName: 'Benchmark smoke tests'
       pool:
-        vmImage: 'Ubuntu-16.04'
+        vmImage: 'Ubuntu-20.04'
       steps:
       - task: DownloadPipelineArtifact@2
         inputs:
@@ -144,7 +138,7 @@ stages:
     - job: Documentation
       displayName: 'Build + deploy documentation'
       pool:
-        vmImage: 'Ubuntu-16.04'
+        vmImage: 'Ubuntu-20.04'
       steps:
       - script: |
           sudo apt-get install -y doxygen graphviz
