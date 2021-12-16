@@ -64,7 +64,7 @@ stages:
       - job: BuildWindows
         displayName: 'Build Windows'
         pool:
-          vmImage: vs2017-win2016
+          vmImage: windows-2019
 
         strategy:
           matrix:
@@ -85,7 +85,7 @@ stages:
           displayName: 'Configure xenium'
           inputs:
             workingDirectory: '$(Build.BinariesDirectory)\build'
-            cmakeArgs: '$(Build.SourcesDirectory) -G "Visual Studio 15 2017" -A "$(buildPlatform)"'
+            cmakeArgs: '$(Build.SourcesDirectory) -G "Visual Studio 16 2019" -A "$(buildPlatform)"'
 
         - task: CMake@1
           displayName: 'Build xenium'

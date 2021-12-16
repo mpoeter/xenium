@@ -90,12 +90,12 @@ xenium is a header only library, so in order to use it, it is sufficient to incl
 in your list of include directories. No other 3rd party libraries are required. However, the implementation
 uses C++17 features, so a compiler with sufficient C++17 support is required. The following compilers are
 used in the CI builds and are therefore known to be supported:
-  * gcc8
-  * clang9
-  * Visual Studio 2017
+  * gcc9
+  * clang10
+  * Visual Studio 2019
 
 The unit test require `googletest` and the benchmarks require `taocpp/json` and `taocpp/config`. These
-dependencies are included as submodules, so the unit tests and/or the bencmarks can be built as follows:
+dependencies are included as submodules, so the unit tests and/or the benchmarks can be built as follows:
 ```
 git clone https://github.com/mpoeter/xenium.git && cd xenium
 git submodule update --init --recursive
