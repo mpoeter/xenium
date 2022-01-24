@@ -11,6 +11,9 @@
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
 
+#include <optional>
+#include <type_traits>
+
 #ifdef _MSC_VER
   #pragma warning(push)
   #pragma warning(disable : 4324) // structure was padded due to alignment specifier
@@ -36,6 +39,8 @@ namespace xenium {
 template <class T, class... Policies>
 class michael_scott_queue {
 public:
+  static_assert(std::is_nothrow_move_constructible_v<T>, "T must be nothrow move constructible.");
+
   using value_type = T;
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
   using backoff = parameter::type_param_t<policy::backoff, no_backoff, Policies...>;
@@ -69,6 +74,15 @@ public:
    */
   [[nodiscard]] bool try_pop(T& result);
 
+  /**
+   * @brief Tries to pop an object from the queue.
+   *
+   * Progress guarantees: lock-free
+   *
+   * @return the popped value if the operation was successful, otherwise `std::nullopt`
+   */
+  [[nodiscard]] std::optional<T> pop();
+
 private:
   struct node;
 
@@ -77,12 +91,14 @@ private:
   using guard_ptr = typename concurrent_ptr::guard_ptr;
 
   struct node : reclaimer::template enable_concurrent_ptr<node> {
-    node() : _value(){};
-    explicit node(T&& v) : _value(std::move(v)) {}
+    node() = default;
+    explicit node(T&& v) { new (&_data) T(std::move(v)); }
 
-    T _value;
+    typename std::aligned_storage<sizeof(T), alignof(T)>::type _data;
     concurrent_ptr _next;
   };
+
+  guard_ptr pop_node();
 
   alignas(64) concurrent_ptr _head;
   alignas(64) concurrent_ptr _tail;
@@ -99,9 +115,15 @@ template <class T, class... Policies>
 michael_scott_queue<T, Policies...>::~michael_scott_queue() {
   // (1) - this acquire-load synchronizes-with the release-CAS (11)
   auto n = _head.load(std::memory_order_acquire);
+  auto h = n;
   while (n) {
     // (2) - this acquire-load synchronizes-with the release-CAS (6)
     auto next = n->_next.load(std::memory_order_acquire);
+    if (n != h) {
+      // the head node is the dummy node which has no payload, so for this
+      // one we must not call the destructor for data
+      reinterpret_cast<T&>(n->_data).~T();
+    }
     delete n.get();
     n = next;
   }
@@ -147,6 +169,30 @@ void michael_scott_queue<T, Policies...>::push(T value) {
 
 template <class T, class... Policies>
 bool michael_scott_queue<T, Policies...>::try_pop(T& result) {
+  auto n = pop_node();
+  if (n) {
+    auto& data = reinterpret_cast<T&>(n->_data);
+    result = std::move(data);
+    data.~T();
+    return true;
+  }
+  return false;
+}
+
+template <class T, class... Policies>
+std::optional<T> michael_scott_queue<T, Policies...>::pop() {
+  auto n = pop_node();
+  if (n) {
+    auto& data = reinterpret_cast<T&>(n->_data);
+    std::optional<T> result(std::move(data));
+    data.~T();
+    return result;
+  }
+  return std::nullopt;
+}
+
+template <class T, class... Policies>
+auto michael_scott_queue<T, Policies...>::pop_node() -> guard_ptr {
   backoff backoff;
 
   guard_ptr h;
@@ -162,10 +208,10 @@ bool michael_scott_queue<T, Policies...>::try_pop(T& result) {
       continue;
     }
 
-    // If the _head (dummy) element is the only one, return false to signal that
+    // If the _head (dummy) element is the only one, return nullptr to signal that
     // the operation has failed (no element has been returned).
     if (next.get() == nullptr) {
-      return false;
+      return next;
     }
 
     marked_ptr t = _tail.load(std::memory_order_relaxed);
@@ -181,18 +227,15 @@ bool michael_scott_queue<T, Policies...>::try_pop(T& result) {
     marked_ptr expected(h.get());
     // (11) - this release-CAS synchronizes-with the acquire-load (1, 8)
     if (_head.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed)) {
-      // return the data of _head's successor; it is the new dummy node.
-      result = std::move(next->_value);
-      break;
+      // The old dummy node has been unlinked, so reclaim it.
+      h.reclaim();
+
+      // return next so we can take its value; next is now the new dummy node.
+      return next;
     }
 
     backoff();
   }
-
-  // The old dummy node has been unlinked, so reclaim it.
-  h.reclaim();
-
-  return true;
 }
 } // namespace xenium
 
