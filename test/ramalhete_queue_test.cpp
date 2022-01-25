@@ -40,12 +40,20 @@ TYPED_TEST(RamalheteQueue, push_try_pop_returns_pushed_element) {
   EXPECT_EQ(v1, elem);
 }
 
+TYPED_TEST(RamalheteQueue, push_pop_returns_pushed_element) {
+  xenium::ramalhete_queue<int*, xenium::policy::reclaimer<TypeParam>> queue;
+  queue.push(v1);
+  auto elem = queue.pop();
+  EXPECT_TRUE(elem.has_value());
+  EXPECT_EQ(v1, *elem);
+}
+
 TYPED_TEST(RamalheteQueue, supports_unique_ptr) {
   xenium::ramalhete_queue<std::unique_ptr<int>, xenium::policy::reclaimer<TypeParam>> queue;
   queue.push(std::make_unique<int>(42));
-  std::unique_ptr<int> elem;
-  EXPECT_TRUE(queue.try_pop(elem));
-  EXPECT_EQ(42, *elem);
+  auto elem = queue.pop();
+  EXPECT_TRUE(elem.has_value());
+  EXPECT_EQ(42, **elem);
 }
 
 TYPED_TEST(RamalheteQueue, supports_trivially_copyable_types_smaller_than_a_pointer) {
