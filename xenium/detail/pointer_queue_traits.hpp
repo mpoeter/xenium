@@ -8,6 +8,7 @@
 
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <type_traits>
 
 namespace xenium::detail {
@@ -30,6 +31,11 @@ struct trivially_copyable_pointer_queue_traits {
     // need to cast to void* to avoid gcc error about "copying an object of non-trivial type"
     std::memcpy(static_cast<void*>(&target), &val, sizeof(value_type));
   }
+  static std::optional<value_type> get(raw_type val) {
+    value_type res;
+    store(res, val);
+    return res;
+  }
   static void delete_value(raw_type) {}
 };
 
@@ -46,6 +52,7 @@ struct pointer_queue_traits<T*, Policies...> {
   static raw_type get_raw(T* val) { return val; }
   static void release(value_type) {}
   static void store(value_type& target, raw_type val) { target = val; }
+  static std::optional<value_type> get(raw_type val) { return val; }
   static void delete_value(raw_type) {}
 };
 
@@ -54,8 +61,9 @@ struct pointer_queue_traits<std::unique_ptr<T>, Policies...> {
   using value_type = std::unique_ptr<T>;
   using raw_type = T*;
   static raw_type get_raw(value_type& val) { return val.get(); }
-  static void release(value_type& val) { (void)val.release(); }
+  static void release(value_type& val) { std::ignore = val.release(); }
   static void store(value_type& target, raw_type val) { target.reset(val); }
+  static std::optional<value_type> get(raw_type val) { return value_type(val); }
   static void delete_value(raw_type v) { std::unique_ptr<T> dummy{v}; }
 };
 

@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <optional>
 #include <stdexcept>
 
 #ifdef _MSC_VER
@@ -92,6 +93,15 @@ public:
    * @return `true` if the operation was successful, otherwise `false`
    */
   [[nodiscard]] bool try_pop(value_type& result);
+
+  /**
+   * @brief Tries to pop an element from the queue.
+   *
+   * Progress guarantees: lock-free
+   *
+   * @return the popped value if the operation was successful, otherwise `std::nullopt`
+   */
+  [[nodiscard]] std::optional<value_type> pop();
 
 private:
   struct node;
@@ -220,6 +230,16 @@ void ramalhete_queue<T, Policies...>::push(value_type value) {
 
 template <class T, class... Policies>
 bool ramalhete_queue<T, Policies...>::try_pop(value_type& result) {
+  auto res = pop();
+  if (res.has_value()) {
+    result = std::move(res).value();
+    return true;
+  }
+  return false;
+}
+
+template <class T, class... Policies>
+auto ramalhete_queue<T, Policies...>::pop() -> std::optional<value_type> {
   backoff backoff;
 
   guard_ptr h;
@@ -230,7 +250,7 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type& result) {
     // (10) - this acquire-load synchronizes-with the release-fetch-add (11)
     const auto pop_idx = h->pop_idx.load(std::memory_order_acquire);
     // This synchronization is necessary to avoid a situation where we see an up-to-date
-    // pop_idx, but an out-of-date push_idx and would (falsly) assume that the queue is empty.
+    // pop_idx, but an out-of-date push_idx and would (falsely) assume that the queue is empty.
     const auto push_idx = h->push_idx.load(std::memory_order_relaxed);
     if (pop_idx >= push_idx && h->next.load(std::memory_order_relaxed) == nullptr) {
       break;
@@ -269,21 +289,19 @@ bool ramalhete_queue<T, Policies...>::try_pop(value_type& result) {
     if (value != nullptr) {
       // (14) - this acquire-load synchronizes-with the release-CAS (8)
       std::ignore = h->entries[idx].value.load(std::memory_order_acquire);
-      traits::store(result, value.get());
-      return true;
+      return traits::get(value.get());
     }
 
     // (15) - this acquire-exchange synchronizes-with the release-CAS (8)
     value = h->entries[idx].value.exchange(marked_value(nullptr, 1), std::memory_order_acquire);
     if (value != nullptr) {
-      traits::store(result, value.get());
-      return true;
+      return traits::get(value.get());
     }
 
     backoff();
   }
 
-  return false;
+  return std::nullopt;
 }
 } // namespace xenium
 
