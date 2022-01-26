@@ -357,7 +357,7 @@ vyukov_bounded_queue<T, Policies...>::~vyukov_bounded_queue() {
 
   for (; deq_pos != enq_pos; ++deq_pos) {
     auto c = &cells[deq_pos & index_mask];
-    std::size_t seq = c->sequence.load(std::memory_order_acquire);
+    [[maybe_unused]] std::size_t seq = c->sequence.load(std::memory_order_acquire);
     assert(seq == deq_pos + 1);
     reinterpret_cast<T&>(c->data).~T();
   }
