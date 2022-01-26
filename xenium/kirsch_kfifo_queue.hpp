@@ -86,6 +86,15 @@ public:
    */
   [[nodiscard]] bool try_pop(value_type& result);
 
+  /**
+   * @brief Tries to pop an object from the queue.
+   *
+   * Progress guarantees: lock-free
+   *
+   * @return the popped value if the operation was successful, otherwise `std::nullopt`
+   */
+  [[nodiscard]] std::optional<value_type> pop();
+
 private:
   using marked_value = xenium::marked_ptr<std::remove_pointer_t<raw_value_type>, 16>;
 
@@ -148,6 +157,9 @@ private:
   void advance_head(guard_ptr& head_current, marked_ptr tail_current) noexcept;
   void advance_tail(marked_ptr tail_current) noexcept;
   bool committed(marked_ptr segment, marked_value value, uint64_t index) noexcept;
+
+  template <class SuccessFunc, class EmptyFunc>
+  auto do_pop(SuccessFunc successFunc, EmptyFunc emptyFunc);
 
   const std::size_t k_;
   concurrent_ptr head_;
@@ -227,12 +239,27 @@ void kirsch_kfifo_queue<T, Policies...>::push(value_type value) {
 
 template <class T, class... Policies>
 bool kirsch_kfifo_queue<T, Policies...>::try_pop(value_type& result) {
+  return do_pop(
+    [&result](auto& v) {
+      traits::store(result, v.get());
+      return true;
+    },
+    []() { return false; });
+}
+
+template <class T, class... Policies>
+auto kirsch_kfifo_queue<T, Policies...>::pop() -> std::optional<value_type> {
+  return do_pop([](auto& v) { return traits::get(v.get()); },
+                []() -> std::optional<value_type> { return std::nullopt; });
+}
+
+template <class T, class... Policies>
+template <class SuccessFunc, class EmptyFunc>
+auto kirsch_kfifo_queue<T, Policies...>::do_pop(SuccessFunc successFunc, EmptyFunc emptyFunc) {
   guard_ptr head_old;
   for (;;) {
     // (3) - this acquire-load synchronizes-with the release-CAS (10)
     head_old.acquire(head_, std::memory_order_acquire);
-    auto h = head_old.get();
-    (void)h;
     uint64_t idx = 0;
     marked_value old_value;
     bool found_idx = find_index<false>(head_old, idx, old_value);
@@ -252,12 +279,11 @@ bool kirsch_kfifo_queue<T, Policies...>::try_pop(value_type& result) {
       // (5) - this acquire-CAS synchronizes-with the release-CAS (2)
       if (head_old->items()[idx].value.compare_exchange_strong(
             old_value, new_value, std::memory_order_acquire, std::memory_order_relaxed)) {
-        traits::store(result, old_value.get());
-        return true;
+        return successFunc(old_value);
       }
     } else {
       if (head_old.get() == tail_old.get() && tail_old == tail_.load(std::memory_order_relaxed)) {
-        return false; // queue is empty
+        return emptyFunc(); // queue is empty
       }
       advance_head(head_old, tail_old);
     }
