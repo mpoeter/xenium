@@ -20,6 +20,14 @@ TEST(KirschBoundedKFifoQueue, push_try_pop_returns_pushed_element) {
   EXPECT_EQ(v1, elem);
 }
 
+TEST(KirschBoundedKFifoQueue, push_pop_returns_pushed_element) {
+  xenium::kirsch_bounded_kfifo_queue<int*> queue(1, 2);
+  EXPECT_TRUE(queue.try_push(v1));
+  auto elem = queue.pop();
+  EXPECT_TRUE(elem.has_value());
+  EXPECT_EQ(v1, *elem);
+}
+
 TEST(KirschBoundedKFifoQueue, push_two_items_pop_them_in_FIFO_order) {
   xenium::kirsch_bounded_kfifo_queue<int*> queue(1, 2);
   EXPECT_TRUE(queue.try_push(v1));
@@ -38,6 +46,11 @@ TEST(KirschBoundedKFifoQueue, try_pop_returns_false_when_queue_is_empty) {
   EXPECT_FALSE(queue.try_pop(elem));
 }
 
+TEST(KirschBoundedKFifoQueue, pop_returns_nullopt_when_queue_is_empty) {
+  xenium::kirsch_bounded_kfifo_queue<int*> queue(1, 2);
+  EXPECT_FALSE(queue.pop());
+}
+
 TEST(KirschBoundedKFifoQueue, try_push_returns_false_when_queue_is_full) {
   xenium::kirsch_bounded_kfifo_queue<int*> queue(1, 2);
   EXPECT_TRUE(queue.try_push(v1));
@@ -50,9 +63,10 @@ TEST(KirschBoundedKFifoQueue, supports_unique_ptr) {
   auto elem = std::make_unique<int>(42);
   auto* p = elem.get();
   EXPECT_TRUE(queue.try_push(std::move(elem)));
-  ASSERT_TRUE(queue.try_pop(elem));
-  EXPECT_EQ(p, elem.get()); // NOLINT (use-after-move)
-  EXPECT_EQ(42, *elem); // NOLINT (use-after-move)
+  auto r = queue.pop();
+  ASSERT_TRUE(r.has_value());
+  EXPECT_EQ(p, r->get());
+  EXPECT_EQ(42, **r);
 }
 
 TEST(KirschBoundedKFifoQueue, deletes_remaining_unique_ptr_entries) {

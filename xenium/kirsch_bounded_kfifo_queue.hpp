@@ -71,7 +71,7 @@ public:
    * @param value
    * @return `true` if the operation was successful, otherwise `false`
    */
-  bool try_push(value_type value);
+  [[nodiscard]] bool try_push(value_type value);
 
   /**
    * @brief Tries to pop an element from the queue.
@@ -81,7 +81,16 @@ public:
    * @param result
    * @return `true` if the operation was successful, otherwise `false`
    */
-  bool try_pop(value_type& result);
+  [[nodiscard]] bool try_pop(value_type& result);
+
+  /**
+   * @brief Tries to pop an object from the queue.
+   *
+   * Progress guarantees: lock-free
+   *
+   * @return the popped value if the operation was successful, otherwise `std::nullopt`
+   */
+  [[nodiscard]] std::optional<value_type> pop();
 
 private:
   using marked_value = xenium::marked_ptr<std::remove_pointer_t<raw_value_type>, 16>;
@@ -127,6 +136,9 @@ private:
   [[nodiscard]] bool not_in_valid_region(uint64_t tail_old, uint64_t tail_current, uint64_t head_current) const;
   [[nodiscard]] bool in_valid_region(uint64_t tail_old, uint64_t tail_current, uint64_t head_current) const;
   bool committed(const marked_idx& tail_old, marked_value new_value, uint64_t index);
+
+  template <class SuccessFunc, class EmptyFunc>
+  auto do_pop(SuccessFunc successFunc, EmptyFunc emptyFunc);
 
   std::uint64_t _queue_size;
   std::size_t _k;
@@ -200,6 +212,23 @@ bool kirsch_bounded_kfifo_queue<T, Policies...>::try_push(value_type value) {
 
 template <class T, class... Policies>
 bool kirsch_bounded_kfifo_queue<T, Policies...>::try_pop(value_type& result) {
+  return do_pop(
+    [&result](auto& v) {
+      traits::store(result, v.get());
+      return true;
+    },
+    []() { return false; });
+}
+
+template <class T, class... Policies>
+auto kirsch_bounded_kfifo_queue<T, Policies...>::pop() -> std::optional<value_type> {
+  return do_pop([](auto& v) { return traits::get(v.get()); },
+                []() -> std::optional<value_type> { return std::nullopt; });
+}
+
+template <class T, class... Policies>
+template <class SuccessFunc, class EmptyFunc>
+auto kirsch_bounded_kfifo_queue<T, Policies...>::do_pop(SuccessFunc successFunc, EmptyFunc emptyFunc) {
   for (;;) {
     marked_idx head_old = _head.load(std::memory_order_relaxed);
     marked_idx tail_old = _tail.load(std::memory_order_relaxed);
@@ -221,12 +250,11 @@ bool kirsch_bounded_kfifo_queue<T, Policies...>::try_pop(value_type& result) {
       // (2) - this release-CAS synchronizes with the acquire-load (3, 4)
       if (_queue[idx].value.compare_exchange_strong(
             old_value, new_value, std::memory_order_release, std::memory_order_relaxed)) {
-        traits::store(result, old_value.get());
-        return true;
+        return successFunc(old_value);
       }
     } else {
       if (head_old.get() == tail_old.get() && tail_old == _tail.load(std::memory_order_relaxed)) {
-        return false;
+        return emptyFunc();
       }
 
       marked_idx new_head((head_old.get() + _k) % _queue_size, head_old.mark() + 1);
