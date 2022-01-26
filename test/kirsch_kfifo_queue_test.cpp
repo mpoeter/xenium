@@ -30,6 +30,17 @@ using Reclaimers =
                    xenium::reclamation::stamp_it>;
 TYPED_TEST_SUITE(KirschKFifoQueue, Reclaimers);
 
+TYPED_TEST(KirschKFifoQueue, try_pop_returns_false_for_empty_queue) {
+  xenium::kirsch_kfifo_queue<int*, xenium::policy::reclaimer<TypeParam>> queue(1);
+  int* elem = nullptr;
+  ASSERT_FALSE(queue.try_pop(elem));
+}
+
+TYPED_TEST(KirschKFifoQueue, pop_returns_nullopt_for_empty_queue) {
+  xenium::kirsch_kfifo_queue<int*, xenium::policy::reclaimer<TypeParam>> queue(1);
+  ASSERT_FALSE(queue.pop());
+}
+
 TYPED_TEST(KirschKFifoQueue, push_try_pop_returns_pushed_element) {
   xenium::kirsch_kfifo_queue<int*, xenium::policy::reclaimer<TypeParam>> queue(1);
   queue.push(v1);
@@ -38,14 +49,23 @@ TYPED_TEST(KirschKFifoQueue, push_try_pop_returns_pushed_element) {
   EXPECT_EQ(v1, elem);
 }
 
+TYPED_TEST(KirschKFifoQueue, push_pop_returns_pushed_element) {
+  xenium::kirsch_kfifo_queue<int*, xenium::policy::reclaimer<TypeParam>> queue(1);
+  queue.push(v1);
+  auto elem = queue.pop();
+  ASSERT_TRUE(elem.has_value());
+  EXPECT_EQ(v1, *elem);
+}
+
 TYPED_TEST(KirschKFifoQueue, supports_unique_ptr) {
   xenium::kirsch_kfifo_queue<std::unique_ptr<int>, xenium::policy::reclaimer<TypeParam>> queue(1);
   auto elem = std::make_unique<int>(42);
   auto* p = elem.get();
   queue.push(std::move(elem));
-  ASSERT_TRUE(queue.try_pop(elem));
-  EXPECT_EQ(p, elem.get()); // NOLINT (use-after-move)
-  EXPECT_EQ(42, *elem); // NOLINT (use-after-move)
+  auto r = queue.pop();
+  ASSERT_TRUE(r.has_value());
+  EXPECT_EQ(p, r->get());
+  EXPECT_EQ(42, **r);
 }
 
 TYPED_TEST(KirschKFifoQueue, deletes_remaining_unique_ptr_entries) {
