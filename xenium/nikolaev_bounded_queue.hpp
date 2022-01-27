@@ -16,6 +16,7 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 namespace xenium {
 /**
@@ -26,6 +27,8 @@ namespace xenium {
  *
  * The nikoleav_bounded_queue provides lock-free progress guarantee under the condition that
  *  the number of threads concurrently operating on the queue is less than the queue's capacity.
+ *
+ * Requirements: `T` must be nothrow move constructible nothrow move assignable.
  *
  * Supported policies:
  *  * `xenium::policy::pop_retries`<br>
@@ -41,6 +44,8 @@ namespace xenium {
 template <class T, class... Policies>
 class nikolaev_bounded_queue {
 public:
+  static_assert(std::is_nothrow_move_constructible_v<T>, "T must be nothrow move constructible.");
+
   using value_type = T;
   static constexpr unsigned pop_retries =
     parameter::value_param_t<unsigned, policy::pop_retries, 1000, Policies...>::value;
@@ -80,12 +85,25 @@ public:
   bool try_pop(value_type& result);
 
   /**
+   * @brief Tries to pop an element from the queue.
+   *
+   * Progress guarantees: lock-free
+   *
+   * @return the popped value if the operation was successful, otherwise `std::nullopt`
+   */
+  [[nodiscard]] std::optional<value_type> pop();
+
+  /**
    * @brief Returns the (rounded) capacity of the queue.
    */
   [[nodiscard]] std::size_t capacity() const noexcept { return _capacity; }
 
 private:
   using storage_t = typename std::aligned_storage<sizeof(T), alignof(T)>::type;
+
+  template <class SuccessFunc, class EmptyFunc>
+  auto do_pop(SuccessFunc successFunc, EmptyFunc emptyFunc);
+
   const std::size_t _capacity;
   const std::size_t _remap_shift;
   std::unique_ptr<storage_t[]> _storage;
@@ -127,18 +145,35 @@ bool nikolaev_bounded_queue<T, Policies...>::try_push(value_type value) {
 
 template <class T, class... Policies>
 bool nikolaev_bounded_queue<T, Policies...>::try_pop(value_type& result) {
-  std::uint64_t eidx;
+  return do_pop(
+    [&result](auto& v) {
+      result = std::move(v);
+      return true;
+    },
+    []() { return false; });
+}
+
+template <class T, class... Policies>
+auto nikolaev_bounded_queue<T, Policies...>::pop() -> std::optional<value_type> {
+  return do_pop([](auto& v) -> std::optional<value_type> { return std::move(v); },
+                []() -> std::optional<value_type> { return std::nullopt; });
+}
+
+template <class T, class... Policies>
+template <class SuccessFunc, class EmptyFunc>
+auto nikolaev_bounded_queue<T, Policies...>::do_pop(SuccessFunc successFunc, EmptyFunc emptyFunc) {
+  std::uint64_t idx;
   // TODO - make nonempty checks configurable
-  if (!_allocated_queue.dequeue<false, pop_retries>(eidx, _capacity, _remap_shift)) {
-    return false;
+  if (!_allocated_queue.dequeue<false, pop_retries>(idx, _capacity, _remap_shift)) {
+    return emptyFunc();
   }
 
-  assert(eidx < _capacity);
-  T& data = reinterpret_cast<T&>(_storage[eidx]);
-  result = std::move(data);
+  assert(idx < _capacity);
+  T& data = reinterpret_cast<T&>(_storage[idx]);
+  auto result = successFunc(data);
   data.~T(); // NOLINT (use-after-move)
-  _free_queue.enqueue<false, false>(eidx, _capacity, _remap_shift);
-  return true;
+  _free_queue.enqueue<false, false>(idx, _capacity, _remap_shift);
+  return result;
 }
 } // namespace xenium
 

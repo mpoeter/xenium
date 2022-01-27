@@ -1,5 +1,7 @@
 #include <xenium/nikolaev_bounded_queue.hpp>
 
+#include "helpers.hpp"
+
 #include <gtest/gtest.h>
 
 #include <random>
@@ -10,16 +12,19 @@ namespace {
 
 struct NikolaevBoundedQueue : testing::Test {};
 
-struct non_default_constructible {
-  explicit non_default_constructible(int x) : x(x) {}
-  int x;
-};
-
 TEST(NikolaevBoundedQueue, push_try_pop_returns_pushed_element) {
   xenium::nikolaev_bounded_queue<int> queue(2);
   EXPECT_TRUE(queue.try_push(42));
   int elem;
   ASSERT_TRUE(queue.try_pop(elem));
+  EXPECT_EQ(42, elem);
+}
+
+TEST(NikolaevBoundedQueue, push_pop_returns_pushed_element) {
+  xenium::nikolaev_bounded_queue<int> queue(2);
+  EXPECT_TRUE(queue.try_push(42));
+  auto elem = queue.pop();
+  ASSERT_TRUE(elem.has_value());
   EXPECT_EQ(42, elem);
 }
 
@@ -41,6 +46,11 @@ TEST(NikolaevBoundedQueue, try_pop_returns_false_when_queue_is_empty) {
   EXPECT_FALSE(queue.try_pop(elem));
 }
 
+TEST(NikolaevBoundedQueue, pop_returns_nullopt_when_queue_is_empty) {
+  xenium::nikolaev_bounded_queue<int> queue(2);
+  EXPECT_FALSE(queue.pop());
+}
+
 TEST(NikolaevBoundedQueue, try_push_returns_false_when_queue_is_full) {
   xenium::nikolaev_bounded_queue<int> queue(2);
   EXPECT_TRUE(queue.try_push(42));
@@ -60,26 +70,47 @@ TEST(NikolaevBoundedQueue, supports_move_only_types) {
 }
 
 TEST(NikolaevBoundedQueue, supports_non_default_constructible_types) {
-  xenium::nikolaev_bounded_queue<non_default_constructible> queue(2);
-  queue.try_push(non_default_constructible(42));
+  xenium::nikolaev_bounded_queue<xenium::test::non_default_constructible> queue(2);
+  queue.try_push(xenium::test::non_default_constructible(42));
 
-  non_default_constructible elem(0);
-  ASSERT_TRUE(queue.try_pop(elem));
-  EXPECT_EQ(42, elem.x);
+  auto elem = queue.pop();
+  ASSERT_TRUE(elem.has_value());
+  EXPECT_EQ(42, elem->value);
 }
 
-TEST(NikolaevBoundedQueue, deletes_remaining_entries) {
-  unsigned delete_count = 0;
-  struct dummy {
-    unsigned& delete_count;
-    explicit dummy(unsigned& delete_count) : delete_count(delete_count) {}
-    ~dummy() { ++delete_count; }
+TEST(NikolaevBoundedQueue, correctly_destroys_stored_objects) {
+  int created = 0;
+  int destroyed = 0;
+  struct Counting {
+    Counting(int& created, int& destroyed) : created(created), destroyed(destroyed) { ++created; }
+    Counting(const Counting& r) noexcept : created(r.created), destroyed(r.destroyed) { ++created; }
+    ~Counting() { ++destroyed; }
+    int& created;
+    int& destroyed;
   };
   {
-    xenium::nikolaev_bounded_queue<std::unique_ptr<dummy>> queue(2);
-    queue.try_push(std::make_unique<dummy>(delete_count));
+    xenium::nikolaev_bounded_queue<Counting> queue(4);
+    queue.try_push(Counting{created, destroyed});
+    queue.try_push(Counting{created, destroyed});
+    queue.try_push(Counting{created, destroyed});
+    queue.try_push(Counting{created, destroyed});
+
+    EXPECT_TRUE(queue.pop());
+    EXPECT_TRUE(queue.pop());
+    EXPECT_EQ(2, created - destroyed);
+
+    queue.try_push(Counting{created, destroyed});
+    queue.try_push(Counting{created, destroyed});
+    EXPECT_TRUE(queue.pop());
+    EXPECT_TRUE(queue.pop());
+    EXPECT_EQ(2, created - destroyed);
+
+    queue.try_push(Counting{created, destroyed});
+    queue.try_push(Counting{created, destroyed});
+    EXPECT_TRUE(queue.pop());
+    EXPECT_EQ(3, created - destroyed);
   }
-  EXPECT_EQ(1u, delete_count);
+  EXPECT_EQ(created, destroyed);
 }
 
 TEST(NikolaevBoundedQueue, push_pop_in_fifo_order_with_remapped_indexes) {
