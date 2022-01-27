@@ -6,6 +6,9 @@
 #include <xenium/reclamation/quiescent_state_based.hpp>
 #include <xenium/reclamation/stamp_it.hpp>
 
+#include "helpers.hpp"
+#include "test/helpers.hpp"
+
 #include <gtest/gtest.h>
 
 #include <random>
@@ -16,11 +19,6 @@ namespace {
 
 template <typename Reclaimer>
 struct NikolaevQueue : testing::Test {};
-
-struct non_default_constructible {
-  explicit non_default_constructible(int x) : x(x) {}
-  int x;
-};
 
 using Reclaimers =
   ::testing::Types<xenium::reclamation::lock_free_ref_count<>,
@@ -41,6 +39,14 @@ TYPED_TEST(NikolaevQueue, push_try_pop_returns_pushed_element) {
   int elem = 0;
   ASSERT_TRUE(queue.try_pop(elem));
   EXPECT_EQ(42, elem);
+}
+
+TYPED_TEST(NikolaevQueue, push_pop_returns_pushed_element) {
+  xenium::nikolaev_queue<int, xenium::policy::reclaimer<TypeParam>> queue;
+  queue.push(42);
+  auto elem = queue.pop();
+  ASSERT_TRUE(elem.has_value());
+  EXPECT_EQ(42, *elem);
 }
 
 TYPED_TEST(NikolaevQueue, push_two_items_pop_them_in_FIFO_order) {
@@ -73,26 +79,37 @@ TYPED_TEST(NikolaevQueue, supports_move_only_types) {
 }
 
 TYPED_TEST(NikolaevQueue, supports_non_default_constructible_types) {
-  xenium::nikolaev_queue<non_default_constructible, xenium::policy::reclaimer<TypeParam>> queue;
-  queue.push(non_default_constructible(42));
+  xenium::nikolaev_queue<xenium::test::non_default_constructible_assignable, xenium::policy::reclaimer<TypeParam>>
+    queue;
+  queue.push(xenium::test::non_default_constructible_assignable(42));
 
-  non_default_constructible elem(0);
-  ASSERT_TRUE(queue.try_pop(elem));
-  EXPECT_EQ(42, elem.x);
+  auto elem = queue.pop();
+  ASSERT_TRUE(elem.has_value());
+  EXPECT_EQ(42, elem->value);
 }
 
-TYPED_TEST(NikolaevQueue, deletes_remaining_entries) {
-  unsigned delete_count = 0;
-  struct dummy {
-    unsigned& delete_count;
-    explicit dummy(unsigned& delete_count) : delete_count(delete_count) {}
-    ~dummy() { ++delete_count; }
+TYPED_TEST(NikolaevQueue, correctly_destroys_stored_objects) {
+  int created = 0;
+  int destroyed = 0;
+  struct Counting {
+    Counting(int& created, int& destroyed) : created(&created), destroyed(&destroyed) { ++(*this->created); }
+    Counting(const Counting& r) noexcept : created(r.created), destroyed(r.destroyed) { ++(*this->created); }
+    ~Counting() { ++(*destroyed); }
+    int* created;
+    int* destroyed;
   };
   {
-    xenium::nikolaev_queue<std::unique_ptr<dummy>, xenium::policy::reclaimer<TypeParam>> queue;
-    queue.push(std::make_unique<dummy>(delete_count));
+    xenium::nikolaev_queue<Counting, xenium::policy::reclaimer<TypeParam>> queue;
+    queue.push({created, destroyed});
+    queue.push({created, destroyed});
+    queue.push({created, destroyed});
+    queue.push({created, destroyed});
+
+    EXPECT_TRUE(queue.pop());
+    EXPECT_TRUE(queue.pop());
+    EXPECT_EQ(2, created - destroyed);
   }
-  EXPECT_EQ(1u, delete_count);
+  EXPECT_EQ(created, destroyed);
 }
 
 TYPED_TEST(NikolaevQueue, push_pop_in_fifo_order_with_remapped_indexes) {

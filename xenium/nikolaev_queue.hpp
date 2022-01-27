@@ -6,6 +6,7 @@
 #ifndef XENIUM_NIKOLAEV_QUEUE_HPP
 #define XENIUM_NIKOLAEV_QUEUE_HPP
 
+#include <type_traits>
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
 #include <xenium/utils.hpp>
@@ -16,6 +17,7 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 namespace xenium {
 /**
@@ -27,6 +29,8 @@ namespace xenium {
  * The nikoleav_queue provides lock-free progress guarantee under the condition that the
  * number of threads concurrently operating on the queue is less than the capacity of a node
  * (see `entries_per_node` policy).
+ *
+ * Requirements: `T` must be nothrow move constructible nothrow move assignable.
  *
  * Supported policies:
  *  * `xenium::policy::reclaimer`<br>
@@ -47,6 +51,9 @@ namespace xenium {
 template <class T, class... Policies>
 class nikolaev_queue {
 public:
+  static_assert(std::is_nothrow_move_constructible_v<T>, "T must be nothrow move constructible.");
+  static_assert(std::is_nothrow_move_assignable_v<T>, "T must be nothrow move assignable.");
+
   using value_type = T;
   using reclaimer = parameter::type_param_t<policy::reclaimer, parameter::nil, Policies...>;
   static constexpr unsigned pop_retries =
@@ -88,6 +95,15 @@ public:
    */
   bool try_pop(value_type& result);
 
+  /**
+   * @brief Tries to pop an element from the queue.
+   *
+   * Progress guarantees: lock-free
+   *
+   * @return the popped value if the operation was successful, otherwise `std::nullopt`
+   */
+  [[nodiscard]] std::optional<value_type> pop();
+
 private:
   struct node;
 
@@ -114,16 +130,20 @@ private:
     }
 
     ~node() override {
-      std::uint64_t eidx;
-      while (_allocated_queue.dequeue<false, pop_retries>(eidx, entries_per_node, remap_shift)) {
-        reinterpret_cast<T&>(_storage[eidx]).~T();
+      std::uint64_t idx;
+      while (_allocated_queue.dequeue<false, pop_retries>(idx, entries_per_node, remap_shift)) {
+        reinterpret_cast<T&>(_storage[idx]).~T();
       }
     }
 
     void steal_init_value(value_type& value) {
-      bool success = try_pop(value);
-      (void)success;
+      std::uint64_t idx;
+      [[maybe_unused]] auto success = _allocated_queue.dequeue<false, pop_retries>(idx, entries_per_node, remap_shift);
       assert(success);
+      T& data = reinterpret_cast<T&>(_storage[idx]);
+      value = std::move(data);
+      data.~T(); // NOLINT (use-after-move)
+      _free_queue.enqueue<false, false>(idx, entries_per_node, remap_shift);
     }
 
     bool try_push(value_type&& value) {
@@ -148,26 +168,15 @@ private:
       return true;
     }
 
-    bool try_pop(value_type& result) {
-      std::uint64_t eidx;
-      if (!_allocated_queue.dequeue<false, pop_retries>(eidx, entries_per_node, remap_shift)) {
-        return false;
-      }
-
-      assert(eidx < entries_per_node);
-      T& data = reinterpret_cast<T&>(_storage[eidx]);
-      result = std::move(data);
-      data.~T(); // NOLINT (use-after-move)
-      _free_queue.enqueue<false, false>(eidx, entries_per_node, remap_shift);
-      return true;
-    }
-
     std::unique_ptr<storage_t[]> _storage;
     detail::nikolaev_scq _allocated_queue;
     detail::nikolaev_scq _free_queue;
 
     concurrent_ptr _next;
   };
+
+  template <class SuccessFunc, class EmptyFunc>
+  auto do_pop(SuccessFunc successFunc, EmptyFunc emptyFunc);
 
   concurrent_ptr _tail;
   concurrent_ptr _head;
@@ -225,29 +234,53 @@ void nikolaev_queue<T, Policies...>::push(value_type value) {
 
 template <class T, class... Policies>
 bool nikolaev_queue<T, Policies...>::try_pop(value_type& result) {
+  return do_pop(
+    [&result](auto& v) {
+      result = std::move(v);
+      return true;
+    },
+    []() { return false; });
+}
+
+template <class T, class... Policies>
+auto nikolaev_queue<T, Policies...>::pop() -> std::optional<value_type> {
+  return do_pop([](auto& v) -> std::optional<value_type> { return std::move(v); },
+                []() -> std::optional<value_type> { return std::nullopt; });
+}
+
+template <class T, class... Policies>
+template <class SuccessFunc, class EmptyFunc>
+auto nikolaev_queue<T, Policies...>::do_pop(SuccessFunc successFunc, EmptyFunc emptyFunc) {
   guard_ptr n;
   for (;;) {
     // (6) - this acquire-load synchronizes-with the release-CAS (8)
     n.acquire(_head, std::memory_order_acquire);
-    if (n->try_pop(result)) {
-      return true;
-    }
-    if (n->_next.load(std::memory_order_relaxed) == nullptr) {
-      return false;
+
+    std::uint64_t idx;
+    if (!n->_allocated_queue.template dequeue<false, pop_retries>(idx, entries_per_node, remap_shift)) {
+      if (n->_next.load(std::memory_order_relaxed) == nullptr) {
+        return emptyFunc();
+      }
+      n->_allocated_queue.set_threshold(3 * entries_per_node - 1);
+
+      if (!n->_allocated_queue.template dequeue<false, pop_retries>(idx, entries_per_node, remap_shift)) {
+        // (7) - this acquire-load synchronizes-with (4)
+        const auto next = n->_next.load(std::memory_order_acquire);
+        marked_ptr expected = n;
+        // (8) - this release-CAS synchronizes-with the acquire-load (6)
+        if (_head.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed)) {
+          n.reclaim();
+        }
+        continue;
+      }
     }
 
-    n->_allocated_queue.set_threshold(3 * entries_per_node - 1);
-    if (n->try_pop(result)) {
-      return true;
-    }
-
-    // (7) - this acquire-load synchronizes-with (4)
-    const auto next = n->_next.load(std::memory_order_acquire);
-    marked_ptr expected = n;
-    // (8) - this release-CAS synchronizes-with the acquire-load (6)
-    if (_head.compare_exchange_weak(expected, next, std::memory_order_release, std::memory_order_relaxed)) {
-      n.reclaim();
-    }
+    assert(idx < entries_per_node);
+    T& data = reinterpret_cast<T&>(n->_storage[idx]);
+    auto result = successFunc(data);
+    data.~T(); // NOLINT (use-after-move)
+    n->_free_queue.template enqueue<false, false>(idx, entries_per_node, remap_shift);
+    return result;
   }
 }
 } // namespace xenium
