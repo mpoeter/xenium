@@ -8,6 +8,7 @@
 
 #include <xenium/acquire_guard.hpp>
 #include <xenium/backoff.hpp>
+#include <xenium/marked_ptr.hpp>
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
 
