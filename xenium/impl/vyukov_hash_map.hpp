@@ -13,6 +13,7 @@
 #include <xenium/policy.hpp>
 
 #include <atomic>
+#include <cassert>
 #include <cstring>
 
 #ifdef _MSC_VER

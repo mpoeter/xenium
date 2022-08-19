@@ -6,6 +6,9 @@
 #ifndef XENIUM_ALIGNED_OBJECT_HPP
 #define XENIUM_ALIGNED_OBJECT_HPP
 
+#include <cstddef>
+#include <type_traits>
+
 namespace xenium {
 
 /**
