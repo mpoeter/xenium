@@ -6,5 +6,5 @@ doc/latex/*
 doc/html/*
 
 cmake-build-*
-build/*
+build*
 out/*
