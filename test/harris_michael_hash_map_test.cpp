@@ -82,6 +82,7 @@ TYPED_TEST(HarrisMichaelHashMap, get_or_emplace_lazy_calls_factory_and_returns_i
   });
   EXPECT_TRUE(result.second);
   ASSERT_NE(this->map.end(), result.first);
+  EXPECT_TRUE(called_factory);
   EXPECT_EQ(42, result.first->first);
   EXPECT_EQ(43, result.first->second);
 }
@@ -95,6 +96,7 @@ TYPED_TEST(HarrisMichaelHashMap, get_or_emplace_lazy_does_not_call_factory_and_r
   });
   EXPECT_FALSE(result.second);
   ASSERT_NE(this->map.end(), result.first);
+  EXPECT_TRUE(called_factory);
   EXPECT_EQ(42, result.first->first);
   EXPECT_EQ(42, result.first->second);
 }
