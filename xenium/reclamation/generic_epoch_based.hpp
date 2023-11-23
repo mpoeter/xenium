@@ -16,6 +16,7 @@
 #include <xenium/reclamation/detail/thread_block_list.hpp>
 
 #include <algorithm>
+#include <array>
 
 namespace xenium {
 
