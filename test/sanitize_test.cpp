@@ -7,7 +7,7 @@
  * to some node and the actual reclamation of that node.
  */
 
-#ifdef __SANITIZE_THREAD__
+#ifdef XENIUM_TSAN
 
   #include <xenium/reclamation/generic_epoch_based.hpp>
   #include <xenium/reclamation/hazard_eras.hpp>
