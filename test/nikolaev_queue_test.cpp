@@ -94,6 +94,10 @@ TYPED_TEST(NikolaevQueue, correctly_destroys_stored_objects) {
   struct Counting {
     Counting(int& created, int& destroyed) : created(&created), destroyed(&destroyed) { ++(*this->created); }
     Counting(const Counting& r) noexcept : created(r.created), destroyed(r.destroyed) { ++(*this->created); }
+
+    Counting(Counting&& r) noexcept : created(r.created), destroyed(r.destroyed) { ++(*this->created); }
+    Counting& operator=(Counting&&) = default;
+
     ~Counting() { ++(*destroyed); }
     int* created;
     int* destroyed;

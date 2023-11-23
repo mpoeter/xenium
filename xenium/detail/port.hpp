@@ -6,13 +6,15 @@
 #ifndef XENIUM_DETAIL_PORT_HPP
 #define XENIUM_DETAIL_PORT_HPP
 
-#if !defined(__SANITIZE_THREAD__) && defined(__has_feature)
+#if __SANITIZE_THREAD__
+  #define XENIUM_TSAN 1
+#elif defined __has_feature
   #if __has_feature(thread_sanitizer)
-    #define __SANITIZE_THREAD__ // NOLINT
+    #define XENIUM_TSAN 1
   #endif
 #endif
 
-#if defined(__SANITIZE_THREAD__)
+#if defined(XENIUM_TSAN)
   #define TSAN_MEMORY_ORDER(tsan_order, _) tsan_order
 #else
   #define TSAN_MEMORY_ORDER(_tsan_order, normal_order) normal_order
