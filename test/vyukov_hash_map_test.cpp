@@ -83,6 +83,7 @@ TYPED_TEST(VyukovHashMap, get_or_emplace_lazy_calls_factory_and_returns_accessor
   });
   EXPECT_TRUE(result.second);
   EXPECT_EQ(43, *result.first);
+  EXPECT_TRUE(called_factory);
 }
 
 TYPED_TEST(VyukovHashMap, get_or_emplace_lazy_does_not_call_factory_and_returns_accessor_to_existing_element) {
@@ -94,6 +95,7 @@ TYPED_TEST(VyukovHashMap, get_or_emplace_lazy_does_not_call_factory_and_returns_
   });
   EXPECT_FALSE(result.second);
   EXPECT_EQ(41, *result.first);
+  EXPECT_TRUE(called_factory);
 }
 
 TYPED_TEST(VyukovHashMap, try_get_value_returns_false_key_is_not_found) {
