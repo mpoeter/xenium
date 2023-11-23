@@ -52,7 +52,7 @@ stages:
 
           - publish: $(Build.BinariesDirectory)/build/benchmark
             artifact: benchmark
-            condition: and(eq(variables.compiler, 'g++-9'), eq(variables.buildConfiguration, 'Release'))
+            condition: and(eq(variables.compiler, 'clang++-13'), eq(variables.buildConfiguration, 'Release'))
 
           - task: PublishTestResults@2
             inputs:
