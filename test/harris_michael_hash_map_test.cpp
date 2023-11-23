@@ -96,9 +96,9 @@ TYPED_TEST(HarrisMichaelHashMap, get_or_emplace_lazy_does_not_call_factory_and_r
   });
   EXPECT_FALSE(result.second);
   ASSERT_NE(this->map.end(), result.first);
-  EXPECT_TRUE(called_factory);
   EXPECT_EQ(42, result.first->first);
   EXPECT_EQ(42, result.first->second);
+  EXPECT_FALSE(called_factory);
 }
 
 TYPED_TEST(HarrisMichaelHashMap, containts_returns_false_for_non_existing_element) {
