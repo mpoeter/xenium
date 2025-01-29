@@ -53,17 +53,18 @@ if(WITH_TSAN AND NOT MSVC)
 	set(CMAKE_REQUIRED_FLAGS -fsanitize=thread)
 	check_cxx_compiler_flag("" TSAN_FLAG_WORKS)
 	cmake_pop_check_state()
+
 	if(TSAN_FLAG_WORKS)
 		string(APPEND CMAKE_CXX_FLAGS " -fsanitize=thread")
 	endif()
 endif()
 
 if(MSVC)
-	target_compile_options(gtest PRIVATE /bigobj /W4)# /WX)
-	target_compile_options(benchmark PRIVATE /bigobj)# /W4 /WX)
+	target_compile_options(gtest PRIVATE /bigobj /W4) # /WX)
+	target_compile_options(benchmark PRIVATE /bigobj) # /W4 /WX)
 else()
 	target_compile_options(gtest PRIVATE -Wall -Wextra -Werror -Wno-error=cpp)
-	target_compile_options(benchmark PRIVATE -Wall -Wextra -Wno-error=cpp)
+	target_compile_options(benchmark PRIVATE -Wall -Wextra -Werror -Wno-error=cpp)
 endif()
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -80,10 +81,10 @@ if(BUILD_DOCUMENTATION)
 	endif()
 
 	add_custom_target(doc
-			COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile
-			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doc
-			COMMENT "Generating API documentation with Doxygen"
-			VERBATIM)
+		COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile
+		WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doc
+		COMMENT "Generating API documentation with Doxygen"
+		VERBATIM)
 endif()
 
 add_test(AllTests gtest)
