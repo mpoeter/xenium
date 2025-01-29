@@ -511,13 +511,12 @@ private:
       if (((mark & DeleteMark) != 0) ||
           // (32) - this acquire-reload synchronizes-with the release-stores (1, 8, 27)
           block->next.compare_exchange_weak(
-            link, marked_ptr(link.get(), mark | DeleteMark), std::memory_order_relaxed, std::memory_order_acquire)) {
-        // Note: the C++11 standard states that "the failure argument shall be no stronger than
-        // the success argument". However, this has been relaxed in C++17.
-        // (see http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0418r1.html)
-        // Some implementations (e.g., the Microsoft STL) perform runtime checks to enforce these
-        // requirements. So in case the above CAS operation causes runtime errors, one has to use
-        // release instead of relaxed order.
+            link, marked_ptr(link.get(), mark | DeleteMark), std::memory_order_release, std::memory_order_acquire)) {
+        // Note: the success order here could be relaxed. The C++11 standard states that "the failure argument shall
+        // be no stronger than the success argument", but this has been relaxed in C++17.
+        // (see http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0418r1.html). However, clang-18 still
+        // produces an error "failure memory model 'memory_order_acquire' cannot be stronger than success memory model".
+        // So we use release-order to avoid that.
         return true;
       }
     }
