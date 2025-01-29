@@ -9,8 +9,8 @@ jobs:
         type: string
       compiler:
         type: string
-    docker:
-      - image: ubuntu:24.04
+    machine:
+      image: ubuntu-2404:current
     resource_class: << parameters.resource-class >>
 
     steps:
@@ -19,7 +19,7 @@ jobs:
           environment:
             DEBIAN_FRONTEND: noninteractive
             TZ: Etc/UTC
-          command: "apt-get update && apt-get install -y git cmake << parameters.compiler >>"
+          command: "sudo apt-get update && sudo apt-get install -y git cmake << parameters.compiler >>"
       - checkout
       - run:
           name: "Prepare build"
@@ -35,7 +35,10 @@ jobs:
           working_directory: build
       - run:
           name: "Run tests"
-          command: "./gtest --gtest_output=xml:gtest.xml"
+          command: |
+            sudo sysctl vm.mmap_rnd_bits
+            sudo sysctl vm.mmap_rnd_bits=30
+            ./gtest --gtest_output=xml:gtest.xml
           working_directory: build
       - store_test_results:
             path: build/gtest.xml
