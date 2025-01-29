@@ -1,0 +1,60 @@
+version: 2.1
+
+jobs:
+  build-linux:
+    parameters:
+      resource-class:
+        type: string
+      build-config:
+        type: string
+      compiler:
+        type: string
+    docker:
+      - image: ubuntu:24.04
+    resource_class: << parameters.resource-class >>
+
+    steps:
+      - run:
+          name: "Install dependencies"
+          command: "apt-get update && apt-get install -y git cmake << parameters.compiler >>"
+      - checkout
+      - run:
+          name: "Prepare build"
+          command: |
+            git submodule update --init --recursive
+            mkdir build
+            cd build
+            # TODO - enable TSAN
+            cmake .. -DCMAKE_CXX_COMPILER=<< parameters.compiler >> -DCMAKE_CXX_STANDARD=17 -DCMAKE_BUILD_TYPE=<< parameters.build-config >> -DWITH_TSAN=On
+      - run:
+          name: "Build"
+          command: "make -j 4"
+          working_directory: build
+      - run:
+          name: "Run tests"
+          command: "./gtest --gtest_output=xml:gtest.xml"
+          working_directory: build
+      - store_test_results:
+            path: build/gtest.xml
+      # - persist_to_workspace:
+      #     root: build
+      #     paths: benchmark
+
+workflows:
+  Linux-x64:
+    jobs:
+      - build-linux:  
+          matrix:
+            parameters:
+              compiler: ["clang++-18", g++-14]
+              build-config: ["Debug", "Release"]
+              resource-class: ["large"]
+              
+  # Linux-ARM:
+  #   jobs:
+  #     - build-linux:  
+  #         matrix:
+  #           parameters:
+  #             compiler: ["clang++-15", g++]
+  #             build-config: ["Debug", "Release"]
+  #             resource-class: ["arm.large"]
