@@ -235,7 +235,7 @@ void seqlock<T, Policies...>::read_data(T& dest, const storage_t& src) const {
     *pdest = psrc->load(std::memory_order_relaxed);
   }
   // (6) - this acquire-fence synchronizes-with the release-fence (7)
-  std::atomic_thread_fence(std::memory_order_acquire);
+  XENIUM_THREAD_FENCE(std::memory_order_acquire);
 
   // Effectively this fence transforms the previous relaxed-loads into acquire-loads. This
   // is necessary to enforce an order with the subsequent load of _seq, so that these
@@ -248,7 +248,7 @@ void seqlock<T, Policies...>::read_data(T& dest, const storage_t& src) const {
 template <class T, class... Policies>
 void seqlock<T, Policies...>::store_data(const T& src, storage_t& dest) {
   // (7) - this release-fence synchronizes-with the acquire-fence (6)
-  std::atomic_thread_fence(std::memory_order_release);
+  XENIUM_THREAD_FENCE(std::memory_order_release);
 
   const auto* psrc = reinterpret_cast<const copy_t*>(&src);
   const auto* pend = psrc + (sizeof(T) / sizeof(copy_t));
