@@ -18,11 +18,7 @@
   // TSan does not support fences, so we have to use other means to establish the necessary synchronization.
   #define TSAN_MEMORY_ORDER(tsan_order, _) tsan_order
   #ifdef __clang__
-    #define XENIUM_THREAD_FENCE(memory_order)         \
-      _Pragma("clang diagnostic push");               \
-      _Pragma("clang diagnostic ignored \"-Wtsan\""); \
-      std::atomic_thread_fence(memory_order);         \
-      _Pragma("clang diagnostic pop")
+    #define XENIUM_THREAD_FENCE(memory_order) std::atomic_thread_fence(memory_order);
   #elif defined(__GNUC__)
     #define XENIUM_THREAD_FENCE(memory_order)       \
       _Pragma("GCC diagnostic push");               \
