@@ -16,6 +16,9 @@ jobs:
     steps:
       - run:
           name: "Install dependencies"
+          environment:
+            DEBIAN_FRONTEND: noninteractive
+            TZ: Etc/UTC
           command: "apt-get update && apt-get install -y git cmake << parameters.compiler >>"
       - checkout
       - run:
