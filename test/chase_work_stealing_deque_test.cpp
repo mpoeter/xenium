@@ -62,6 +62,24 @@ TEST(ChaseWorkStealingDeque, push_two_items_pop_returns_them_in_LIFO_order) {
   EXPECT_EQ(n1.get(), elem);
 }
 
+TEST(ChaseWorkStealingDeque, grow) {
+  xenium::chase_work_stealing_deque<void> queue;
+
+  size_t push = 0;
+  size_t pop = 0;
+  for (unsigned j = 0; j < 1000; ++j) {
+    for (unsigned i = 0; i < 100; ++i, ++push) {
+      ASSERT_TRUE(queue.try_push((void*)push));
+    }
+
+    for (unsigned i = 0; i < 90; ++i, ++pop) {
+      void* v = nullptr;
+      ASSERT_TRUE(queue.try_steal(v));
+      ASSERT_EQ(pop, (size_t)v);
+    }
+  }
+}
+
 TEST(ChaseWorkStealingDeque, push_pop_steal_many) {
   constexpr unsigned count = 4000;
   auto n = std::make_unique<node>();
@@ -99,7 +117,7 @@ TEST(ChaseWorkStealingDeque, parallel_usage) {
   for (unsigned i = 0; i < num_nodes; ++i) {
     nodes[i] = std::make_unique<node>();
     nodes[i]->v = 1;
-    queues[i % num_threads].try_push(nodes[i].get());
+    ASSERT_TRUE(queues[i % num_threads].try_push(nodes[i].get()));
   }
 
   std::atomic<bool> start{false};
@@ -144,7 +162,7 @@ TEST(ChaseWorkStealingDeque, parallel_usage) {
 
       if (n != nullptr) {
         ++n->v;
-        queues[thread_idx].try_push(n);
+        ASSERT_TRUE(queues[thread_idx].try_push(n));
       }
     });
   }

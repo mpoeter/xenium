@@ -37,10 +37,10 @@ namespace xenium {
 template <class T, class... Policies>
 struct chase_work_stealing_deque {
   using value_type = T*;
-  static constexpr std::size_t capacity =
+  static constexpr std::size_t min_capacity =
     parameter::value_param_t<std::size_t, policy::capacity, 128, Policies...>::value;
   using container =
-    parameter::type_param_t<policy::container, detail::growing_circular_array<T, capacity>, Policies...>;
+    parameter::type_param_t<policy::container, detail::growing_circular_array<T, min_capacity>, Policies...>;
 
   chase_work_stealing_deque();
 
@@ -50,7 +50,9 @@ struct chase_work_stealing_deque {
   chase_work_stealing_deque& operator=(const chase_work_stealing_deque&) = delete;
   chase_work_stealing_deque& operator=(chase_work_stealing_deque&&) = delete;
 
-  bool try_push(value_type item);
+  [[nodiscard]] constexpr std::size_t capacity() const { return _items.capacity(); }
+
+  [[nodiscard]] bool try_push(value_type item);
   [[nodiscard]] bool try_pop(value_type& result);
   [[nodiscard]] bool try_steal(value_type& result);
 
@@ -76,8 +78,21 @@ bool chase_work_stealing_deque<T, Policies...>::try_push(value_type item) {
   if (size >= _items.capacity()) {
     if (_items.can_grow()) {
       _items.grow(b, t);
-      assert(size < _items.capacity());
-      // TODO - need to update _top??
+      // The growing_circular_array reuses the old memory and only copies the
+      // elements who's index have changed, based on the provided bottom and
+      // top values. However, it is possible that a steal operation could still
+      // see the old capacity and would there for access the entry that we are
+      // about to write to now. To avoid this, we update bottom and top by
+      // adding the new capacity. Indexes are calculated modulo the capacity, so
+      // this does not change anything, but it prevents the steal operation's
+      // CAS on top to succeed. It is also important to update top first,
+      // which also means that we have a short time window in which the queue is
+      // considered empty.
+      auto new_capacity = _items.capacity();
+      assert(size < new_capacity);
+      _top.fetch_add(new_capacity, std::memory_order_relaxed);
+      b += new_capacity;
+      _bottom.store(b, std::memory_order_release);
     } else {
       return false;
     }

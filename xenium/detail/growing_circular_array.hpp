@@ -105,8 +105,9 @@ void growing_circular_array<T, MinCapacity, Buckets>::grow(std::size_t bottom, s
 
   for (std::size_t i = start; i < bottom; i++) {
     auto oldI = i & mod_mask;
-    auto newI = i % new_mod_mask;
+    auto newI = i & new_mod_mask;
     if (oldI != newI) {
+      // TODO - can be optimized a bit more
       auto oldBit = utils::find_last_bit_set(oldI);
       auto newBit = utils::find_last_bit_set(newI);
       auto* v = _data[oldBit][oldI ^ ((1 << (oldBit)) >> 1)].load(std::memory_order_relaxed);
