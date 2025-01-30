@@ -35,16 +35,27 @@ jobs:
           name: "Run tests"
           command: |
             sudo sysctl vm.mmap_rnd_bits
-            sudo sysctl vm.mmap_rnd_bits=30
+            sudo sysctl vm.mmap_rnd_bits=28
             ./gtest --gtest_output=xml:gtest.xml
           working_directory: build
       - store_test_results:
             path: build/gtest.xml
-      - persist_to_workspace:
-           root: .
-           paths:
-             - build/benchmark
-             - benchmarks/examples
+      - when:
+          condition:
+            equal: [ << parameters.build-config >>, "Releass"]
+          steps:
+            - run:
+                name: "Run benchmark smoke tests"
+                command: |
+                  for QUEUE in ramalhete michael_scott vyukov_bounded kirsch_kfifo kirsch_bounded_kfifo; do
+                    ./build/benchmark benchmarks/examples/queue.json -- "ds=(queues.$QUEUE)" warmup.rounds=0 rounds=1 runtime=500
+                  done
+                  for RECLAIMER in EBR NEBR DEBRA QSBR static-HP dynamic-HP; do
+                    ./build/benchmark benchmarks/examples/queue.json -- "ds.reclaimer=(reclaimers.$RECLAIMER)" warmup.rounds=0 rounds=1 runtime=500
+                  done
+                  for HASHMAP in vyukov harris_michael; do
+                    ./build/benchmark benchmarks/examples/hash_map.json -- "ds=(hash_maps.$HASHMAP)" warmup.rounds=0 rounds=1 runtime=500
+                  done
 
   build-windows:
     parameters:
@@ -77,46 +88,17 @@ jobs:
       - store_test_results:
             path: build/gtest.xml
 
-  benchmark-smoke-test:
-    parameters:
-      resource-class:
-        type: string
-    docker:
-      - image: ubuntu:24.04
-    resource_class: << parameters.resource-class >>
-    steps:
-      - attach_workspace:
-          at: /workspace
-      - run:
-          name: "Run benchmarks"
-          working_directory: /workspace
-          command: |
-            ls -la
-            ls -la build
-            ls -la benchmarks
-            for QUEUE in ramalhete michael_scott vyukov_bounded kirsch_kfifo kirsch_bounded_kfifo; do
-              ./build/benchmark benchmarks/examples/queue.json -- "ds=(queues.$QUEUE)" warmup.rounds=0 rounds=1 runtime=500
-            done
-            for RECLAIMER in EBR NEBR DEBRA QSBR static-HP dynamic-HP; do
-              ./build/benchmark benchmarks/examples/queue.json -- "ds.reclaimer=(reclaimers.$RECLAIMER)" warmup.rounds=0 rounds=1 runtime=500
-            done
-            for HASHMAP in vyukov harris_michael; do
-              ./build/benchmark benchmarks/examples/hash_map.json -- "ds=(hash_maps.$HASHMAP)" warmup.rounds=0 rounds=1 runtime=500
-            done
-
 
 workflows:
   Linux-x64:
     jobs:
-      - build-linux:  
+      - build-linux:
+          name: build-linux-x64-<< matrix.build-config >>-<< matrix.compiler >>
           matrix:
             parameters:
               compiler: ["clang++-18", g++-14]
               build-config: ["Debug", "Release"]
               resource-class: ["large"]
-      - benchmark-smoke-test:
-          resource-class: "large"
-          requires: [build-linux-Release-clang++-18-large]
 
   Windows-x64:
     jobs:
@@ -125,11 +107,12 @@ workflows:
             parameters:
               build-config: ["Debug", "Release"]
               
-  # Linux-ARM:
-  #   jobs:
-  #     - build-linux:  
-  #         matrix:
-  #           parameters:
-  #             compiler: ["clang++-18", g++-14]
-  #             build-config: ["Debug", "Release"]
-  #             resource-class: ["arm.large"]
+  Linux-ARM:
+    jobs:
+      - build-linux:
+          name: build-linux-ARM-<< matrix.build-config >>-<< matrix.compiler >>
+          matrix:
+            parameters:
+              compiler: ["clang++-18", g++-14]
+              build-config: ["Debug", "Release"]
+              resource-class: ["arm.large"]
