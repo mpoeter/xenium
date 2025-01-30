@@ -1,0 +1,135 @@
+version: 2.1
+
+jobs:
+  build-linux:
+    parameters:
+      resource-class:
+        type: string
+      build-config:
+        type: string
+      compiler:
+        type: string
+    machine:
+      image: ubuntu-2404:current
+    resource_class: << parameters.resource-class >>
+    steps:
+      - run:
+          name: "Install dependencies"
+          environment:
+            DEBIAN_FRONTEND: noninteractive
+            TZ: Etc/UTC
+          command: "sudo apt-get update && sudo apt-get install -y git cmake g++-14 clang++-18"
+      - checkout
+      - run:
+          name: "Prepare build"
+          command: |
+            git submodule update --init --recursive
+            mkdir build
+            cd build
+            cmake .. -DCMAKE_CXX_COMPILER=<< parameters.compiler >> -DCMAKE_BUILD_TYPE=<< parameters.build-config >> -DWITH_TSAN=On
+      - run:
+          name: "Build"
+          command: "make -j 4"
+          working_directory: build
+      - run:
+          name: "Run tests"
+          command: |
+            sudo sysctl vm.mmap_rnd_bits
+            sudo sysctl vm.mmap_rnd_bits=30
+            ./gtest --gtest_output=xml:gtest.xml
+          working_directory: build
+      - store_test_results:
+            path: build/gtest.xml
+      - persist_to_workspace:
+           root: .
+           paths:
+             - build/benchmark
+             - benchmarks/examples
+
+  build-windows:
+    parameters:
+      build-config:
+        type: string
+    machine:
+      image: 'windows-server-2022-gui:current'
+      resource_class: windows.large
+      shell: powershell.exe -ExecutionPolicy Bypass
+    steps:
+      - run:
+          name: "Install dependencies"
+          command: "choco install cmake"
+      - checkout
+      - run:
+          name: "Prepare build"
+          command: |
+            git submodule update --init --recursive
+            mkdir build
+            cd build
+            cmake .. -G "Visual Studio 17 2022"
+      - run:
+          name: "Build"
+          command: cmake --build . -j 4 --config << parameters.build-config >> -- /m
+          working_directory: build
+      - run:
+          name: "Run tests"
+          command: .\gtest.exe --gtest_output=xml:gtest.xml
+          working_directory: build/<< parameters.build-config >>
+      - store_test_results:
+            path: build/gtest.xml
+
+  benchmark-smoke-test:
+    parameters:
+      resource-class:
+        type: string
+    docker:
+      - image: ubuntu:24.04
+    resource_class: << parameters.resource-class >>
+    steps:
+      - attach_workspace:
+          at: /workspace
+      - run:
+          name: "Run benchmarks"
+          working_directory: /workspace
+          command: |
+            ls -la
+            ls -la build
+            ls -la benchmarks
+            for QUEUE in ramalhete michael_scott vyukov_bounded kirsch_kfifo kirsch_bounded_kfifo; do
+              ./build/benchmark benchmarks/examples/queue.json -- "ds=(queues.$QUEUE)" warmup.rounds=0 rounds=1 runtime=500
+            done
+            for RECLAIMER in EBR NEBR DEBRA QSBR static-HP dynamic-HP; do
+              ./build/benchmark benchmarks/examples/queue.json -- "ds.reclaimer=(reclaimers.$RECLAIMER)" warmup.rounds=0 rounds=1 runtime=500
+            done
+            for HASHMAP in vyukov harris_michael; do
+              ./build/benchmark benchmarks/examples/hash_map.json -- "ds=(hash_maps.$HASHMAP)" warmup.rounds=0 rounds=1 runtime=500
+            done
+
+
+workflows:
+  Linux-x64:
+    jobs:
+      - build-linux:  
+          matrix:
+            parameters:
+              compiler: ["clang++-18", g++-14]
+              build-config: ["Debug", "Release"]
+              resource-class: ["large"]
+      - benchmark-smoke-test:
+          resource-class: "large"
+          requires: [build-linux-Release-clang++-18-large]
+
+  Windows-x64:
+    jobs:
+      - build-windows:  
+          matrix:
+            parameters:
+              build-config: ["Debug", "Release"]
+              
+  # Linux-ARM:
+  #   jobs:
+  #     - build-linux:  
+  #         matrix:
+  #           parameters:
+  #             compiler: ["clang++-18", g++-14]
+  #             build-config: ["Debug", "Release"]
+  #             resource-class: ["arm.large"]

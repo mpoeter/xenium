@@ -111,7 +111,7 @@ private:
 
     if (global_epoch.load(std::memory_order_relaxed) == curr_epoch) {
       // (4) - this acquire-fence synchronizes-with the release-store (3)
-      std::atomic_thread_fence(std::memory_order_acquire);
+      XENIUM_THREAD_FENCE(std::memory_order_acquire);
 
       // (5) - this acq_rel-CAS synchronizes-with the acquire-load (2)
       //       and the acq_rel-CAS (1)

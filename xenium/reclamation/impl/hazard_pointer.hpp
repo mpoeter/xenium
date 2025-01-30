@@ -161,7 +161,7 @@ namespace detail {
         // of that node.
 
         // (4) - this seq_cst-fence enforces a total order with the seq_cst-fence (8)
-        std::atomic_thread_fence(std::memory_order_seq_cst);
+        XENIUM_THREAD_FENCE(std::memory_order_seq_cst);
       }
 
       bool try_get_object(detail::deletable_object*& result) const {
@@ -390,7 +390,7 @@ struct alignas(64) hazard_pointer<Traits>::thread_data : aligned_object<thread_d
     protected_pointers.reserve(allocation_strategy::number_of_active_hazard_pointers());
 
     // (8) - this seq_cst-fence enforces a total order with the seq_cst-fence (4)
-    std::atomic_thread_fence(std::memory_order_seq_cst);
+    XENIUM_THREAD_FENCE(std::memory_order_seq_cst);
 
     auto adopted_nodes = global_thread_block_list.adopt_abandoned_retired_nodes();
 
@@ -405,7 +405,7 @@ struct alignas(64) hazard_pointer<Traits>::thread_data : aligned_object<thread_d
       });
 
     // (9) - this acquire-fence synchronizes-with the release-store (3, 5)
-    std::atomic_thread_fence(std::memory_order_acquire);
+    XENIUM_THREAD_FENCE(std::memory_order_acquire);
 
     std::sort(protected_pointers.begin(), protected_pointers.end());
 

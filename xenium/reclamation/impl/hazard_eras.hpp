@@ -204,7 +204,7 @@ namespace detail {
 
         // (5) - this seq_cst-fence enforces a total order with the seq_cst-fence (9)
         //       and synchronizes-with the release-fetch-add (3)
-        std::atomic_thread_fence(std::memory_order_seq_cst);
+        XENIUM_THREAD_FENCE(std::memory_order_seq_cst);
       }
 
       [[nodiscard]] era_t get_era() const {
@@ -468,7 +468,7 @@ struct alignas(64) hazard_eras<Traits>::thread_data : aligned_object<thread_data
     protected_eras.reserve(allocation_strategy::number_of_active_hazard_eras());
 
     // (9) - this seq_cst-fence enforces a total order with the seq_cst-fence (5)
-    std::atomic_thread_fence(std::memory_order_seq_cst);
+    XENIUM_THREAD_FENCE(std::memory_order_seq_cst);
 
     auto adopted_nodes = global_thread_block_list.adopt_abandoned_retired_nodes();
 
@@ -483,7 +483,7 @@ struct alignas(64) hazard_eras<Traits>::thread_data : aligned_object<thread_data
       });
 
     // (10) - this acquire-fence synchronizes-with the release-store (4, 6)
-    std::atomic_thread_fence(std::memory_order_acquire);
+    XENIUM_THREAD_FENCE(std::memory_order_acquire);
 
     std::sort(protected_eras.begin(), protected_eras.end());
     auto last = std::unique(protected_eras.begin(), protected_eras.end());

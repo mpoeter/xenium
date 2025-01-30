@@ -313,7 +313,7 @@ private:
     control_block->is_in_critical_region.store(true, std::memory_order_relaxed);
     // (3) - this seq_cst-fence enforces a total order with itself, and
     //       synchronizes-with the acquire-fence (6)
-    std::atomic_thread_fence(std::memory_order_seq_cst);
+    XENIUM_THREAD_FENCE(std::memory_order_seq_cst);
   }
 
   void clear_critical_region_flag() {
@@ -385,7 +385,7 @@ private:
     if (global_epoch.load(std::memory_order_relaxed) == curr_epoch) {
       // (6) - due to the load operations in scan, this acquire-fence synchronizes-with the release-store (4)
       //       and the seq-cst fence (3)
-      std::atomic_thread_fence(std::memory_order_acquire);
+      XENIUM_THREAD_FENCE(std::memory_order_acquire);
 
       // (7) - this release-CAS synchronizes-with the acquire-load (5)
       bool success = global_epoch.compare_exchange_strong(
