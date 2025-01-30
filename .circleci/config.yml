@@ -12,7 +12,6 @@ jobs:
     machine:
       image: ubuntu-2404:current
     resource_class: << parameters.resource-class >>
-
     steps:
       - run:
           name: "Install dependencies"
@@ -27,8 +26,7 @@ jobs:
             git submodule update --init --recursive
             mkdir build
             cd build
-            # TODO - enable TSAN
-            cmake .. -DCMAKE_CXX_COMPILER=<< parameters.compiler >> -DCMAKE_CXX_STANDARD=17 -DCMAKE_BUILD_TYPE=<< parameters.build-config >> -DWITH_TSAN=On
+            cmake .. -DCMAKE_CXX_COMPILER=<< parameters.compiler >> -DCMAKE_BUILD_TYPE=<< parameters.build-config >> -DWITH_TSAN=On
       - run:
           name: "Build"
           command: "make -j 4"
@@ -46,21 +44,88 @@ jobs:
       #     root: build
       #     paths: benchmark
 
+  build-windows:
+    parameters:
+      build-config:
+        type: string
+    machine:
+      image: 'windows-server-2022-gui:current'
+      resource_class: windows.large
+      shell: powershell.exe -ExecutionPolicy Bypass
+    steps:
+      - run:
+          name: "Install dependencies"
+          command: "choco install cmake"
+      - checkout
+      - run:
+          name: "Prepare build"
+          command: |
+            git submodule update --init --recursive
+            mkdir build
+            cd build
+            cmake .. -G "Visual Studio 17 2022"
+      - run:
+          name: "Build"
+          command: cmake --build . -j 4 --config << parameters.build-config >> -- /m
+          working_directory: build
+      - run:
+          name: "Run tests"
+          command: .\gtest.exe --gtest_output=xml:gtest.xml
+          working_directory: build/<< parameters.build-config >>
+      - store_test_results:
+            path: build/gtest.xml
+      # - persist_to_workspace:
+      #     root: build
+      #     paths: benchmark
+
+  # benchmark-smoke-test:
+  #   parameters:
+  #     resource-class:
+  #       type: string
+  #   docker:
+  #     image: ubuntu:24.04
+  #   resource_class: << parameters.resource-class >>
+  #     resource_class: << parameters.resource-class >>
+  #   steps:
+  #     - attach_workspace:
+  #         at: /workspace
+  #     - run:
+  #         name: "Run benchmarks"
+  #         command: |
+  #           cd workspace
+  #           for QUEUE in ramalhete michael_scott vyukov_bounded kirsch_kfifo kirsch_bounded_kfifo; do
+  #             ./benchmark queue.json -- "ds=(queues.$QUEUE)" warmup.rounds=0 rounds=1 runtime=500
+  #           done
+  #           for RECLAIMER in EBR NEBR DEBRA QSBR static-HP dynamic-HP; do
+  #             ./benchmark queue.json -- "ds.reclaimer=(reclaimers.$RECLAIMER)" warmup.rounds=0 rounds=1 runtime=500
+  #           done
+  #           for HASHMAP in vyukov harris_michael; do
+  #             ./benchmark hash_map.json -- "ds=(hash_maps.$HASHMAP)" warmup.rounds=0 rounds=1 runtime=500
+  #           done
+
+
 workflows:
-  Linux-x64:
+  # Linux-x64:
+  #   jobs:
+  #     - build-linux:  
+  #         matrix:
+  #           parameters:
+  #             compiler: ["clang++-18", g++-14]
+  #             build-config: ["Debug", "Release"]
+  #             resource-class: ["large"]
+
+  Windows-x64:
     jobs:
-      - build-linux:  
+      - build-windows:  
           matrix:
             parameters:
-              compiler: ["clang++-18", g++-14]
               build-config: ["Debug", "Release"]
-              resource-class: ["large"]
               
   # Linux-ARM:
   #   jobs:
   #     - build-linux:  
   #         matrix:
   #           parameters:
-  #             compiler: ["clang++-15", g++]
+  #             compiler: ["clang++-18", g++-14]
   #             build-config: ["Debug", "Release"]
   #             resource-class: ["arm.large"]
