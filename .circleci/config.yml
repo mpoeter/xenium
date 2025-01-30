@@ -19,7 +19,7 @@ jobs:
           environment:
             DEBIAN_FRONTEND: noninteractive
             TZ: Etc/UTC
-          command: "sudo apt-get update && sudo apt-get install -y git cmake << parameters.compiler >>"
+          command: "sudo apt-get update && sudo apt-get install -y git cmake g++-14 clang++-18"
       - checkout
       - run:
           name: "Prepare build"
