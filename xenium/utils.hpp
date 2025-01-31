@@ -6,6 +6,8 @@
 #ifndef XENIUM_UTILS_HPP
 #define XENIUM_UTILS_HPP
 
+#include <xenium/detail/port.hpp>
+
 #include <cstdint>
 #ifdef _M_AMD64
   #include <intrin.h>
@@ -60,25 +62,35 @@ struct rotate<0> {
   static uintptr_t right(uintptr_t v) { return v; }
 };
 
-#if defined(__sparc__)
+#if defined(XENIUM_ARCH_SPARC)
 static inline std::uint64_t getticks() {
   std::uint64_t ret;
   __asm__("rd %%tick, %0" : "=r"(ret));
   return ret;
 }
-#elif defined(__x86_64__)
+#elif defined(XENIUM_ARCH_X86)
+  #if defined(__x86_64__)
 static inline std::uint64_t getticks() {
   std::uint32_t hi, lo;
   __asm__("rdtsc" : "=a"(lo), "=d"(hi));
   return (static_cast<std::uint64_t>(hi) << 32) | static_cast<std::uint64_t>(lo);
 }
-#elif defined(_M_AMD64)
+  #elif defined(_M_AMD64)
 static inline std::uint64_t getticks() {
   return __rdtsc();
 }
+  #else
+    #error "Unsupported compiler"
+  #endif
+#elif defined(XENIUM_ARCH_ARM)
+static inline std::uint64_t getticks() {
+  std::uint64_t val;
+  __asm__ __volatile__("mrs %0, cntvct_el0" : "=r"(val));
+  return val;
+}
 #else
-  // TODO - add support for more compilers!
-  #error "Unsupported compiler"
+  // TODO - add support for more architectures!
+  #error "Unsupported architecture"
 #endif
 
 inline std::uint64_t random() {

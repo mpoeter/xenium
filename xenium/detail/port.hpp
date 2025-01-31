@@ -73,4 +73,8 @@
   #define XENIUM_ARCH_SPARC
 #endif
 
+#if !defined(XENIUM_ARCH_ARM) && defined(__aarch64__)
+  #define XENIUM_ARCH_ARM
+#endif
+
 #endif
