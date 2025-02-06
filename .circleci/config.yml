@@ -9,6 +9,8 @@ jobs:
         type: string
       compiler:
         type: string
+      tsan:
+        type: string
     machine:
       image: ubuntu-2404:current
     resource_class: << parameters.resource-class >>
@@ -26,7 +28,7 @@ jobs:
             git submodule update --init --recursive
             mkdir build
             cd build
-            cmake .. -DCMAKE_CXX_COMPILER=<< parameters.compiler >> -DCMAKE_BUILD_TYPE=<< parameters.build-config >> -DWITH_TSAN=On
+            cmake .. -DCMAKE_CXX_COMPILER=<< parameters.compiler >> -DCMAKE_BUILD_TYPE=<< parameters.build-config >> -DWITH_TSAN=<< parameters.tsan >>
       - run:
           name: "Build"
           command: "make -j 4"
@@ -36,6 +38,55 @@ jobs:
           command: |
             sudo sysctl vm.mmap_rnd_bits
             sudo sysctl vm.mmap_rnd_bits=28
+            ./gtest --gtest_output=xml:gtest.xml
+          working_directory: build
+      - store_test_results:
+            path: build/gtest.xml
+      - when:
+          condition:
+            equal: [ << parameters.build-config >>, "Releass"]
+          steps:
+            - run:
+                name: "Run benchmark smoke tests"
+                command: |
+                  for QUEUE in ramalhete michael_scott vyukov_bounded kirsch_kfifo kirsch_bounded_kfifo; do
+                    ./build/benchmark benchmarks/examples/queue.json -- "ds=(queues.$QUEUE)" warmup.rounds=0 rounds=1 runtime=500
+                  done
+                  for RECLAIMER in EBR NEBR DEBRA QSBR static-HP dynamic-HP; do
+                    ./build/benchmark benchmarks/examples/queue.json -- "ds.reclaimer=(reclaimers.$RECLAIMER)" warmup.rounds=0 rounds=1 runtime=500
+                  done
+                  for HASHMAP in vyukov harris_michael; do
+                    ./build/benchmark benchmarks/examples/hash_map.json -- "ds=(hash_maps.$HASHMAP)" warmup.rounds=0 rounds=1 runtime=500
+                  done
+
+  build-mac:
+    parameters:
+      build-config:
+        type: string
+      tsan:
+        type: string
+    macos:
+      xcode: 16.1.0
+    resource_class: macos.m1.medium.gen1
+    steps:
+      - run:
+          name: "Install dependencies"
+          command: "brew install cmake"
+      - checkout
+      - run:
+          name: "Prepare build"
+          command: |
+            git submodule update --init --recursive
+            mkdir build
+            cd build
+            cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=<< parameters.build-config >> -DWITH_TSAN==<< parameters.tsan >>
+      - run:
+          name: "Build"
+          command: make -j 4
+          working_directory: build
+      - run:
+          name: "Run tests"
+          command: |
             ./gtest --gtest_output=xml:gtest.xml
           working_directory: build
       - store_test_results:
@@ -93,11 +144,12 @@ workflows:
   Linux-x64:
     jobs:
       - build-linux:
-          name: build-linux-x64-<< matrix.build-config >>-<< matrix.compiler >>
+          name: build-linux-x64-<< matrix.build-config >>-<< matrix.compiler >>-TSan-<< matrix.tsan >>
           matrix:
             parameters:
               compiler: ["clang++-18", g++-14]
               build-config: ["Debug", "Release"]
+              tsan: ["On", "Off"]
               resource-class: ["large"]
 
   Windows-x64:
@@ -110,9 +162,19 @@ workflows:
   Linux-ARM:
     jobs:
       - build-linux:
-          name: build-linux-ARM-<< matrix.build-config >>-<< matrix.compiler >>
+          name: build-linux-ARM-<< matrix.build-config >>-<< matrix.compiler >>-TSan-<< matrix.tsan >>
           matrix:
             parameters:
               compiler: ["clang++-18", g++-14]
               build-config: ["Debug", "Release"]
+              tsan: ["On", "Off"]
               resource-class: ["arm.large"]
+
+  Mac-ARM:
+    jobs:
+      - build-mac:
+          name: build-mac-ARM-<< matrix.build-config >>-TSan-<< matrix.tsan >>
+          matrix:
+            parameters:
+              build-config: ["Debug", "Release"]
+              tsan: ["On", "Off"]
