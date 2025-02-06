@@ -433,12 +433,12 @@ TYPED_TEST(VyukovHashMap, parallel_usage) {
     threads.push_back(std::thread([i, &map] {
       for (int k = i * keys_per_thread; k < (i + 1) * keys_per_thread; ++k) {
         for (int j = 0; j < MaxIterations / keys_per_thread; ++j) {
-          [[maybe_unused]] typename Reclaimer::region_guard gaurd{};
+          [[maybe_unused]] typename Reclaimer::region_guard guard{};
           EXPECT_TRUE(map.emplace(k, k));
           for (int x = 0; x < 10; ++x) {
             typename hash_map::accessor acc;
-            EXPECT_TRUE(map.try_get_value(k, acc));
-            EXPECT_EQ(k, *acc);
+            EXPECT_TRUE(map.try_get_value(k, acc)) << "k=" << k << ", j=" << j << ", x=" << x;
+            EXPECT_EQ(k, *acc) << "j=" << j << ", x=" << x;
           }
           if ((j + i) % 8 == 0) {
             for (auto it = map.begin(); it != map.end();) {

@@ -412,7 +412,6 @@ private:
 
 #define XENIUM_VYUKOV_HASH_MAP_IMPL
 #include <xenium/impl/vyukov_hash_map.hpp>
-#include <xenium/impl/vyukov_hash_map_traits.hpp>
 #undef XENIUM_VYUKOV_HASH_MAP_IMPL
 
 #endif

@@ -21,10 +21,7 @@ namespace bits {
 
   template <class Key>
   struct vyukov_hash_map_trivial_key : vyukov_hash_map_common<Key> {
-    template <class Cell>
-    static bool compare_trivial_key(Cell& key_cell, const Key& key, hash_t /*hash*/) {
-      return key_cell.load(std::memory_order_relaxed) == key;
-    }
+    static bool compare_trivial_key(Key key1, Key key2, hash_t /*hash*/) { return key1 == key2; }
 
     template <class Accessor>
     static bool compare_nontrivial_key(const Accessor&, const Key&) {
@@ -39,10 +36,7 @@ namespace bits {
 
   template <class Key>
   struct vyukov_hash_map_nontrivial_key : vyukov_hash_map_common<Key> {
-    template <class Cell>
-    static bool compare_trivial_key(Cell& key_cell, const Key& /*key*/, hash_t hash) {
-      return key_cell.load(std::memory_order_relaxed) == hash;
-    }
+    static bool compare_trivial_key(hash_t hash1, const Key& /*key*/, hash_t hash2) { return hash1 == hash2; }
 
     template <class Accessor>
     static bool compare_nontrivial_key(const Accessor& acc, const Key& key) {

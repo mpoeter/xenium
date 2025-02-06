@@ -12,6 +12,8 @@
 #include <xenium/parameter.hpp>
 #include <xenium/policy.hpp>
 
+#include <xenium/impl/vyukov_hash_map_traits.hpp>
+
 #include <atomic>
 #include <cassert>
 #include <cstring>
@@ -27,7 +29,7 @@ namespace xenium {
 template <class Key, class Value, class... Policies>
 struct vyukov_hash_map<Key, Value, Policies...>::bucket_state {
   bucket_state() = default;
-  
+
   [[nodiscard]] bucket_state locked() const noexcept { return bucket_state(value | lock); }
   [[nodiscard]] bucket_state clear_lock() const {
     assert(value & lock);
@@ -194,10 +196,10 @@ vyukov_hash_map<Key, Value, Policies...>::~vyukov_hash_map() {
     while (it != end()) {
       try {
         erase(it);
-      } catch(...) {
+      } catch (...) {
       }
     }
-  } catch(...) {
+  } catch (...) {
   }
   delete data_block.load().get();
 }
@@ -357,9 +359,10 @@ restart:
 
         auto k = extension->key.load(std::memory_order_relaxed);
         auto v = extension->value.load(std::memory_order_relaxed);
-        bucket.key[i].store(k, std::memory_order_relaxed);
         // (8)  - this release-store synchronizes-with the acquire-load (24)
         bucket.value[i].store(v, std::memory_order_release);
+        // (39) - this release-store synchronizes-with the acquire-load (41)
+        bucket.key[i].store(k, std::memory_order_release);
 
         // reset the delete marker
         locked_state = locked_state.new_version();
@@ -382,9 +385,10 @@ restart:
 
           auto k = bucket.key[item_count - 1].load(std::memory_order_relaxed);
           auto v = bucket.value[item_count - 1].load(std::memory_order_relaxed);
-          bucket.key[i].store(k, std::memory_order_relaxed);
           // (12) - this release-store synchronizes-with the acquire-load (24)
           bucket.value[i].store(v, std::memory_order_release);
+          // (40) - this release-store synchronizes-with the acquire-load (41)
+          bucket.key[i].store(k, std::memory_order_release);
         }
 
         // release the bucket lock, reset the delete marker (if it is set), increase the version
@@ -521,7 +525,8 @@ retry:
 
   std::uint32_t item_count = state.item_count();
   for (std::uint32_t i = 0; i != item_count; ++i) {
-    if (traits::compare_trivial_key(bucket.key[i], key, h)) {
+    // (41) - this acquire-load synchronizes-with the release-store (39, 40)
+    if (traits::compare_trivial_key(bucket.key[i].load(std::memory_order_acquire), key, h)) {
       // use acquire semantic here - should synchronize-with the release store to value
       // in remove() to ensure that if we see the changed value here we also see the
       // changed state in the subsequent reload of state
@@ -531,7 +536,7 @@ retry:
       // ensure that we can use the value we just read
       const auto state2 = bucket.state.load(std::memory_order_relaxed);
       if (state.version() != state2.version()) {
-        // a deletion has occured in the meantime -> we have to retry
+        // a deletion has occurred in the meantime -> we have to retry
         state = state2;
         goto retry;
       }
@@ -562,7 +567,7 @@ retry:
   // (25) - this acquire-load synchronizes-with the release-store (4, 10, 18)
   extension_item* extension = bucket.head.load(std::memory_order_acquire);
   while (extension) {
-    if (traits::compare_trivial_key(extension->key, key, h)) {
+    if (traits::compare_trivial_key(extension->key.load(std::memory_order_relaxed), key, h)) {
       // TODO - this acquire does not synchronize with anything ATM.
       // However, this is probably required when introducing an update-method that
       // allows to store a new value.
