@@ -316,13 +316,15 @@ bool kirsch_kfifo_queue<T, Policies...>::committed(marked_ptr segment, marked_va
 
   const marked_value empty_value(nullptr, value.mark() + 1);
 
-  if (segment->deleted.load(std::memory_order_relaxed)) {
+  // (TODO)
+  if (segment->deleted.load(std::memory_order_seq_cst)) {
     // Insert tail segment has been removed, but we are fine if element still has been removed.
     return !segment->items()[index].value.compare_exchange_strong(value, empty_value, std::memory_order_relaxed);
   }
 
+  // (TODO)
   // (6) - this acquire-load synchronizes-with the release-CAS (10)
-  marked_ptr head_current = head_.load(std::memory_order_acquire);
+  marked_ptr head_current = head_.load(std::memory_order_seq_cst);
   if (segment.get() == head_current.get()) {
     // Insert tail segment is now head.
     marked_ptr new_head(head_current.get(), head_current.mark() + 1);
@@ -337,7 +339,8 @@ bool kirsch_kfifo_queue<T, Policies...>::committed(marked_ptr segment, marked_va
     return !segment->items()[index].value.compare_exchange_strong(value, empty_value, std::memory_order_relaxed);
   }
 
-  if (!segment->deleted.load(std::memory_order_relaxed)) {
+  // (TODO)
+  if (!segment->deleted.load(std::memory_order_seq_cst)) {
     // Insert tail segment still not deleted.
     return true;
   }
@@ -368,12 +371,14 @@ void kirsch_kfifo_queue<T, Policies...>::advance_head(guard_ptr& head_current, m
     }
   }
 
-  head_current->deleted.store(true, std::memory_order_relaxed);
+  // (TODO)
+  head_current->deleted.store(true, std::memory_order_seq_cst);
 
   marked_ptr expected = head_current;
   marked_ptr new_head(head_next_segment.get(), head_current.mark() + 1);
   // (10) - this release-CAS synchronizes-with the acquire-load (3, 6)
-  if (head_.compare_exchange_strong(expected, new_head, std::memory_order_release, std::memory_order_relaxed)) {
+  // (TODO)
+  if (head_.compare_exchange_strong(expected, new_head, std::memory_order_seq_cst, std::memory_order_relaxed)) {
     head_current.reclaim();
   }
 }
