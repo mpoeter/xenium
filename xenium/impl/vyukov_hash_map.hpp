@@ -257,8 +257,10 @@ retry:
   }
 
   if (item_count < bucket_item_count) {
+    // (42) - these release-store synchronize-with the acquire-loads (41) (key) and (24) (value)
+    // we need to use release even though we have lock because concurrent find can still observe our changes
     traits::template store_item<AcquireAccessor>(
-      bucket.key[item_count], bucket.value[item_count], h, std::move(key), factory(), std::memory_order_relaxed, acc);
+      bucket.key[item_count], bucket.value[item_count], h, std::move(key), factory(), std::memory_order_release, acc);
     callback(std::move(acc), bucket.value[item_count]);
     // release the bucket lock and increment the item count
     // (3) - this release-store synchronizes-with the acquire-CAS (7, 30, 34, 37) and the acquire-load (23)
@@ -283,8 +285,14 @@ retry:
     goto retry;
   }
   try {
+    // we need to use memory_order_release here because the extension item could be reused,
+    // so a concurrent lookup could potentially observe our writes. Without a release-store
+    // we would have no happens-before relation to ensure that the lookup operation also observes
+    // the update to the bucket state to realize that the values it just read from our extension
+    // item cannot be used.
+    // (43) - these release-store synchronize-with the acquire-load (44) (key) and (26) (value)
     traits::template store_item<AcquireAccessor>(
-      extension->key, extension->value, h, std::move(key), factory(), std::memory_order_relaxed, acc);
+      extension->key, extension->value, h, std::move(key), factory(), std::memory_order_release, acc);
   } catch (...) {
     free_extension_item(extension);
     throw;
@@ -525,12 +533,12 @@ retry:
 
   std::uint32_t item_count = state.item_count();
   for (std::uint32_t i = 0; i != item_count; ++i) {
-    // (41) - this acquire-load synchronizes-with the release-store (39, 40)
+    // (41) - this acquire-load synchronizes-with the release-store (39, 40, 42)
     if (traits::compare_trivial_key(bucket.key[i].load(std::memory_order_acquire), key, h)) {
       // use acquire semantic here - should synchronize-with the release store to value
       // in remove() to ensure that if we see the changed value here we also see the
       // changed state in the subsequent reload of state
-      // (24) - this acquire-load synchronizes-with the release-store (8, 12, 16, 20)
+      // (24) - this acquire-load synchronizes-with the release-store (8, 12, 16, 20, 42)
       accessor acc = traits::acquire(bucket.value[i], std::memory_order_acquire);
 
       // ensure that we can use the value we just read
@@ -567,11 +575,9 @@ retry:
   // (25) - this acquire-load synchronizes-with the release-store (4, 10, 18)
   extension_item* extension = bucket.head.load(std::memory_order_acquire);
   while (extension) {
-    if (traits::compare_trivial_key(extension->key.load(std::memory_order_relaxed), key, h)) {
-      // TODO - this acquire does not synchronize with anything ATM.
-      // However, this is probably required when introducing an update-method that
-      // allows to store a new value.
-      // (26) - this acquire-load synchronizes-with <nothing>
+    // (44) - this acquire-load synchronize-with the release-store (43)
+    if (traits::compare_trivial_key(extension->key.load(std::memory_order_acquire), key, h)) {
+      // (26) - this acquire-load synchronizes-with the release-store (43)
       accessor acc = traits::acquire(extension->value, std::memory_order_acquire);
 
       auto state2 = bucket.state.load(std::memory_order_relaxed);

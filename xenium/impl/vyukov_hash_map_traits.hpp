@@ -85,8 +85,8 @@ struct vyukov_hash_map_traits<Key, managed_ptr<Value, VReclaimer>, ValueReclaime
                          Value* v,
                          std::memory_order order,
                          accessor& acc) {
-    key_cell.store(k, std::memory_order_relaxed);
     value_cell.store(v, order);
+    key_cell.store(k, order);
     if (AcquireAccessor) {
       acc.guard = typename storage_value_type::guard_ptr(v);
     }
@@ -170,8 +170,8 @@ struct vyukov_hash_map_traits<Key, managed_ptr<Value, VReclaimer>, ValueReclaime
       acc.node_guard = typename storage_value_type::guard_ptr(n); // TODO - is this necessary?
       acc.value_guard = typename VReclaimer::template concurrent_ptr<Value>::guard_ptr(v);
     }
-    key_cell.store(hash, std::memory_order_relaxed);
     value_cell.store(n, order);
+    key_cell.store(hash, order);
   }
 
   template <bool AcquireAccessor>
@@ -246,8 +246,8 @@ struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, true, true>
                          Value v,
                          std::memory_order order,
                          accessor& acc) {
-    key_cell.store(k, std::memory_order_relaxed);
     value_cell.store(v, order);
+    key_cell.store(k, order);
     if (AcquireAccessor) {
       acc.v = v;
     }
@@ -334,8 +334,8 @@ struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, true, false
     if (AcquireAccessor) {
       acc.guard = typename storage_value_type::guard_ptr(n);
     }
-    key_cell.store(k, std::memory_order_relaxed);
     value_cell.store(n, order);
+    key_cell.store(k, order);
   }
 
   static iterator_reference deref_iterator(storage_key_type& k, storage_value_type& v) {
@@ -399,8 +399,8 @@ struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, false, Triv
     if (AcquireAccessor) {
       acc.guard = typename storage_value_type::guard_ptr(n);
     }
-    key_cell.store(hash, std::memory_order_relaxed);
     value_cell.store(n, order);
+    key_cell.store(hash, order);
   }
 
   template <bool AcquireAccessor>
