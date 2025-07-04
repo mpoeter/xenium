@@ -42,6 +42,8 @@ jobs:
           working_directory: build
       - store_test_results:
             path: build/gtest.xml
+      - store_artifacts:
+            path: build/gtest
       - when:
           condition:
             equal: [ << parameters.build-config >>, "Releass"]
@@ -91,6 +93,8 @@ jobs:
           working_directory: build
       - store_test_results:
             path: build/gtest.xml
+      - store_artifacts:
+            path: build/gtest
       - when:
           condition:
             equal: [ << parameters.build-config >>, "Releass"]
@@ -138,6 +142,8 @@ jobs:
           working_directory: build/<< parameters.build-config >>
       - store_test_results:
             path: build/gtest.xml
+      - store_artifacts:
+            path: build/gtest.exe
 
 
 workflows:
@@ -154,11 +160,11 @@ workflows:
 
   Windows-x64:
     jobs:
-      - build-windows:  
+      - build-windows:
           matrix:
             parameters:
               build-config: ["Debug", "Release"]
-              
+
   Linux-ARM:
     jobs:
       - build-linux:
