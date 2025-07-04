@@ -90,33 +90,33 @@ namespace detail {
  *     * key/value are stored in separate atomics
  *     * `accessor` is a thin wrapper around a `Value` copy.
  *        Since the accessor contains a copy of the value it is limited to read-only access.
- *     * `iterator` dereferentiation returns a temporary `std::pair<const Key, Value>` object;
+ *     * `iterator` deref returns a temporary `std::pair<const Key, Value>` object;
  *        the `operator->` is therefore not supported.
  *   * trivial key, managed_ptr with type `T` and reclaimer `R`:
  *     * `T` has to derive from `R::enable_concurrent_ptr<T>`
- *     * key is stored in an atomic, value is storend in a `concurrent_ptr<T>`
+ *     * key is stored in an atomic, value is stored in a `concurrent_ptr<T>`
  *     * `accessor` is a thin wrapper around a `guard_ptr<T>`.
- *     * `iterator` dereferentiation returns a temporary `std::pair<const Key, T*>` object;
+ *     * `iterator` deref returns a temporary `std::pair<const Key, T*>` object;
  *        the `operator->` is therefore not supported.
  *   * non-trivial key, managed_ptr with type `T` and reclaimer `R`:
  *     * `T` has to derive from `R::enable_concurrent_ptr<T>`
  *     * key and value are is stored in an internally allocated node
  *     * `accessor` is a thin wrapper containing a `guard_ptr` to the internal node, as
  *       well as a `guard_ptr<T>`.
- *     * `iterator` dereferentiation returns a temporary `std::pair<const Key&, T*>` object;
+ *     * `iterator` deref returns a temporary `std::pair<const Key&, T*>` object;
  *        the `operator->` is therefore not supported.
  *   * trivial key, non-trivial value
  *     * key is stored in an atomic, values are stored in internally allocated nodes.
  *       The lifetime of these nodes is managed via the specified the reclamation scheme
  *       (see `xenium::policy::value_reclaimer`).
  *     * `accessor` is a thin wrapper around a `guard_ptr` to the value's internal node
- *     * `iterator` dereferentiation returns a temporary `std::pair<const Key, Value&>` object;
+ *     * `iterator` deref returns a temporary `std::pair<const Key, Value&>` object;
  *        the `operator->` is therefore not supported.
  *   * non-trivial key, non-trivial value
  *     * key and value are stored in a `std::pair` in an internally allocated node
  *     * the key's hash value is memoized in an atomic in the bucket to ensure fast comparison
  *     * `accessor` is a thin wrapper around a `guard_ptr` to the internal node
- *     * `iterator` dereferentiation returns a reference to the node's `std::pair` object;
+ *     * `iterator` deref returns a reference to the node's `std::pair` object;
  *        this is the only configuration that supports the `operator->`.
  *
  * Supported policies:

@@ -65,7 +65,7 @@ struct vyukov_hash_map_traits<Key, managed_ptr<Value, VReclaimer>, ValueReclaime
   public:
     accessor() = default;
     Value* operator->() const noexcept { return guard.get(); }
-    Value& operator*() const noexcept { return guard.get(); }
+    Value& operator*() const noexcept { return *guard.get(); }
     void reset() { guard.reset(); }
     void reclaim() { guard.reclaim(); }
 
@@ -111,7 +111,11 @@ struct vyukov_hash_map_traits<Key, managed_ptr<Value, VReclaimer>, ValueReclaime
     return {k.load(std::memory_order_relaxed), v.load(std::memory_order_relaxed).get()};
   }
 
-  static void reclaim(accessor& a) { a.guard.reclaim(); }
+  static void reclaim(accessor& a) {
+    if (a.guard) {
+      a.guard.reclaim();
+    }
+  }
   static void reclaim_internal(accessor&) {} // noop
 };
 
@@ -148,7 +152,6 @@ struct vyukov_hash_map_traits<Key, managed_ptr<Value, VReclaimer>, ValueReclaime
         node_guard(acquire_guard(v, order)),
         value_guard(acquire_guard(node_guard->value, order)) {}
     [[nodiscard]] const Key& key() const { return node_guard->key; }
-    // accessor(typename storage_value_type::marked_ptr v) : guard(v) {}
     typename storage_value_type::guard_ptr node_guard;
     typename VReclaimer::template concurrent_ptr<Value>::guard_ptr value_guard;
     friend struct vyukov_hash_map_traits;
@@ -200,15 +203,21 @@ struct vyukov_hash_map_traits<Key, managed_ptr<Value, VReclaimer>, ValueReclaime
   }
 
   static void reclaim(accessor& a) {
-    a.value_guard.reclaim();
-    a.node_guard.reclaim();
+    if (a.value_guard) {
+      a.value_guard.reclaim();
+    }
+    if (a.node_guard) {
+      a.node_guard.reclaim();
+    }
   }
   static void reclaim_internal(accessor& a) {
     // copy guard to avoid resetting the accessor's guard_ptr.
     // TODO - this could be simplified by avoiding reset of
     // guard_ptrs in reclaim().
-    auto g = a.node_guard;
-    g.reclaim();
+    if (a.node_guard) {
+      auto g = a.node_guard;
+      g.reclaim();
+    }
   }
 };
 
@@ -343,13 +352,19 @@ struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, true, false
     return {k.load(std::memory_order_relaxed), node->value};
   }
 
-  static void reclaim(accessor& a) { a.guard.reclaim(); }
+  static void reclaim(accessor& a) {
+    if (a.guard) {
+      a.guard.reclaim();
+    }
+  }
   static void reclaim_internal(accessor& a) {
     // copy guard to avoid resetting the accessor's guard_ptr.
     // TODO - this could be simplified by avoiding reset of
     // guard_ptrs in reclaim().
-    auto g = a.guard;
-    g.reclaim();
+    if (a.guard) {
+      auto g = a.guard;
+      g.reclaim();
+    }
   }
 };
 
@@ -421,13 +436,19 @@ struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, false, Triv
     return node->data;
   }
 
-  static void reclaim(accessor& a) { a.guard.reclaim(); }
+  static void reclaim(accessor& a) {
+    if (a.guard) {
+      a.guard.reclaim();
+    }
+  }
   static void reclaim_internal(accessor& a) {
     // copy guard to avoid resetting the accessor's guard_ptr.
     // TODO - this could be simplified by avoiding reset of
     // guard_ptrs in reclaim().
-    auto g = a.guard;
-    g.reclaim();
+    if (a.guard) {
+      auto g = a.guard;
+      g.reclaim();
+    }
   }
 };
 } // namespace xenium::impl

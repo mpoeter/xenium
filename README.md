@@ -1,6 +1,6 @@
 # xenium
 
-[![Build Status](https://dl.circleci.com/status-badge/img/gh/mpoeter/xenium/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/mpoeter/xenium/tree/master)
+[![Build Status](https://dl.circleci.com/status-badge/img/gh/mpoeter/xenium/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/mpoeter/xenium/tree/main)
 [![MIT Licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Documentation](https://img.shields.io/badge/docs-doxygen-purple.svg)](https://mpoeter.github.io/xenium)
 
