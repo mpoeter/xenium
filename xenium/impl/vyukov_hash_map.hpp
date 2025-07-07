@@ -545,8 +545,15 @@ retry:
       const auto state2 = bucket.state.load(std::memory_order_relaxed);
       if (state.version() != state2.version()) {
         // a deletion has occurred in the meantime -> we have to retry
-        state = state2;
         goto retry;
+      }
+
+      if (traits::load_value(acc)) {
+        const auto state2 = bucket.state.load(std::memory_order_relaxed);
+        if (state.version() != state2.version()) {
+          // a deletion has occurred in the meantime -> we have to retry
+          goto retry;
+        }
       }
 
       const auto delete_marker = i + 1;
@@ -582,9 +589,16 @@ retry:
 
       auto state2 = bucket.state.load(std::memory_order_relaxed);
       if (state.version() != state2.version()) {
-        // a deletion has occured in the meantime -> we have to retry
-        state = state2;
+        // a deletion has occurred in the meantime -> we have to retry
         goto retry;
+      }
+
+      if (traits::load_value(acc)) {
+        auto state2 = bucket.state.load(std::memory_order_relaxed);
+        if (state.version() != state2.version()) {
+          // a deletion has occurred in the meantime -> we have to retry
+          goto retry;
+        }
       }
 
       if (!traits::compare_nontrivial_key(acc, key)) {

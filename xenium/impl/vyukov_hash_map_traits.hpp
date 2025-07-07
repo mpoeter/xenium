@@ -76,6 +76,7 @@ struct vyukov_hash_map_traits<Key, managed_ptr<Value, VReclaimer>, ValueReclaime
   };
 
   static accessor acquire(storage_value_type& v, std::memory_order order) { return accessor(v, order); }
+  static constexpr bool load_value(accessor&) { return false; }
 
   template <bool AcquireAccessor>
   static void store_item(storage_key_type& key_cell,
@@ -148,9 +149,13 @@ struct vyukov_hash_map_traits<Key, managed_ptr<Value, VReclaimer>, ValueReclaime
     }
 
   private:
-    accessor(storage_value_type& v, std::memory_order order) :
-        node_guard(acquire_guard(v, order)),
-        value_guard(acquire_guard(node_guard->value, order)) {}
+    accessor(storage_value_type& v, std::memory_order order) : node_guard(acquire_guard(v, order)) {}
+    // TODO - can this be relaxed? Probably yes since the node is immutable after creation.
+    // But that is actually a problem because ATM a node returned in an accessor from extract cannot be reclaimed.
+    void load_value() { value_guard = acquire_guard(node_guard->value, std::memory_order_relaxed); }
+
+    typename storage_value_type::guard_ptr guard;
+    friend struct vyukov_hash_map_traits;
     [[nodiscard]] const Key& key() const { return node_guard->key; }
     typename storage_value_type::guard_ptr node_guard;
     typename VReclaimer::template concurrent_ptr<Value>::guard_ptr value_guard;
@@ -159,6 +164,10 @@ struct vyukov_hash_map_traits<Key, managed_ptr<Value, VReclaimer>, ValueReclaime
   };
 
   static accessor acquire(storage_value_type& v, std::memory_order order) { return accessor(v, order); }
+  static bool load_value(accessor& acc) {
+    acc.load_value();
+    return true;
+  }
 
   template <bool AcquireAccessor>
   static void store_item(storage_key_type& key_cell,
@@ -246,6 +255,7 @@ struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, true, true>
 
   static void reset(accessor&&) {}
   static accessor acquire(storage_value_type& v, std::memory_order order) { return accessor(v, order); }
+  static constexpr bool load_value(accessor&) { return false; }
 
   template <bool AcquireAccessor>
   static void store_item(storage_key_type& key_cell,
@@ -315,6 +325,7 @@ struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, true, false
   };
 
   static accessor acquire(storage_value_type& v, std::memory_order order) { return accessor(v, order); }
+  static constexpr bool load_value(accessor&) { return false; }
 
   template <bool AcquireAccessor>
   static bool compare_key(storage_key_type& key_cell,
@@ -401,6 +412,7 @@ struct vyukov_hash_map_traits<Key, Value, ValueReclaimer, Reclaimer, false, Triv
   };
 
   static accessor acquire(storage_value_type& v, std::memory_order order) { return accessor(v, order); }
+  static constexpr bool load_value(accessor&) { return false; }
 
   template <bool AcquireAccessor>
   static void store_item(storage_key_type& key_cell,
