@@ -52,6 +52,8 @@ struct managed_ptr_value {
   bool operator==(T* const other) const noexcept {
     return this->v == other->v;
   }
+
+  inline friend std::ostream& operator<<(std::ostream& os, const managed_ptr_value& p) { return os << p.v; }
 };
 
 template <class Key, class Value, class Reclaimer>
@@ -99,6 +101,8 @@ struct VyukovHashMap : ::testing::Test {
   struct node : Reclaimer::template enable_concurrent_ptr<node> {
     explicit node(int v) : v(v) {}
     int v;
+
+    inline friend std::ostream& operator<<(std::ostream& os, const node& n) { return os << n.v; }
   };
 
   using MapValueType =
