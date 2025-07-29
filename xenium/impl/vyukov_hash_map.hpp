@@ -463,9 +463,10 @@ void vyukov_hash_map<Key, Value, Policies...>::erase(iterator& pos) {
 
     auto k = extension->key.load(std::memory_order_relaxed);
     auto v = extension->value.load(std::memory_order_relaxed);
-    pos.current_bucket->key[pos.index].store(k, std::memory_order_relaxed);
-    // (16) - this release-store synchronizes-with the acquire-load (24)
+    // (16)  - this release-store synchronizes-with the acquire-load (24)
     pos.current_bucket->value[pos.index].store(v, std::memory_order_release);
+    // (45) - this release-store synchronizes-with the acquire-load (41)
+    pos.current_bucket->key[pos.index].store(k, std::memory_order_release);
 
     // reset the delete marker
     locked_state = locked_state.new_version();
@@ -493,9 +494,10 @@ void vyukov_hash_map<Key, Value, Policies...>::erase(iterator& pos) {
 
       auto k = pos.current_bucket->key[max_index].load(std::memory_order_relaxed);
       auto v = pos.current_bucket->value[max_index].load(std::memory_order_relaxed);
-      pos.current_bucket->key[pos.index].store(k, std::memory_order_relaxed);
-      // (20) - this release-store synchronizes-with the acquire-load  (24)
+      // (20)  - this release-store synchronizes-with the acquire-load (24)
       pos.current_bucket->value[pos.index].store(v, std::memory_order_release);
+      // (46) - this release-store synchronizes-with the acquire-load (41)
+      pos.current_bucket->key[pos.index].store(k, std::memory_order_release);
     }
 
     auto new_state = pos.current_bucket_state.new_version().dec_item_count();
