@@ -38,12 +38,12 @@ jobs:
           command: |
             sudo sysctl vm.mmap_rnd_bits
             sudo sysctl vm.mmap_rnd_bits=28
-            ./gtest --gtest_output=xml:gtest.xml
+            ./xenium_test --xenium_test_output=xml:xenium_test.xml
           working_directory: build
       - store_test_results:
-            path: build/gtest.xml
+            path: build/xenium_test.xml
       - store_artifacts:
-            path: build/gtest
+            path: build/xenium_test
       - when:
           condition:
             equal: [ << parameters.build-config >>, "Releass"]
@@ -89,12 +89,12 @@ jobs:
       - run:
           name: "Run tests"
           command: |
-            ./gtest --gtest_output=xml:gtest.xml
+            ./xenium_test --xenium_test_output=xml:xenium_test.xml
           working_directory: build
       - store_test_results:
-            path: build/gtest.xml
+            path: build/xenium_test.xml
       - store_artifacts:
-            path: build/gtest
+            path: build/xenium_test
       - when:
           condition:
             equal: [ << parameters.build-config >>, "Releass"]
@@ -138,12 +138,12 @@ jobs:
           working_directory: build
       - run:
           name: "Run tests"
-          command: .\gtest.exe --gtest_output=xml:gtest.xml
+          command: .\xenium_test.exe --xenium_test_output=xml:xenium_test.xml
           working_directory: build/<< parameters.build-config >>
       - store_test_results:
-            path: build/gtest.xml
+            path: build/xenium_test.xml
       - store_artifacts:
-            path: build/gtest.exe
+            path: build/xenium_test.exe
 
 
 workflows:

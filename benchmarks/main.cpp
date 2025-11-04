@@ -8,12 +8,8 @@
   #define __int128_t std::int64_t
 #endif
 
-#include <tao/json/from_stream.hpp>
-
-#include <tao/config/schema.hpp>
-#include <tao/config/value.hpp>
-
-#include <tao/config/internal/configurator.hpp>
+#include <tao/config.hpp>
+#include <tao/json.hpp>
 
 #include "execution.hpp"
 
@@ -157,16 +153,15 @@ private:
 };
 
 runner::runner(const options& opts) : _reportfile(opts.report) {
-  tao::config::internal::configurator configurator;
-  configurator.parse(tao::config::pegtl::file_input(opts.configfile));
+  // carica la configurazione di base
+  _config = tao::config::from_file(opts.configfile);
 
+  // applica override dai parametri della riga di comando
   for (const auto& param : opts.params) {
-    // TODO - error handling
     std::cout << "param: " << param << std::endl;
-    configurator.parse(tao::config::pegtl_input_t(param, "command line param"));
+    auto kv = split_key_value(param);
+    _config[kv.key] = tao::config::from_string(kv.value, "param error");
   }
-
-  _config = configurator.process<tao::config::traits>(tao::config::schema::builtin());
 
   load_config();
 }
