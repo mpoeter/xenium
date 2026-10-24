@@ -20,45 +20,43 @@ jobs:
           environment:
             DEBIAN_FRONTEND: noninteractive
             TZ: Etc/UTC
-          command: "sudo apt-get update && sudo apt-get install -y git cmake g++-14 clang++-18"
+          command: "sudo apt-get update && sudo apt-get install -y git cmake g++-14 clang++-18 ninja-build"
       - checkout
       - run:
           name: "Prepare build"
           command: |
-            git submodule update --init --recursive
             mkdir build
-            cd build
-            cmake .. -DCMAKE_CXX_COMPILER=<< parameters.compiler >> -DCMAKE_BUILD_TYPE=<< parameters.build-config >> -DWITH_TSAN=<< parameters.tsan >>
+            cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=<< parameters.compiler >> -DCMAKE_BUILD_TYPE=<< parameters.build-config >> -DXENIUM_WITH_TSAN=<< parameters.tsan >>
       - run:
           name: "Build"
-          command: "make -j 4"
+          command: "ninja"
           working_directory: build
       - run:
           name: "Run tests"
           command: |
             sudo sysctl vm.mmap_rnd_bits
             sudo sysctl vm.mmap_rnd_bits=28
-            ./gtest --gtest_output=xml:gtest.xml
+            ./xenium_test --gtest_output=xml:xenium_test.xml
           working_directory: build
       - store_test_results:
-            path: build/gtest.xml
+            path: build/xenium_test.xml
       - store_artifacts:
-            path: build/gtest
+            path: build/xenium_test
       - when:
           condition:
-            equal: [ << parameters.build-config >>, "Releass"]
+            equal: [ << parameters.build-config >>, "Release"]
           steps:
             - run:
                 name: "Run benchmark smoke tests"
                 command: |
                   for QUEUE in ramalhete michael_scott vyukov_bounded kirsch_kfifo kirsch_bounded_kfifo; do
-                    ./build/benchmark benchmarks/examples/queue.json -- "ds=(queues.$QUEUE)" warmup.rounds=0 rounds=1 runtime=500
+                    ./build/xenium_benchmark benchmarks/examples/queue.json -- "ds=(queues.$QUEUE)" warmup.rounds=0 rounds=1 runtime=500
                   done
                   for RECLAIMER in EBR NEBR DEBRA QSBR static-HP dynamic-HP; do
-                    ./build/benchmark benchmarks/examples/queue.json -- "ds.reclaimer=(reclaimers.$RECLAIMER)" warmup.rounds=0 rounds=1 runtime=500
+                    ./build/xenium_benchmark benchmarks/examples/queue.json -- "ds.reclaimer=(reclaimers.$RECLAIMER)" warmup.rounds=0 rounds=1 runtime=500
                   done
                   for HASHMAP in vyukov harris_michael; do
-                    ./build/benchmark benchmarks/examples/hash_map.json -- "ds=(hash_maps.$HASHMAP)" warmup.rounds=0 rounds=1 runtime=500
+                    ./build/xenium_benchmark benchmarks/examples/hash_map.json -- "ds=(hash_maps.$HASHMAP)" warmup.rounds=0 rounds=1 runtime=500
                   done
 
   build-mac:
@@ -78,10 +76,8 @@ jobs:
       - run:
           name: "Prepare build"
           command: |
-            git submodule update --init --recursive
             mkdir build
-            cd build
-            cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=<< parameters.build-config >> -DWITH_TSAN==<< parameters.tsan >>
+            cmake -S . -B build -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=<< parameters.build-config >> -DXENIUM_WITH_TSAN=<< parameters.tsan >>
       - run:
           name: "Build"
           command: make -j 4
@@ -89,27 +85,27 @@ jobs:
       - run:
           name: "Run tests"
           command: |
-            ./gtest --gtest_output=xml:gtest.xml
+            ./xenium_test --gtest_output=xml:xenium_test.xml
           working_directory: build
       - store_test_results:
-            path: build/gtest.xml
+            path: build/xenium_test.xml
       - store_artifacts:
-            path: build/gtest
+            path: build/xenium_test
       - when:
           condition:
-            equal: [ << parameters.build-config >>, "Releass"]
+            equal: [ << parameters.build-config >>, "Release"]
           steps:
             - run:
                 name: "Run benchmark smoke tests"
                 command: |
                   for QUEUE in ramalhete michael_scott vyukov_bounded kirsch_kfifo kirsch_bounded_kfifo; do
-                    ./build/benchmark benchmarks/examples/queue.json -- "ds=(queues.$QUEUE)" warmup.rounds=0 rounds=1 runtime=500
+                    ./build/xenium_benchmark benchmarks/examples/queue.json -- "ds=(queues.$QUEUE)" warmup.rounds=0 rounds=1 runtime=500
                   done
                   for RECLAIMER in EBR NEBR DEBRA QSBR static-HP dynamic-HP; do
-                    ./build/benchmark benchmarks/examples/queue.json -- "ds.reclaimer=(reclaimers.$RECLAIMER)" warmup.rounds=0 rounds=1 runtime=500
+                    ./build/xenium_benchmark benchmarks/examples/queue.json -- "ds.reclaimer=(reclaimers.$RECLAIMER)" warmup.rounds=0 rounds=1 runtime=500
                   done
                   for HASHMAP in vyukov harris_michael; do
-                    ./build/benchmark benchmarks/examples/hash_map.json -- "ds=(hash_maps.$HASHMAP)" warmup.rounds=0 rounds=1 runtime=500
+                    ./build/xenium_benchmark benchmarks/examples/hash_map.json -- "ds=(hash_maps.$HASHMAP)" warmup.rounds=0 rounds=1 runtime=500
                   done
 
   build-windows:
@@ -128,22 +124,20 @@ jobs:
       - run:
           name: "Prepare build"
           command: |
-            git submodule update --init --recursive
             mkdir build
             cd build
             cmake .. -G "Visual Studio 17 2022"
       - run:
           name: "Build"
-          command: cmake --build . -j 4 --config << parameters.build-config >> -- /m
-          working_directory: build
+          command: cmake --build build -j 4 --config << parameters.build-config >> -- /m
       - run:
           name: "Run tests"
-          command: .\gtest.exe --gtest_output=xml:gtest.xml
+          command: .\xenium_test.exe --gtest_output=xml:xenium_test.xml
           working_directory: build/<< parameters.build-config >>
       - store_test_results:
-            path: build/gtest.xml
+            path: build/xenium_test.xml
       - store_artifacts:
-            path: build/gtest.exe
+            path: build/xenium_test.exe
 
 
 workflows:
