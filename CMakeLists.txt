@@ -10,6 +10,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(GNUInstallDirs)
 include(CheckCXXCompilerFlag)
@@ -42,7 +44,6 @@ target_include_directories(xenium INTERFACE
 target_compile_features(xenium INTERFACE cxx_std_17)
 target_link_libraries(xenium INTERFACE Threads::Threads)
 
-# Reusable TSAN helper (applied per-target, not via global CMAKE_CXX_FLAGS)
 function(xenium_enable_tsan target)
   if(XENIUM_WITH_TSAN AND NOT MSVC)
     cmake_push_check_state()
@@ -57,7 +58,6 @@ function(xenium_enable_tsan target)
   endif()
 endfunction()
 
-# Reusable warnings helper (shared between test and benchmark targets)
 function(xenium_enable_warnings target)
   if(MSVC)
     target_compile_options(${target} PRIVATE /bigobj /W4)
@@ -84,7 +84,6 @@ if(XENIUM_BUILD_DOCUMENTATION)
     VERBATIM)
 endif()
 
-# --- install / export ---
 include(CMakePackageConfigHelpers)
 
 install(TARGETS xenium EXPORT xenium-targets)

@@ -6,6 +6,7 @@
   #include <cds/gc/hp.h>
 #endif
 
+#include <chrono>
 #include <iostream>
 
 using config_t = tao::config::value;

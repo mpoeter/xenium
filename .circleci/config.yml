@@ -66,8 +66,8 @@ jobs:
       tsan:
         type: string
     macos:
-      xcode: 16.1.0
-    resource_class: macos.m1.medium.gen1
+      xcode: 27.1.0
+    resource_class: m4pro.medium
     steps:
       - run:
           name: "Install dependencies"
@@ -168,7 +168,7 @@ workflows:
               compiler: ["clang++-18", g++-14]
               build-config: ["Debug", "Release"]
               tsan: ["On", "Off"]
-              resource-class: ["arm.large"]
+              resource-class: ["arm.large.gen2"]
 
   Mac-ARM:
     jobs:

@@ -7,6 +7,7 @@
 #include <tao/config/value.hpp>
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <random>
@@ -69,7 +70,7 @@ private:
 
   void wait_until_running(const execution_thread& thread) const;
   void wait_until_finished(const execution_thread& thread) const;
-  static void wait_until_thread_state_is(const execution_thread& thread, thread_state expected) ;
+  static void wait_until_thread_state_is(const execution_thread& thread, thread_state expected);
 
   round_report build_report(double runtime);
 
