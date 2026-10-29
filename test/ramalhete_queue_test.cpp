@@ -120,7 +120,7 @@ TYPED_TEST(RamalheteQueue, parallel_usage) {
   std::vector<std::thread> threads;
   for (int i = 0; i < 4; ++i) {
     threads.push_back(std::thread([i, &queue] {
-#ifdef DEBUG
+#ifndef NDEBUG
       const int MaxIterations = 1000;
 #else
       const int MaxIterations = 10000;

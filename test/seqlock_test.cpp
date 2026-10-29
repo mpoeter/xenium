@@ -105,7 +105,7 @@ TEST(SeqLock, parallel_usage) {
   std::vector<std::thread> threads;
   for (int i = 0; i < 8; ++i) {
     threads.emplace_back([&data, i] {
-#ifdef DEBUG
+#ifndef NDEBUG
       const int MaxIterations = 5000;
 #else
       const int MaxIterations = 50000;

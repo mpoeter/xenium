@@ -129,7 +129,7 @@ TYPED_TEST(NikolaevQueue, push_pop_in_fifo_order_with_remapped_indexes) {
   }
 }
 
-#ifdef DEBUG
+#ifndef NDEBUG
 const int MaxIterations = 10000;
 #else
 const int MaxIterations = 50000;

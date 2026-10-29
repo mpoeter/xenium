@@ -139,7 +139,7 @@ TEST(VyukovBoundedQueue, parallel_usage) {
   std::vector<std::thread> threads;
   for (int i = 0; i < 4; ++i) {
     threads.emplace_back([i, &queue] {
-#ifdef DEBUG
+#ifndef NDEBUG
       const int MaxIterations = 40000;
 #else
       const int MaxIterations = 400000;
@@ -164,7 +164,7 @@ TEST(VyukovBoundedQueue, parallel_usage_of_weak_operations) {
   std::vector<std::thread> threads;
   for (int i = 0; i < 4; ++i) {
     threads.emplace_back([i, &queue] {
-#ifdef DEBUG
+#ifndef NDEBUG
       const int MaxIterations = 40000;
 #else
       const int MaxIterations = 400000;

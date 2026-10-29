@@ -234,7 +234,7 @@ TYPED_TEST(HarrisMichaelHashMap, operator_at_returns_accessor_to_newly_inserted_
 }
 
 namespace {
-#ifdef DEBUG
+#ifndef NDEBUG
   const int MaxIterations = 1000;
 #else
   const int MaxIterations = 10000;
