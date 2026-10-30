@@ -127,7 +127,7 @@ TEST(NikolaevBoundedQueue, push_pop_in_fifo_order_with_remapped_indexes) {
   }
 }
 
-#ifdef DEBUG
+#ifndef NDEBUG
 const int MaxIterations = 40000;
 #else
 const int MaxIterations = 400000;

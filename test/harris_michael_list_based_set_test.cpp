@@ -144,7 +144,7 @@ TYPED_TEST(HarrisMichaelListBasedSet, iterate_list) {
 }
 
 namespace {
-#ifdef DEBUG
+#ifndef NDEBUG
   const int MaxIterations = 1000;
 #else
   const int MaxIterations = 10000;

@@ -366,7 +366,7 @@ TYPED_TEST(VyukovHashMap, iterator_covers_all_entries_in_sparsely_populated_map)
   }
 }
 
-#ifdef DEBUG
+#ifndef NDEBUG
 const int MaxIterations = 2000;
 #else
 const int MaxIterations = 8000;

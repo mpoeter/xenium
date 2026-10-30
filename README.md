@@ -86,23 +86,25 @@ ways. For simplicity, the following aliases are predefined for the corresponding
 
 ## Building
 
-xenium is a header only library, so in order to use it, it is sufficient to include the xenium folder
-in your list of include directories. No other 3rd party libraries are required. However, the implementation
-uses C++17 features, so a compiler with sufficient C++17 support is required. The following compilers are
-used in the CI builds and are therefore known to be supported:
-  * gcc9
-  * clang10
-  * Visual Studio 2019
+xenium is a header-only library. If you use CMake, the easiest way to consume it is via
+`find_package(xenium)` (after installing it, or adding it with `FetchContent`/`add_subdirectory`)
+and linking against the `xenium::xenium` target. Otherwise, it is sufficient to add the `include`
+folder to your list of include directories; no other 3rd party libraries are required. However, the
+implementation uses C++17 features, so a compiler with sufficient C++17 support is required. The
+following compilers are used in the CI builds and are therefore known to be supported:
+  * gcc14
+  * clang18
+  * Visual Studio 2022
 
-The unit test require `googletest` and the benchmarks require `taocpp/json` and `taocpp/config`. These
-dependencies are included as submodules, so the unit tests and/or the benchmarks can be built as follows:
+The unit tests require `googletest` and the benchmarks require `taocpp/json` and `taocpp/config`.
+These dependencies are fetched automatically via CMake's `FetchContent`, so the unit tests and/or
+the benchmarks can be built as follows:
 ```
 git clone https://github.com/mpoeter/xenium.git && cd xenium
-git submodule update --init --recursive
 mkdir build && cd build
 cmake ..
-make gtest
-make benchmark
+make xenium_test
+make xenium_benchmark
 ```
 
 

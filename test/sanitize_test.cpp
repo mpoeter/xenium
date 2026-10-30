@@ -39,7 +39,7 @@ using Reclaimers =
                    xenium::reclamation::stamp_it>;
 TYPED_TEST_SUITE(Sanitize, Reclaimers);
 
-  #ifdef DEBUG
+  #ifndef NDEBUG
 const int MaxIterations = 1000;
   #else
 const int MaxIterations = 10000;

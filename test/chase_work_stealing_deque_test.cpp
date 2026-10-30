@@ -86,7 +86,7 @@ TEST(ChaseWorkStealingDeque, push_pop_steal_many) {
 TEST(ChaseWorkStealingDeque, parallel_usage) {
   constexpr unsigned num_threads = 8;
   constexpr unsigned num_nodes = num_threads * 8;
-#ifdef DEBUG
+#ifndef NDEBUG
   constexpr int MaxIterations = 100000;
 #else
   constexpr int MaxIterations = 1000000;
