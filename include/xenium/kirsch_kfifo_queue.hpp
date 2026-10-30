@@ -12,6 +12,7 @@
 #include <xenium/utils.hpp>
 
 #include <xenium/detail/pointer_queue_traits.hpp>
+#include <xenium/detail/port.hpp>
 
 #include <algorithm>
 #include <atomic>
@@ -209,7 +210,7 @@ void kirsch_kfifo_queue<T, Policies...>::push(value_type value) {
   raw_value_type raw_value = traits::get_raw(value);
   guard_ptr tail_old;
   for (;;) {
-    // (1) - this acquire-load synchronizes-with the release-CAS (9, 12, 14)
+    // (1) - this acquire-load synchronizes-with the release-CAS (13, 16, 18)
     tail_old.acquire(tail_, std::memory_order_acquire);
 
     // TODO - local linearizability
@@ -223,7 +224,7 @@ void kirsch_kfifo_queue<T, Policies...>::push(value_type value) {
 
     if (found_idx) {
       const marked_value new_value(raw_value, old_value.mark() + 1);
-      // (2) - this release-CAS synchronizes-with the acquire-CAS (5)
+      // (2) - this release-CAS synchronizes-with the acquire-CAS (6)
       if (tail_old->items()[idx].value.compare_exchange_strong(
             old_value, new_value, std::memory_order_release, std::memory_order_relaxed) &&
           committed(tail_old, new_value, idx)) {
@@ -258,16 +259,23 @@ template <class SuccessFunc, class EmptyFunc>
 auto kirsch_kfifo_queue<T, Policies...>::do_pop(SuccessFunc successFunc, EmptyFunc emptyFunc) {
   guard_ptr head_old;
   for (;;) {
-    // (3) - this acquire-load synchronizes-with the release-CAS (10)
+    // (3) - this acquire-load synchronizes-with the release-CAS (14)
     head_old.acquire(head_, std::memory_order_acquire);
     uint64_t idx = 0;
     marked_value old_value;
     bool found_idx = find_index<false>(head_old, idx, old_value);
+    if (!found_idx) {
+      // The empty check validates the scan by re-reading head_ and tail_. That is only sound if the
+      // relaxed slot loads cannot be satisfied after these re-reads. Otherwise a slot write that is
+      // newer than the observed head_/tail_ values can hide an item that was pushed earlier.
+      // (4) - this acquire-fence synchronizes-with the release-CAS (6, 7, 9, 10)
+      XENIUM_THREAD_FENCE(std::memory_order_acquire);
+    }
     if (head_old != head_.load(std::memory_order_relaxed)) {
       continue;
     }
 
-    // (4) - this acquire-load synchronizes-with the release-CAS (9, 12, 14)
+    // (5) - this acquire-load synchronizes-with the release-CAS (13, 16, 18)
     marked_ptr tail_old = tail_.load(std::memory_order_acquire);
     if (found_idx) {
       assert(old_value.get() != (void*)0x100);
@@ -276,9 +284,9 @@ auto kirsch_kfifo_queue<T, Policies...>::do_pop(SuccessFunc successFunc, EmptyFu
       }
 
       const marked_value new_value(nullptr, old_value.mark() + 1);
-      // (5) - this acquire-CAS synchronizes-with the release-CAS (2)
+      // (6) - this acq_rel-CAS synchronizes-with the release-CAS (2) and the acquire-fence (4)
       if (head_old->items()[idx].value.compare_exchange_strong(
-            old_value, new_value, std::memory_order_acquire, std::memory_order_relaxed)) {
+            old_value, new_value, std::memory_order_acq_rel, std::memory_order_relaxed)) {
         return successFunc(old_value);
       }
     } else {
@@ -319,16 +327,17 @@ bool kirsch_kfifo_queue<T, Policies...>::committed(marked_ptr segment, marked_va
   // (TODO)
   if (segment->deleted.load(std::memory_order_seq_cst)) {
     // Insert tail segment has been removed, but we are fine if element still has been removed.
-    return !segment->items()[index].value.compare_exchange_strong(value, empty_value, std::memory_order_relaxed);
+    // (7) - this release-CAS synchronizes-with the acquire-fence (4)
+    return !segment->items()[index].value.compare_exchange_strong(value, empty_value, std::memory_order_release);
   }
 
   // (TODO)
-  // (6) - this acquire-load synchronizes-with the release-CAS (10)
+  // (8) - this acquire-load synchronizes-with the release-CAS (14)
   marked_ptr head_current = head_.load(std::memory_order_seq_cst);
   if (segment.get() == head_current.get()) {
     // Insert tail segment is now head.
     marked_ptr new_head(head_current.get(), head_current.mark() + 1);
-    // This relaxed-CAS is part of a release sequence headed by (10)
+    // This relaxed-CAS is part of a release sequence headed by (14)
     if (head_.compare_exchange_strong(head_current, new_head, std::memory_order_relaxed)) {
       // We are fine if we can update head and thus fail any concurrent
       // advance_head attempts.
@@ -336,7 +345,8 @@ bool kirsch_kfifo_queue<T, Policies...>::committed(marked_ptr segment, marked_va
     }
 
     // We are fine if element still has been removed.
-    return !segment->items()[index].value.compare_exchange_strong(value, empty_value, std::memory_order_relaxed);
+    // (9) - this release-CAS synchronizes-with the acquire-fence (4)
+    return !segment->items()[index].value.compare_exchange_strong(value, empty_value, std::memory_order_release);
   }
 
   // (TODO)
@@ -346,19 +356,20 @@ bool kirsch_kfifo_queue<T, Policies...>::committed(marked_ptr segment, marked_va
   }
   // Head and tail moved beyond this segment. Try to remove the item.
   // We are fine if element still has been removed.
-  return !segment->items()[index].value.compare_exchange_strong(value, empty_value, std::memory_order_relaxed);
+  // (10) - this release-CAS synchronizes-with the acquire-fence (4)
+  return !segment->items()[index].value.compare_exchange_strong(value, empty_value, std::memory_order_release);
 }
 
 template <class T, class... Policies>
 void kirsch_kfifo_queue<T, Policies...>::advance_head(guard_ptr& head_current, marked_ptr tail_current) noexcept {
-  // (7) - this acquire-load synchronizes-with the release-CAS (13)
+  // (11) - this acquire-load synchronizes-with the release-CAS (17)
   const marked_ptr head_next_segment = head_current->next.load(std::memory_order_acquire);
   if (head_current != head_.load(std::memory_order_relaxed)) {
     return;
   }
 
   if (head_current.get() == tail_current.get()) {
-    // (8) - this acquire-load synchronizes-with the release-CAS (13)
+    // (12) - this acquire-load synchronizes-with the release-CAS (17)
     const marked_ptr tail_next_segment = tail_current->next.load(std::memory_order_acquire);
     if (tail_next_segment.get() == nullptr) {
       return;
@@ -366,7 +377,7 @@ void kirsch_kfifo_queue<T, Policies...>::advance_head(guard_ptr& head_current, m
 
     if (tail_current == tail_.load(std::memory_order_relaxed)) {
       marked_ptr new_tail(tail_next_segment.get(), tail_current.mark() + 1);
-      // (9) - this release-CAS synchronizes-with the acquire-load (1, 4)
+      // (13) - this release-CAS synchronizes-with the acquire-load (1, 5)
       tail_.compare_exchange_strong(tail_current, new_tail, std::memory_order_release, std::memory_order_relaxed);
     }
   }
@@ -376,7 +387,7 @@ void kirsch_kfifo_queue<T, Policies...>::advance_head(guard_ptr& head_current, m
 
   marked_ptr expected = head_current;
   marked_ptr new_head(head_next_segment.get(), head_current.mark() + 1);
-  // (10) - this release-CAS synchronizes-with the acquire-load (3, 6)
+  // (14) - this release-CAS synchronizes-with the acquire-load (3, 8)
   // (TODO)
   if (head_.compare_exchange_strong(expected, new_head, std::memory_order_seq_cst, std::memory_order_relaxed)) {
     head_current.reclaim();
@@ -385,7 +396,7 @@ void kirsch_kfifo_queue<T, Policies...>::advance_head(guard_ptr& head_current, m
 
 template <class T, class... Policies>
 void kirsch_kfifo_queue<T, Policies...>::advance_tail(marked_ptr tail_current) noexcept {
-  // (11) - this acquire-load synchronizes-with the release-CAS (13)
+  // (15) - this acquire-load synchronizes-with the release-CAS (17)
   marked_ptr next_segment = tail_current->next.load(std::memory_order_acquire);
   if (tail_current != tail_.load(std::memory_order_relaxed)) {
     return;
@@ -393,17 +404,17 @@ void kirsch_kfifo_queue<T, Policies...>::advance_tail(marked_ptr tail_current) n
 
   if (next_segment.get() != nullptr) {
     marked_ptr new_tail(next_segment.get(), next_segment.mark() + 1);
-    // (12) - this release-CAS synchronizes-with the acquire-load (1, 4)
+    // (16) - this release-CAS synchronizes-with the acquire-load (1, 5)
     tail_.compare_exchange_strong(tail_current, new_tail, std::memory_order_release, std::memory_order_relaxed);
   } else {
     auto seg = alloc_segment();
     const marked_ptr new_segment(seg, next_segment.mark() + 1);
     // TODO - insert own value to simplify push?
-    // (13) - this release-CAS synchronizes-with the acquire-load (7, 8, 11)
+    // (17) - this release-CAS synchronizes-with the acquire-load (11, 12, 15)
     if (tail_current->next.compare_exchange_strong(
           next_segment, new_segment, std::memory_order_release, std::memory_order_relaxed)) {
       marked_ptr new_tail(seg, tail_current.mark() + 1);
-      // (14) - this release-CAS synchronizes-with the acquire-load (1, 4)
+      // (18) - this release-CAS synchronizes-with the acquire-load (1, 5)
       tail_.compare_exchange_strong(tail_current, new_tail, std::memory_order_release, std::memory_order_relaxed);
     } else {
       release_segment(seg);
