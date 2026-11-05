@@ -10,6 +10,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <type_traits>
 
 namespace xenium {
 

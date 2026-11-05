@@ -6,7 +6,7 @@
 #ifndef XENIUM_POLICY_HPP
 #define XENIUM_POLICY_HPP
 
-#include <cstdint>
+#include <cstddef>
 
 namespace xenium::policy {
 
